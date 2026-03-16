@@ -11,6 +11,11 @@ import bookingsRoutes from './routes/bookings.js';
 import clientsRoutes from './routes/clients.js';
 import availabilityRoutes from './routes/availability.js';
 import notesRoutes from './routes/notes.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +23,9 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // CORS configuration - allow frontend to communicate with backend
 app.use(cors({

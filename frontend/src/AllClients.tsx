@@ -24,7 +24,7 @@ const AllClients: React.FC = () => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/bookings/clients', {
+        const response = await fetch('http://localhost:3001/api/bookings/clients', {
           credentials: 'include'
         });
         if (response.ok) {

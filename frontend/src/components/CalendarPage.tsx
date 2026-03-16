@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './CalendarPage.css';
 import AvailabilityModal from './AvailabilityModal';
 import BookingSlotPicker from './BookingSlotPicker';
 import CreateCalendarModal from './CreateCalendarModal';
+import CustomDropdown from './CustomDropdown';
+import { useToast } from '../context/ToastContext';
 
 interface Calendar {
   id: number;
@@ -18,6 +20,9 @@ interface Calendar {
 
 const CalendarPage: React.FC = () => {
   const { user } = useAuth();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -40,9 +45,19 @@ const CalendarPage: React.FC = () => {
 
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
 
+  // Check for openModal query parameter and open resource type modal
+  useEffect(() => {
+    if (searchParams.get('openModal') === 'true') {
+      setShowResourceTypeModal(true);
+      // Remove the query parameter
+      searchParams.delete('openModal');
+      setSearchParams(searchParams);
+    }
+  }, [searchParams, setSearchParams]);
+
   const fetchCalendars = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/calendars', {
+      const response = await fetch('http://localhost:3001/api/calendars', {
         credentials: 'include'
       });
       if (response.ok) {
@@ -67,6 +82,24 @@ const CalendarPage: React.FC = () => {
 
   // Menu State
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  // Click outside to close menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setActiveMenuId(null);
+      }
+    };
+
+    if (activeMenuId !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [activeMenuId]);
 
   const openSlugModal = (calendar: Calendar) => {
     setSlugFormData({
@@ -79,7 +112,7 @@ const CalendarPage: React.FC = () => {
   const handleSlugUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`http://localhost:3000/api/calendars/${slugFormData.id}`, {
+      const response = await fetch(`http://localhost:3001/api/calendars/${slugFormData.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -91,10 +124,11 @@ const CalendarPage: React.FC = () => {
         fetchCalendars();
       } else {
         const err = await response.json();
-        alert(`Error: ${err.error}`);
+        toast.error(`Error: ${err.error}`);
       }
     } catch (error) {
       console.error('Error updating slug:', error);
+      toast.error('Error updating slug');
     }
   };
 
@@ -120,8 +154,8 @@ const CalendarPage: React.FC = () => {
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = editingId
-      ? `http://localhost:3000/api/calendars/${editingId}`
-      : 'http://localhost:3000/api/calendars';
+      ? `http://localhost:3001/api/calendars/${editingId}`
+      : 'http://localhost:3001/api/calendars';
 
     const method = editingId ? 'PUT' : 'POST';
 
@@ -139,10 +173,11 @@ const CalendarPage: React.FC = () => {
         resetForm();
       } else {
         const err = await response.json();
-        alert(`Error: ${err.error}`);
+        toast.error(`Error: ${err.error}`);
       }
     } catch (error) {
       console.error('Error saving calendar:', error);
+      toast.error('Error saving calendar');
     }
   };
 
@@ -159,8 +194,6 @@ const CalendarPage: React.FC = () => {
     setShowResourceTypeModal(true);
   };
 
-  const navigate = useNavigate();
-
   const handleTypeSelect = (type: string) => {
     setShowResourceTypeModal(false);
     navigate('/calendars/new', { state: { type } });
@@ -169,20 +202,13 @@ const CalendarPage: React.FC = () => {
 
 
   const openEditModal = (calendar: Calendar) => {
-    setFormData({
-      title: calendar.title,
-      duration: calendar.duration,
-      type: calendar.type,
-      description: calendar.description || '',
-      slug: calendar.slug.startsWith('/') ? calendar.slug.slice(1) : calendar.slug
-    });
-    setEditingId(calendar.id);
-    setShowModal(true);
+    // Navigate to CreateEventPage with calendar data for editing
+    navigate('/calendars/edit', { state: { calendar, isEditing: true } });
   };
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/calendars/${id}`, {
+      const response = await fetch(`http://localhost:3001/api/calendars/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -203,7 +229,7 @@ const CalendarPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3000/api/calendars/${id}`, {
+      const response = await fetch(`http://localhost:3001/api/calendars/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -212,11 +238,11 @@ const CalendarPage: React.FC = () => {
         fetchCalendars();
       } else {
         const err = await response.json();
-        alert(`Failed to delete: ${err.error}`);
+        toast.error(`Failed to delete: ${err.error}`);
       }
     } catch (error) {
       console.error('Error deleting calendar:', error);
-      alert('Error deleting calendar');
+      toast.error('Error deleting calendar');
     }
   };
 
@@ -231,7 +257,7 @@ const CalendarPage: React.FC = () => {
     const cleanSlug = slug.startsWith('/') ? slug.slice(1) : slug;
     const link = `${window.location.origin}/book/${user.id}/${cleanSlug}`;
     navigator.clipboard.writeText(link);
-    alert('Link copied to clipboard!');
+    toast.success('Link copied to clipboard!');
   };
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
@@ -239,7 +265,7 @@ const CalendarPage: React.FC = () => {
     if (!selectedCalendar) return;
 
     try {
-      const response = await fetch('http://localhost:3000/api/bookings', {
+      const response = await fetch('http://localhost:3001/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -250,16 +276,16 @@ const CalendarPage: React.FC = () => {
       });
 
       if (response.ok) {
-        alert('Booking created successfully!');
+        toast.success('Booking created successfully!');
         setShowBookingModal(false);
         // Optionally refresh if needed, or just close
       } else {
         const err = await response.json();
-        alert(`Booking failed: ${err.error || 'Unknown error'}`);
+        toast.error(`Booking failed: ${err.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error creating booking:', error);
-      alert('Error creating booking. check console.');
+      toast.error('Error creating booking. check console.');
     }
   };
 
@@ -306,39 +332,34 @@ const CalendarPage: React.FC = () => {
                       <label htmlFor={`toggle-${resource.id}`} className="switch"></label>
                     </div>
 
-                    <button className="share-btn" title="Share">
+                    <button className="share-btn" title="Open Booking Page" onClick={() => window.open(`http://localhost:5173/book/${user?.id}/${resource.slug}`, '_blank')}>
                       <img src="/Send.svg" alt="Share" />
                     </button>
-                    <div className="menu-container" style={{ position: 'relative' }}>
+                    <div className="menu-container" ref={menuRef}>
                       <button className="menu-btn" onClick={() => toggleMenu(resource.id)}>
                         <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                           <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" />
                         </svg>
                       </button>
                       {activeMenuId === resource.id && (
-                        <div className="dropdown-menu" style={{
-                          position: 'absolute',
-                          right: 0,
-                          top: '100%',
-                          background: 'white',
-                          border: '1px solid #ddd',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                          zIndex: 10,
-                          minWidth: '160px',
-                          padding: '5px 0'
-                        }}>
+                        <div className="calendar-dropdown-menu">
                           <button
                             onClick={() => { openEditModal(resource); setActiveMenuId(null); }}
-                            className="dropdown-item"
+                            className="calendar-dropdown-item"
                           >
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '8px' }}>
+                              <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                            </svg>
                             Edit Details
                           </button>
                           <button
                             onClick={() => { handleDeleteCalendar(resource.id); setActiveMenuId(null); }}
-                            className="dropdown-item"
-                            style={{ color: '#dc3545' }}
+                            className="calendar-dropdown-item delete-item"
                           >
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '8px' }}>
+                              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                              <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                            </svg>
                             Delete
                           </button>
                         </div>
@@ -361,21 +382,8 @@ const CalendarPage: React.FC = () => {
                   <p style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{resource.description}</p>
                 </div>
 
-                <div className="card-footer" style={{ borderTop: '1px solid #eee', paddingTop: '15px', marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', marginRight: '10px', maxWidth: '60%' }}>
-                    <span className="slug-text" style={{ fontSize: '13px', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'monospace' }}>
-                      /{resource.slug.startsWith('/') ? resource.slug.slice(1) : resource.slug}
-                    </span>
-                    <button onClick={() => openSlugModal(resource)} title="Edit Slug" style={{ background: 'none', border: 'none', cursor: 'pointer', marginLeft: '6px', padding: '2px', opacity: 0.6, flexShrink: 0 }}>
-                      <img src="/Edit.svg" alt="Edit" style={{ width: '12px', height: '12px' }} />
-                    </button>
-                  </div>
-
+                <div className="card-footer" style={{ borderTop: '1px solid #eee', paddingTop: '15px', marginTop: '15px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <button className="copy-btn" onClick={() => handleCopyLink(resource.slug)} title="Copy Link" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                      <img src="/Link.svg" alt="Copy" style={{ width: '18px', height: '18px' }} onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerText = '🔗'; }} />
-                    </button>
-
                     <button
                       className="book-btn"
                       onClick={() => handleBookClick(resource)}
@@ -421,30 +429,32 @@ const CalendarPage: React.FC = () => {
               </div>
               <div className="form-group">
                 <label className="form-label">Duration</label>
-                <select
-                  className="form-select"
+                <CustomDropdown
+                  options={[
+                    { value: '15 m', label: '15 minutes' },
+                    { value: '30 m', label: '30 minutes' },
+                    { value: '45 m', label: '45 minutes' },
+                    { value: '50 m', label: '50 minutes' },
+                    { value: '60 m', label: '60 minutes' },
+                    { value: '90 m', label: '90 minutes' }
+                  ]}
                   value={formData.duration}
-                  onChange={e => setFormData({ ...formData, duration: e.target.value })}
-                >
-                  <option value="15 m">15 m</option>
-                  <option value="30 m">30 m</option>
-                  <option value="45 m">45 m</option>
-                  <option value="50 m">50 m</option>
-                  <option value="60 m">60 m</option>
-                  <option value="90 m">90 m</option>
-                </select>
+                  onChange={(value) => setFormData({ ...formData, duration: value })}
+                  placeholder="Select duration"
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Type</label>
-                <select
-                  className="form-select"
+                <CustomDropdown
+                  options={[
+                    { value: 'one_on_one', label: 'One on One' },
+                    { value: 'group', label: 'Group' },
+                    { value: 'couples', label: 'Couples' }
+                  ]}
                   value={formData.type}
-                  onChange={e => setFormData({ ...formData, type: e.target.value })}
-                >
-                  <option value="one_on_one">One on One</option>
-                  <option value="group">Group</option>
-                  <option value="couples">Couples</option>
-                </select>
+                  onChange={(value) => setFormData({ ...formData, type: value })}
+                  placeholder="Select type"
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Description</label>

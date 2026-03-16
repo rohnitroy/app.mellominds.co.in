@@ -2,9 +2,12 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './LoginPage.css'
 import { API_URL } from '../config/api'
+import CustomDropdown from './CustomDropdown'
+import { useToast } from '../context/ToastContext'
 
 const SignUpPage: React.FC = () => {
   const navigate = useNavigate()
+  const toast = useToast()
   const [step, setStep] = useState(1)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -96,7 +99,7 @@ const SignUpPage: React.FC = () => {
       }
 
       // Registration successful, redirect to login
-      alert('Registration successful! Please login.')
+      toast.success('Registration successful! Please login.')
       navigate('/')
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.')
@@ -176,6 +179,7 @@ const SignUpPage: React.FC = () => {
                       placeholder="enter email address"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="off"
                     />
                   </div>
                 </div>
@@ -193,6 +197,7 @@ const SignUpPage: React.FC = () => {
                       placeholder="enter new password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"
@@ -229,6 +234,7 @@ const SignUpPage: React.FC = () => {
                       placeholder="re-enter password to confirm"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
+                      autoComplete="new-password"
                     />
                     <button
                       type="button"
@@ -319,48 +325,62 @@ const SignUpPage: React.FC = () => {
 
                   <div className="form-group">
                     <label htmlFor="gender">Gender</label>
-                    <select
-                      id="gender"
-                      className="select-input"
+                    <CustomDropdown
+                      options={[
+                        { value: '', label: 'Select gender' },
+                        { value: 'male', label: 'Male' },
+                        { value: 'female', label: 'Female' },
+                        { value: 'other', label: 'Other' }
+                      ]}
                       value={gender}
-                      onChange={(e) => setGender(e.target.value)}
-                    >
-                      <option value="">select gender</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
+                      onChange={(value) => setGender(value)}
+                      placeholder="Select gender"
+                    />
                   </div>
                 </div>
 
                 <div className="form-group">
                   <label htmlFor="specialization">Specialization</label>
-                  <select
-                    id="specialization"
-                    className="select-input"
+                  <CustomDropdown
+                    options={[
+                      { value: '', label: 'Select specialization' },
+                      { value: 'clinical', label: 'Clinical Psychology' },
+                      { value: 'counseling', label: 'Counseling' },
+                      { value: 'therapy', label: 'Therapy' }
+                    ]}
                     value={specialization}
-                    onChange={(e) => setSpecialization(e.target.value)}
-                  >
-                    <option value="">select specializations</option>
-                    <option value="clinical">Clinical Psychology</option>
-                    <option value="counseling">Counseling</option>
-                    <option value="therapy">Therapy</option>
-                  </select>
+                    onChange={(value) => setSpecialization(value)}
+                    placeholder="Select specialization"
+                  />
                 </div>
 
                 <div className="form-group">
                   <label htmlFor="languages">Languages Spoken</label>
-                  <select
-                    id="languages"
-                    className="select-input"
+                  <CustomDropdown
+                    options={[
+                      { value: '', label: 'Select languages' },
+                      { value: 'English', label: 'English' },
+                      { value: 'Hindi', label: 'Hindi' },
+                      { value: 'Bengali', label: 'Bengali' },
+                      { value: 'Telugu', label: 'Telugu' },
+                      { value: 'Marathi', label: 'Marathi' },
+                      { value: 'Tamil', label: 'Tamil' },
+                      { value: 'Gujarati', label: 'Gujarati' },
+                      { value: 'Kannada', label: 'Kannada' },
+                      { value: 'Malayalam', label: 'Malayalam' },
+                      { value: 'Punjabi', label: 'Punjabi' },
+                      { value: 'Odia', label: 'Odia' },
+                      { value: 'Urdu', label: 'Urdu' },
+                      { value: 'Spanish', label: 'Spanish' },
+                      { value: 'French', label: 'French' },
+                      { value: 'German', label: 'German' },
+                      { value: 'Chinese', label: 'Chinese' },
+                      { value: 'Arabic', label: 'Arabic' }
+                    ]}
                     value={languages}
-                    onChange={(e) => setLanguages(e.target.value)}
-                  >
-                    <option value="">select languages</option>
-                    <option value="english">English</option>
-                    <option value="hindi">Hindi</option>
-                    <option value="spanish">Spanish</option>
-                  </select>
+                    onChange={(value) => setLanguages(value)}
+                    placeholder="Select languages"
+                  />
                 </div>
 
                 <button type="submit" className="login-button">
@@ -393,32 +413,72 @@ const SignUpPage: React.FC = () => {
               <form onSubmit={handleSelectPlan}>
                 <div className="form-group">
                   <label htmlFor="country">Country<span style={{color: 'red'}}>*</span></label>
-                  <select
-                    id="country"
-                    className="select-input"
+                  <CustomDropdown
+                    options={[
+                      { value: '', label: 'Select country' },
+                      { value: 'India', label: 'India' },
+                      { value: 'USA', label: 'USA' },
+                      { value: 'UK', label: 'UK' },
+                      { value: 'Canada', label: 'Canada' },
+                      { value: 'Australia', label: 'Australia' },
+                      { value: 'Germany', label: 'Germany' },
+                      { value: 'France', label: 'France' },
+                      { value: 'Singapore', label: 'Singapore' },
+                      { value: 'UAE', label: 'UAE' },
+                      { value: 'Saudi Arabia', label: 'Saudi Arabia' },
+                      { value: 'Japan', label: 'Japan' },
+                      { value: 'China', label: 'China' },
+                      { value: 'South Korea', label: 'South Korea' },
+                      { value: 'Malaysia', label: 'Malaysia' },
+                      { value: 'Thailand', label: 'Thailand' }
+                    ]}
                     value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                  >
-                    <option value="">select country</option>
-                    <option value="india">India</option>
-                    <option value="usa">USA</option>
-                    <option value="uk">UK</option>
-                  </select>
+                    onChange={(value) => setCountry(value)}
+                    placeholder="Select country"
+                  />
                 </div>
 
                 <div className="form-group">
                   <label htmlFor="state">State<span style={{color: 'red'}}>*</span></label>
-                  <select
-                    id="state"
-                    className="select-input"
+                  <CustomDropdown
+                    options={[
+                      { value: '', label: 'Select state' },
+                      { value: 'Andhra Pradesh', label: 'Andhra Pradesh' },
+                      { value: 'Arunachal Pradesh', label: 'Arunachal Pradesh' },
+                      { value: 'Assam', label: 'Assam' },
+                      { value: 'Bihar', label: 'Bihar' },
+                      { value: 'Chhattisgarh', label: 'Chhattisgarh' },
+                      { value: 'Goa', label: 'Goa' },
+                      { value: 'Gujarat', label: 'Gujarat' },
+                      { value: 'Haryana', label: 'Haryana' },
+                      { value: 'Himachal Pradesh', label: 'Himachal Pradesh' },
+                      { value: 'Jharkhand', label: 'Jharkhand' },
+                      { value: 'Karnataka', label: 'Karnataka' },
+                      { value: 'Kerala', label: 'Kerala' },
+                      { value: 'Madhya Pradesh', label: 'Madhya Pradesh' },
+                      { value: 'Maharashtra', label: 'Maharashtra' },
+                      { value: 'Manipur', label: 'Manipur' },
+                      { value: 'Meghalaya', label: 'Meghalaya' },
+                      { value: 'Mizoram', label: 'Mizoram' },
+                      { value: 'Nagaland', label: 'Nagaland' },
+                      { value: 'Odisha', label: 'Odisha' },
+                      { value: 'Punjab', label: 'Punjab' },
+                      { value: 'Rajasthan', label: 'Rajasthan' },
+                      { value: 'Sikkim', label: 'Sikkim' },
+                      { value: 'Tamil Nadu', label: 'Tamil Nadu' },
+                      { value: 'Telangana', label: 'Telangana' },
+                      { value: 'Tripura', label: 'Tripura' },
+                      { value: 'Uttar Pradesh', label: 'Uttar Pradesh' },
+                      { value: 'Uttarakhand', label: 'Uttarakhand' },
+                      { value: 'West Bengal', label: 'West Bengal' },
+                      { value: 'Delhi', label: 'Delhi' },
+                      { value: 'Chandigarh', label: 'Chandigarh' },
+                      { value: 'Puducherry', label: 'Puducherry' }
+                    ]}
                     value={state}
-                    onChange={(e) => setState(e.target.value)}
-                  >
-                    <option value="">select state</option>
-                    <option value="maharashtra">Maharashtra</option>
-                    <option value="delhi">Delhi</option>
-                    <option value="karnataka">Karnataka</option>
-                  </select>
+                    onChange={(value) => setState(value)}
+                    placeholder="Select state"
+                  />
                 </div>
 
                 <div className="form-row">

@@ -203,6 +203,17 @@
     cursor: default;
 }
 
+.calendar-day.disabled {
+    cursor: not-allowed !important;
+    opacity: 0.4;
+    color: #999;
+    text-decoration: line-through;
+}
+
+.calendar-day.disabled:hover {
+    background-color: transparent !important;
+}
+
 /* Column 3: Slots */
 .col-slots {
     padding: 30px;

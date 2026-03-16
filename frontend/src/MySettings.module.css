@@ -108,6 +108,22 @@
   color: #2D7579;
 }
 
+.connectedTag {
+  background: linear-gradient(135deg, #0F9D58 0%, #0C7A45 100%);
+  color: white;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(15, 157, 88, 0.3);
+  border: none;
+  cursor: default;
+}
+
 .upgradeTag {
   background: #F9E141;
   color: #2D7579;
@@ -123,6 +139,24 @@
   margin-bottom: 0;
   margin-left: 8px;
   vertical-align: baseline;
+}
+
+.comingSoonTag {
+  background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
+  color: white;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-style: italic;
+  font-size: 13px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  padding: 4px 10px;
+  border-radius: 12px;
+  display: inline-block;
+  margin-bottom: 0;
+  margin-left: 8px;
+  vertical-align: baseline;
+  box-shadow: 0 2px 6px rgba(156, 39, 176, 0.3);
 }
 
 .cardArrow {

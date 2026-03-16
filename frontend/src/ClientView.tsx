@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import styles from './ClientView.module.css';
 import { Delete, EditSquare, Call, Message, Calendar, ArrowLeft, ChevronDown } from 'react-iconly';
+import CustomDropdown from './components/CustomDropdown';
+import { useToast } from './context/ToastContext';
 
 interface Client {
   id: number;
@@ -24,6 +26,7 @@ interface ClientViewProps {
 }
 
 const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<string>('Overview');
   const [selectedDate, setSelectedDate] = useState<string>('Dec 2025');
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
@@ -62,7 +65,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const fetchClientData = async () => {
     if (!client.email) return;
     try {
-      const response = await fetch(`http://localhost:3000/api/bookings?email=${encodeURIComponent(client.email)}`, {
+      const response = await fetch(`http://localhost:3001/api/bookings?email=${encodeURIComponent(client.email)}`, {
         credentials: 'include'
       });
       if (response.ok) {
@@ -100,12 +103,12 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
 
   const handleNoteSubmit = async () => {
     if (!selectedAppointmentId || !noteContent) {
-      alert('Please select an appointment and enter note content.');
+      toast.warning('Please select an appointment and enter note content.');
       return;
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/notes', {
+      const response = await fetch('http://localhost:3001/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -116,17 +119,17 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
       });
 
       if (response.ok) {
-        alert('Note added successfully!');
+        toast.success('Note added successfully!');
         setShowAddNotesModal(false);
         setNoteContent('');
         setSelectedAppointmentId('');
         setRefreshTrigger(prev => prev + 1);
       } else {
-        alert('Failed to add note.');
+        toast.error('Failed to add note.');
       }
     } catch (error) {
       console.error('Error adding note:', error);
-      alert('Error adding note.');
+      toast.error('Error adding note.');
     }
   };
 
@@ -136,7 +139,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
 
   const handleSaveEdit = async () => {
     try {
-      const response = await fetch(`http://localhost:3000/api/clients/${client.id}`, {
+      const response = await fetch(`http://localhost:3001/api/clients/${client.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -148,15 +151,15 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
       if (response.ok) {
         // const updatedClient = await response.json();
         setIsEditing(false);
-        alert('Client information updated successfully!');
+        toast.success('Client information updated successfully!');
         // Ideally update local state or trigger refresh
         setRefreshTrigger(prev => prev + 1);
       } else {
-        alert('Failed to update client information.');
+        toast.error('Failed to update client information.');
       }
     } catch (error) {
       console.error('Error updating client:', error);
-      alert('Error updating client information.');
+      toast.error('Error updating client information.');
     }
   };
 
@@ -309,29 +312,35 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
               <div className={styles.demoRow}>
                 <span className={styles.demoLabel}>Gender</span>
                 {isEditing ? (
-                  <select
-                    value={editData.gender}
-                    onChange={(e) => setEditData({ ...editData, gender: e.target.value })}
-                    style={{ border: '1px solid #ccc', padding: '2px' }}
-                  >
-                    <option>Male</option>
-                    <option>Female</option>
-                    <option>Other</option>
-                  </select>
+                  <div style={{ minWidth: '150px' }}>
+                    <CustomDropdown
+                      options={[
+                        { value: 'Male', label: 'Male' },
+                        { value: 'Female', label: 'Female' },
+                        { value: 'Other', label: 'Other' }
+                      ]}
+                      value={editData.gender}
+                      onChange={(value) => setEditData({ ...editData, gender: value })}
+                      placeholder="Select gender"
+                    />
+                  </div>
                 ) : (
                   <span className={styles.demoValue}>{editData.gender}</span>
                 )}
                 <span className={styles.demoLabel}>Marital Status</span>
                 {isEditing ? (
-                  <select
-                    value={editData.maritalStatus}
-                    onChange={(e) => setEditData({ ...editData, maritalStatus: e.target.value })}
-                    style={{ border: '1px solid #ccc', padding: '2px' }}
-                  >
-                    <option>Single</option>
-                    <option>Married</option>
-                    <option>Divorced</option>
-                  </select>
+                  <div style={{ minWidth: '150px' }}>
+                    <CustomDropdown
+                      options={[
+                        { value: 'Single', label: 'Single' },
+                        { value: 'Married', label: 'Married' },
+                        { value: 'Divorced', label: 'Divorced' }
+                      ]}
+                      value={editData.maritalStatus}
+                      onChange={(value) => setEditData({ ...editData, maritalStatus: value })}
+                      placeholder="Select status"
+                    />
+                  </div>
                 ) : (
                   <span className={styles.demoValue}>{editData.maritalStatus}</span>
                 )}

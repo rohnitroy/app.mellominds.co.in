@@ -124,10 +124,12 @@
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 500;
-  color: #1a1a1a;
-  font-size: 14px;
+  font-weight: 700;
+  color: #050505;
+  font-size: 15px;
   font-family: 'Urbanist', sans-serif;
+  line-height: 100%;
+  letter-spacing: 0%;
 }
 
 .input-wrapper {
@@ -146,10 +148,12 @@
 .input-wrapper input {
   width: 100%;
   padding: 14px 16px 14px 48px;
-  border: 1px solid #d0d0d0;
-  border-radius: 12px;
+  border: 1px solid #00000080;
+  border-radius: 8px;
   font-size: 15px;
+  font-weight: 700;
   font-family: 'Urbanist', sans-serif;
+  color: #050505;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -295,15 +299,30 @@
 .phone-input {
   flex: 1;
   padding: 14px 16px;
-  border: 1px solid #d0d0d0;
-  border-radius: 12px;
+  border: 1px solid #00000080;
+  border-radius: 8px;
   font-size: 15px;
+  font-weight: 700;
   font-family: 'Urbanist', sans-serif;
+  color: #050505;
   outline: none;
 }
 
 .phone-input:focus {
-  border-color: #082421;
+  border-color: #2D7579;
+}
+
+.country-code {
+  width: 70px;
+  padding: 14px 12px;
+  border: 1px solid #00000080;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'Urbanist', sans-serif;
+  color: #050505;
+  text-align: center;
+  background-color: #f5f5f5;
 }
 
 .form-row {
@@ -319,17 +338,19 @@
 .select-input {
   width: 100%;
   padding: 14px 16px;
-  border: 1px solid #d0d0d0;
-  border-radius: 12px;
+  border: 1px solid #00000080;
+  border-radius: 8px;
   font-size: 15px;
+  font-weight: 700;
   font-family: 'Urbanist', sans-serif;
+  color: #050505;
   outline: none;
   background-color: white;
 }
 
 .date-input:focus,
 .select-input:focus {
-  border-color: #082421;
+  border-color: #2D7579;
 }
 
 .select-input {

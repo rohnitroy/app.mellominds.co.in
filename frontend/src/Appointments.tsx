@@ -18,7 +18,7 @@ const Appointments: React.FC = () => {
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/bookings', {
+        const response = await fetch('http://localhost:3001/api/bookings', {
           credentials: 'include'
         });
         if (response.ok) {

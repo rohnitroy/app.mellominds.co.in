@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import './PublicBookingPage.css';
 import InlineCalendar from './InlineCalendar';
 import TimeSlotList from './TimeSlotList';
+import { useToast } from '../context/ToastContext';
 
 interface Calendar {
     id: number;
@@ -17,6 +18,7 @@ interface Calendar {
 
 const PublicBookingPage: React.FC = () => {
     const { userId, slug } = useParams<{ userId: string; slug: string }>();
+    const toast = useToast();
 
     const [calendar, setCalendar] = useState<Calendar | any>(null);
     const [loading, setLoading] = useState(true);
@@ -44,7 +46,7 @@ const PublicBookingPage: React.FC = () => {
     useEffect(() => {
         const fetchCalendar = async () => {
             try {
-                const response = await fetch(`http://localhost:3000/api/calendars/public/${userId}/${slug}`);
+                const response = await fetch(`http://localhost:3001/api/calendars/public/${userId}/${slug}`);
                 if (response.ok) {
                     const data = await response.json();
 
@@ -100,7 +102,7 @@ const PublicBookingPage: React.FC = () => {
         e.preventDefault();
         if (!calendar || !selectedSlot) return;
         if (!termsAccepted) {
-            alert('Please accept the Terms & Conditions.');
+            toast.warning('Please accept the Terms & Conditions.');
             return;
         }
 
@@ -110,7 +112,7 @@ const PublicBookingPage: React.FC = () => {
                 if (q.required) {
                     const ans = formResponses[q.id];
                     if (ans === undefined || ans === null || ans === '' || (Array.isArray(ans) && ans.length === 0)) {
-                        alert(`Please fill out the required field: ${q.text}`);
+                        toast.warning(`Please fill out the required field: ${q.text}`);
                         return;
                     }
                 }
@@ -126,7 +128,7 @@ const PublicBookingPage: React.FC = () => {
                 form_responses: formResponses // Send the JSON answer dump
             };
 
-            const response = await fetch('http://localhost:3000/api/bookings/public', {
+            const response = await fetch('http://localhost:3001/api/bookings/public', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -137,10 +139,10 @@ const PublicBookingPage: React.FC = () => {
                 window.scrollTo(0, 0);
             } else {
                 const err = await response.json();
-                alert(`Booking failed: ${err.error}`);
+                toast.error(`Booking failed: ${err.error}`);
             }
         } catch (err) {
-            alert('Network error. Please try again.');
+            toast.error('Network error. Please try again.');
         }
     };
 

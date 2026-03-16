@@ -4,13 +4,21 @@ import styles from './CreateEventPage.module.css';
 import { useAuth } from '../context/AuthContext';
 import AddLocationModal from './AddLocationModal';
 import QuestionModal from './QuestionModal';
+import CustomDropdown from './CustomDropdown';
+import { useToast } from '../context/ToastContext';
 
 const CreateEventPage: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { user } = useAuth();
+    const toast = useToast();
+    
+    // Check if we're in edit mode
+    const isEditMode = location.state?.isEditing || false;
+    const existingCalendar = location.state?.calendar;
+    
     // Retrieve type passed from previous screen if available
-    const initialType = location.state?.type || 'one_on_one';
+    const initialType = existingCalendar?.type || location.state?.type || 'one_on_one';
 
     const [activeTab, setActiveTab] = useState('basic');
     const [isSlugEdited, setIsSlugEdited] = useState(false);
@@ -18,12 +26,12 @@ const CreateEventPage: React.FC = () => {
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
 
     const [eventData, setEventData] = useState({
-        name: '',
-        description: '',
-        url: '',
+        name: existingCalendar?.title || '',
+        description: existingCalendar?.description || '',
+        url: existingCalendar?.slug || '',
         color: '#3787F8', // Default blue
         locations: [{ type: 'google_meet' }] as any[],
-        duration: '60',
+        duration: existingCalendar?.duration?.replace(' m', '') || '60',
         owner: user?.user_name || 'Therapist',
     });
 
@@ -129,7 +137,7 @@ const CreateEventPage: React.FC = () => {
 
     const fetchAvailability = async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/availability', {
+            const response = await fetch('http://localhost:3001/api/availability', {
                 credentials: 'include'
             });
 
@@ -195,7 +203,7 @@ const CreateEventPage: React.FC = () => {
         if (locationData.type === 'google_meet') {
             const hasGoogleMeet = eventData.locations.some(loc => loc.type === 'google_meet');
             if (hasGoogleMeet) {
-                alert('Google Meet is already selected as a location.');
+                toast.warning('Google Meet is already selected as a location.');
                 return;
             }
         }
@@ -229,13 +237,13 @@ const CreateEventPage: React.FC = () => {
 
     const handleSave = async () => {
         if (!eventData.name.trim()) {
-            alert('Event Name is required.');
+            toast.error('Event Name is required.');
             setActiveTab('basic');
             return;
         }
 
         if (!scheduleData.duration) {
-            alert('Duration is required.');
+            toast.error('Duration is required.');
             setActiveTab('schedule');
             return;
         }
@@ -245,17 +253,19 @@ const CreateEventPage: React.FC = () => {
             const payload = {
                 title: eventData.name,
                 duration: `${scheduleData.duration} ${scheduleData.durationUnit}`, // e.g., '60 Minutes'
-                type: 'one_on_one', // Currently hardcoded or from state
+                type: initialType, // Use the type from existing calendar or initial type
                 description: eventData.description,
                 slug: eventData.url,
                 is_active: true,
                 form_data: formData // Inject the dynamic form builder responses
             };
 
-            const url = 'http://localhost:3000/api/calendars';
+            const url = isEditMode 
+                ? `http://localhost:3001/api/calendars/${existingCalendar.id}`
+                : 'http://localhost:3001/api/calendars';
 
             const response = await fetch(url, {
-                method: 'POST',
+                method: isEditMode ? 'PUT' : 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -264,15 +274,16 @@ const CreateEventPage: React.FC = () => {
             });
 
             if (response.ok) {
-                // Success: Redirect back to the Dashboard
-                navigate('/dashboard');
+                toast.success(isEditMode ? 'Calendar updated successfully!' : 'Calendar created successfully!');
+                // Success: Redirect back to My Calendars
+                navigate('/calendars');
             } else {
                 const errorData = await response.json();
-                alert(`Failed to save calendar: ${errorData.error}`);
+                toast.error(`Failed to save calendar: ${errorData.error}`);
             }
         } catch (error) {
             console.error('Error saving event:', error);
-            alert('An error occurred while saving.');
+            toast.error('An error occurred while saving.');
         }
     };
 
@@ -769,7 +780,7 @@ const CreateEventPage: React.FC = () => {
                             {paymentData.paymentGateways.length > 0 ? (
                                 paymentData.paymentGateways.map(gateway => (
                                     <span key={gateway} className={styles.gatewayTag} onClick={(e) => e.stopPropagation()}>
-                                        {gateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}
+                                        {gateway === 'razorpay' ? 'Razorpay' : gateway === 'cashfree' ? 'Cashfree' : 'UPI/Cash'}
                                         <button
                                             className={styles.tagRemoveBtn}
                                             onClick={(e) => {
@@ -804,6 +815,14 @@ const CreateEventPage: React.FC = () => {
                                     onChange={() => handleGatewayChange('cashfree')}
                                 />
                                 Cashfree
+                            </label>
+                            <label className={styles.checkboxOption}>
+                                <input
+                                    type="checkbox"
+                                    checked={paymentData.paymentGateways.includes('upi')}
+                                    onChange={() => handleGatewayChange('upi')}
+                                />
+                                UPI/Cash
                             </label>
                         </div>
                     )}

@@ -7,12 +7,15 @@ import PaymentsInvoice from './PaymentsInvoice';
 import MySettings from './MySettings';
 import CreateBooking from './components/CreateBooking';
 import SendBookingLinkModal from './components/SendBookingLinkModal';
+import UpgradePlanModal from './components/UpgradePlanModal';
 import CalendarPage from './components/CalendarPage';
 import LoginPage from './components/LoginPage';
 import SignUpPage from './components/SignUpPage';
 import PublicBookingPage from './components/PublicBookingPage';
 import CreateEventPage from './components/CreateEventPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider, useToast } from './context/ToastContext';
+import ToastContainer from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 
 interface NavItem {
@@ -44,6 +47,7 @@ const DashboardLayout: React.FC = () => {
   const [showSendLinkModal, setShowSendLinkModal] = useState<boolean>(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
   const [showNotificationsPage, setShowNotificationsPage] = useState<boolean>(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -52,7 +56,7 @@ const DashboardLayout: React.FC = () => {
     { name: 'Dashboard', icon: 'Category1.svg', path: '/' },
     { name: 'All Clients', icon: '3 User.svg', path: '/clients' },
     { name: 'Appointments', icon: 'Calendar1.svg', path: '/appointments' },
-    { name: 'My Calendars', icon: 'Calendar.svg', path: '/calendars' },
+    { name: 'My Calendars', icon: 'Category.svg', path: '/calendars' },
     { name: 'Payments & Invoice', icon: 'Wallet.svg', path: '/payments' }
   ];
 
@@ -74,7 +78,7 @@ const DashboardLayout: React.FC = () => {
             className={`nav-item ${location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path)) ? 'active' : ''}`}
             onClick={() => navigate(item.path)}
           >
-            <span className="nav-icon">
+            <span className={`nav-icon ${item.name === 'My Calendars' ? 'calendar-icon' : ''}`}>
               <img src={item.icon} alt={item.name} />
             </span>
             {item.name}
@@ -113,7 +117,7 @@ const DashboardLayout: React.FC = () => {
         <span className="free-tier">
           Free tier <img src="Danger Circle.svg" alt="Info" style={{ width: '17px', height: '17px', verticalAlign: 'middle' }} />
         </span>
-        <button className="upgrade-btn">Upgrade now</button>
+        <button className="upgrade-btn" onClick={() => setShowUpgradeModal(true)}>Upgrade now</button>
       </div>
 
       <div className="user-info">
@@ -140,7 +144,16 @@ const DashboardLayout: React.FC = () => {
         </div>
         <div className="user-info-card">
           <div className="user-avatar">
-            <img src={user?.profile_picture || "Profile.svg"} alt="Profile" />
+            <img 
+              src={
+                user?.profile_picture 
+                  ? (user.profile_picture.startsWith('http') 
+                      ? user.profile_picture 
+                      : `http://localhost:3001${user.profile_picture}`)
+                  : "Profile.svg"
+              } 
+              alt="Profile" 
+            />
           </div>
           <div>
             <div style={{ fontWeight: '600', fontSize: '14px', color: '#2c3e50' }}>{user?.user_name || 'User'}</div>
@@ -187,15 +200,85 @@ const DashboardLayout: React.FC = () => {
         isOpen={showSendLinkModal}
         onClose={() => setShowSendLinkModal(false)}
       />
+      <UpgradePlanModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </div>
   );
 };
 
 const DashboardHome: React.FC = () => {
   const { user } = useAuth();
+  const [dateFilter, setDateFilter] = useState<string>('all_time');
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
-  const [selectedDate, setSelectedDate] = useState<string>('Dec 2025');
+  const [showCustomDatePicker, setShowCustomDatePicker] = useState<boolean>(false);
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
   const navigate = useNavigate();
+  const dateDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dateDropdownRef.current && !dateDropdownRef.current.contains(event.target as Node)) {
+        setShowDateDropdown(false);
+      }
+    };
+
+    if (showDateDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDateDropdown]);
+
+  // Get current month and adjacent months
+  const getCurrentMonthOptions = () => {
+    const now = new Date();
+    const months = [];
+    
+    // Previous month
+    const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    months.push({
+      value: `${prevMonth.toLocaleString('en-US', { month: 'short' })} ${prevMonth.getFullYear()}`,
+      label: `${prevMonth.toLocaleString('en-US', { month: 'short' })} ${prevMonth.getFullYear()}`
+    });
+    
+    // Current month
+    const currentMonth = `${now.toLocaleString('en-US', { month: 'short' })} ${now.getFullYear()}`;
+    months.push({
+      value: currentMonth,
+      label: currentMonth
+    });
+    
+    // Next month
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    months.push({
+      value: `${nextMonth.toLocaleString('en-US', { month: 'short' })} ${nextMonth.getFullYear()}`,
+      label: `${nextMonth.toLocaleString('en-US', { month: 'short' })} ${nextMonth.getFullYear()}`
+    });
+    
+    return months;
+  };
+
+  const getDateFilterLabel = () => {
+    if (dateFilter === 'all_time') return 'All time';
+    if (dateFilter === 'custom' && customStartDate && customEndDate) {
+      return `${new Date(customStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(customEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+    return dateFilter;
+  };
+
+  const handleDateFilterSelect = (value: string) => {
+    if (value === 'custom') {
+      setShowCustomDatePicker(true);
+    }
+    setDateFilter(value);
+    setShowDateDropdown(false);
+  };
 
   // Dynamically calculate profile progress based on available user fields
   const calculateProfileProgress = () => {
@@ -241,18 +324,37 @@ const DashboardHome: React.FC = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
+        // Build stats URL with date filter
+        let statsUrl = 'http://localhost:3001/api/bookings/stats';
+        if (dateFilter !== 'all_time' && dateFilter !== 'custom') {
+          // Parse month filter (e.g., "Dec 2025")
+          const [month, year] = dateFilter.split(' ');
+          const monthIndex = new Date(`${month} 1, 2000`).getMonth();
+          const startDate = new Date(parseInt(year), monthIndex, 1).toISOString();
+          const endDate = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59).toISOString();
+          statsUrl += `?startDate=${startDate}&endDate=${endDate}`;
+        } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
+          const startDate = new Date(customStartDate).toISOString();
+          const endDate = new Date(customEndDate).toISOString();
+          statsUrl += `?startDate=${startDate}&endDate=${endDate}`;
+        }
+
         // Fetch Stats
-        const statsRes = await fetch('http://localhost:3000/api/bookings/stats', { credentials: 'include' });
+        const statsRes = await fetch(statsUrl, { credentials: 'include' });
         if (statsRes.ok) {
           const data = await statsRes.json();
           setStats(data);
+        } else {
+          console.error('Failed to fetch stats:', statsRes.statusText);
         }
 
         // Fetch Recent Bookings
-        const bookingsRes = await fetch('http://localhost:3000/api/bookings', { credentials: 'include' });
+        const bookingsRes = await fetch('http://localhost:3001/api/bookings', { credentials: 'include' });
         if (bookingsRes.ok) {
           const data = await bookingsRes.json();
           setRecentBookings(data);
+        } else {
+          console.error('Failed to fetch bookings:', bookingsRes.statusText);
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
@@ -260,7 +362,7 @@ const DashboardHome: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [dateFilter, customStartDate, customEndDate]);
 
   const statsData: StatData[] = [
     { label: 'Revenue', value: stats.revenue },
@@ -336,33 +438,96 @@ const DashboardHome: React.FC = () => {
           <p>Welcome Back, {user?.user_name || 'User'}!</p>
         </div>
         <div className="header-right">
-          <div className="profile-completion">
-            <div className="completion-circle">
-              <svg width="48" height="48" viewBox="0 0 48 48">
-                <circle cx="24" cy="24" r="20" fill="none" stroke="#e9ecef" strokeWidth="4" />
-                <circle cx="24" cy="24" r="20" fill="none" stroke="#2D7579" strokeWidth="4"
-                  strokeDasharray={`${2 * Math.PI * 20}`}
-                  strokeDashoffset={`${2 * Math.PI * 20 * (1 - profileProgress / 100)}`}
-                  strokeLinecap="round" transform="rotate(-90 24 24)"
-                  style={{ transition: 'stroke-dashoffset 0.5s ease' }}
-                />
-                <text x="24" y="28" textAnchor="middle" fontSize="12" fontWeight="600" fill="#000000">{profileProgress}%</text>
-              </svg>
+          {profileProgress < 100 && (
+            <div className="profile-completion">
+              <div className="completion-circle">
+                <svg width="48" height="48" viewBox="0 0 48 48">
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="#e9ecef" strokeWidth="4" />
+                  <circle cx="24" cy="24" r="20" fill="none" stroke="#2D7579" strokeWidth="4"
+                    strokeDasharray={`${2 * Math.PI * 20}`}
+                    strokeDashoffset={`${2 * Math.PI * 20 * (1 - profileProgress / 100)}`}
+                    strokeLinecap="round" transform="rotate(-90 24 24)"
+                    style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+                  />
+                  <text x="24" y="28" textAnchor="middle" fontSize="12" fontWeight="600" fill="#000000">{profileProgress}%</text>
+                </svg>
+              </div>
+              <span onClick={() => navigate('/settings', { state: { activeSection: 'My Profile' } })} style={{ cursor: 'pointer' }}>Complete your profile <img src="Edit.svg" alt="Edit" style={{ width: '16px', height: '16px', marginLeft: '4px' }} /></span>
             </div>
-            <span onClick={() => navigate('/settings', { state: { activeSection: 'My Profile' } })} style={{ cursor: 'pointer' }}>Complete your profile <img src="Edit.svg" alt="Edit" style={{ width: '16px', height: '16px', marginLeft: '4px' }} /></span>
-          </div>
-          <div className="date-selector" onClick={() => setShowDateDropdown(!showDateDropdown)}>
-            <div className="date-icon"><img src="Graph.svg" alt="Graph" /></div>
-            <span>{selectedDate}</span>
-            <div className="dropdown-arrow">▼</div>
+          )}
+          <div className="date-selector-wrapper" ref={dateDropdownRef}>
+            <div className="date-selector" onClick={() => setShowDateDropdown(!showDateDropdown)}>
+              <div className="date-icon"><img src="Graph.svg" alt="Graph" /></div>
+              <span>{getDateFilterLabel()}</span>
+              <div className="dropdown-arrow">▼</div>
+            </div>
+            
             {showDateDropdown && (
               <div className="date-dropdown">
-                <div className="dropdown-header">Custom Dates</div>
-                <div className="dropdown-item" onClick={(e) => { e.stopPropagation(); setSelectedDate('Nov 2025'); setShowDateDropdown(false); }}>Nov 2025</div>
-                {/* ... other items */}
+                <div 
+                  className={`dropdown-item ${dateFilter === 'custom' ? 'selected' : ''}`}
+                  onClick={() => handleDateFilterSelect('custom')}
+                >
+                  Custom
+                </div>
+                <div 
+                  className={`dropdown-item ${dateFilter === 'all_time' ? 'selected' : ''}`}
+                  onClick={() => handleDateFilterSelect('all_time')}
+                >
+                  All time
+                </div>
+                {getCurrentMonthOptions().map((month) => (
+                  <div
+                    key={month.value}
+                    className={`dropdown-item ${dateFilter === month.value ? 'selected' : ''}`}
+                    onClick={() => handleDateFilterSelect(month.value)}
+                  >
+                    {month.label}
+                  </div>
+                ))}
               </div>
             )}
           </div>
+          
+          {showCustomDatePicker && (
+            <div className="custom-date-modal" onClick={() => setShowCustomDatePicker(false)}>
+              <div className="custom-date-content" onClick={(e) => e.stopPropagation()}>
+                <h3>Select Date Range</h3>
+                <div className="date-inputs">
+                  <div className="date-input-group">
+                    <label>Start Date</label>
+                    <input 
+                      type="date" 
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="date-input-group">
+                    <label>End Date</label>
+                    <input 
+                      type="date" 
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="date-modal-actions">
+                  <button onClick={() => setShowCustomDatePicker(false)} className="cancel-btn">Cancel</button>
+                  <button 
+                    onClick={() => {
+                      if (customStartDate && customEndDate) {
+                        setShowCustomDatePicker(false);
+                      }
+                    }}
+                    className="apply-btn"
+                    disabled={!customStartDate || !customEndDate}
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -419,7 +584,9 @@ const DashboardHome: React.FC = () => {
                 key={index}
                 className="action-card"
                 onClick={() => {
-                  if (action.title === 'Create a Booking') {
+                  if (action.title === 'Create Resources') {
+                    navigate('/calendars?openModal=true');
+                  } else if (action.title === 'Create a Booking') {
                     setShowCreateBooking(true);
                   } else if (action.title === 'Send Booking Link') {
                     if (setGlobalModal) setGlobalModal(true);
@@ -441,9 +608,11 @@ const DashboardHome: React.FC = () => {
   );
 };
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { toasts, removeToast } = useToast();
+
   return (
-    <AuthProvider>
+    <>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -457,6 +626,7 @@ const App: React.FC = () => {
               <Route path="appointments" element={<Appointments />} />
               <Route path="calendars" element={<CalendarPage />} />
               <Route path="calendars/new" element={<CreateEventPage />} />
+              <Route path="calendars/edit" element={<CreateEventPage />} />
               <Route path="payments" element={<PaymentsInvoice />} />
               <Route path="settings" element={<MySettings />} />
               <Route path="support" element={<div className="dashboard-content"><h1>Contact Support</h1></div>} />
@@ -470,6 +640,17 @@ const App: React.FC = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      <ToastContainer toasts={toasts} onClose={removeToast} />
+    </>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </AuthProvider>
   );
 };

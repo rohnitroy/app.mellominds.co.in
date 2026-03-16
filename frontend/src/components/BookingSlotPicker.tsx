@@ -32,7 +32,7 @@ const BookingSlotPicker: React.FC<BookingSlotPickerProps> = ({ calendarId, initi
             // Get user's time zone
             const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-            const response = await fetch(`http://localhost:3000/api/availability/slots?date=${selectedDate}&calendarId=${calendarId}&timeZone=${timeZone}`, {
+            const response = await fetch(`http://localhost:3001/api/availability/slots?date=${selectedDate}&calendarId=${calendarId}&timeZone=${timeZone}`, {
                 credentials: 'include'
             });
 

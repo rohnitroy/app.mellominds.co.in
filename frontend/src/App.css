@@ -115,6 +115,14 @@ body {
   transform: translateY(2px);
 }
 
+.nav-icon.calendar-icon img {
+  filter: brightness(0) saturate(100%) invert(93%) sepia(13%) saturate(1089%) hue-rotate(116deg) brightness(103%) contrast(101%);
+}
+
+.nav-item.active .nav-icon.calendar-icon img {
+  filter: brightness(0) saturate(100%) invert(12%) sepia(25%) saturate(1234%) hue-rotate(134deg) brightness(95%) contrast(95%);
+}
+
 /* Hello Section */
 .hello-section {
   color: white;
@@ -303,6 +311,10 @@ body {
 }
 
 /* Date Selector */
+.date-selector-wrapper {
+  position: relative;
+}
+
 .date-selector {
   display: flex;
   align-items: center;
@@ -314,9 +326,14 @@ body {
   cursor: pointer;
   font-weight: 500;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-  position: relative;
   color: #6E6E6E;
   font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.date-selector:hover {
+  border-color: #2D7579;
+  box-shadow: 0 0 0 3px rgba(45, 117, 121, 0.1);
 }
 
 .date-icon {
@@ -334,47 +351,152 @@ body {
 
 .dropdown-arrow {
   color: #6E6E6E;
-  font-size: 12px;
-  margin-left: auto;
+  font-size: 10px;
+  margin-left: 8px;
+  transition: transform 0.2s ease;
 }
 
 .date-dropdown {
   position: absolute;
-  top: 100%;
-  left: 0;
+  top: calc(100% + 4px);
   right: 0;
   background: white;
   border: 1px solid #e9ecef;
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-  margin-top: 4px;
-}
-
-.dropdown-header {
-  padding: 8px 16px;
-  font-family: Urbanist;
-  font-weight: 600;
-  font-style: SemiBold;
-  font-size: 15px;
-  line-height: 100%;
-  letter-spacing: 0%;
-  color: #2D7579;
-  border-bottom: 2px solid #e9ecef;
-  text-align: center;
+  z-index: 100;
+  min-width: 180px;
+  overflow: hidden;
 }
 
 .dropdown-item {
-  padding: 8px 16px;
+  padding: 12px 16px;
   font-size: 14px;
-  color: #6E6E6E;
+  color: #082421;
   cursor: pointer;
-  transition: background 0.2s;
-  text-align: center;
+  transition: background 0.15s ease;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
 }
 
 .dropdown-item:hover {
+  background: #D5FFFA;
+}
+
+.dropdown-item.selected {
+  background: #2D7579;
+  color: white;
+  font-weight: 600;
+}
+
+.dropdown-item.selected:hover {
+  background: #236166;
+}
+
+/* Custom Date Modal */
+.custom-date-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.custom-date-content {
+  background: white;
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  min-width: 400px;
+}
+
+.custom-date-content h3 {
+  margin: 0 0 24px 0;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: #082421;
+}
+
+.date-inputs {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.date-input-group {
+  flex: 1;
+}
+
+.date-input-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #082421;
+  font-family: 'Urbanist', sans-serif;
+}
+
+.date-input-group input[type="date"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Urbanist', sans-serif;
+  color: #082421;
+}
+
+.date-input-group input[type="date"]:focus {
+  outline: none;
+  border-color: #2D7579;
+  box-shadow: 0 0 0 3px rgba(45, 117, 121, 0.1);
+}
+
+.date-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.cancel-btn, .apply-btn {
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Urbanist', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn {
+  background: white;
+  border: 1px solid #e9ecef;
+  color: #6E6E6E;
+}
+
+.cancel-btn:hover {
   background: #f8f9fa;
+}
+
+.apply-btn {
+  background: #2D7579;
+  border: none;
+  color: white;
+}
+
+.apply-btn:hover:not(:disabled) {
+  background: #236166;
+}
+
+.apply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ===== STATS GRID ===== */

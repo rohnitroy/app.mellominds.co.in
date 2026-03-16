@@ -2,8 +2,47 @@ import express from 'express';
 import passport from '../config/passport.js';
 import bcrypt from 'bcrypt';
 import pool from '../config/database.js';
+import multer from 'multer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+// Configure multer for image upload
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../uploads/profile-pictures');
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed (jpeg, jpg, png, gif, webp)'));
+    }
+  }
+});
 
 // Registration endpoint
 router.post('/register', async (req, res) => {
@@ -175,6 +214,53 @@ router.get('/me', (req, res) => {
     res.json({ user: userWithoutPassword });
   } else {
     res.status(401).json({ error: 'Not authenticated' });
+  }
+});
+
+// Upload profile picture
+router.post('/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
+  try {
+    // Check if user is authenticated
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const userId = req.user.id;
+    const fileUrl = `/uploads/profile-pictures/${req.file.filename}`;
+
+    // Update user's profile picture in database
+    const result = await pool.query(
+      'UPDATE Users SET profile_picture = $1 WHERE id = $2 RETURNING profile_picture',
+      [fileUrl, userId]
+    );
+
+    // Delete old profile picture if it exists and is not a Google URL
+    if (req.user.profile_picture && !req.user.profile_picture.includes('googleusercontent.com')) {
+      const oldFilePath = path.join(__dirname, '..', req.user.profile_picture);
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+      }
+    }
+
+    res.json({
+      message: 'Profile picture uploaded successfully',
+      profilePicture: result.rows[0].profile_picture
+    });
+
+  } catch (error) {
+    console.error('Profile picture upload error:', error);
+    // Delete uploaded file if database update fails
+    if (req.file) {
+      const filePath = path.join(__dirname, '../uploads/profile-pictures', req.file.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+    res.status(500).json({ error: 'Failed to upload profile picture', details: error.message });
   }
 });
 

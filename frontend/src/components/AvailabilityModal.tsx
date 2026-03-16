@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useToast } from '../context/ToastContext';
 
 interface AvailabilitySlot {
     day_of_week: number;
@@ -122,6 +123,7 @@ const CustomTimeSelect: React.FC<{ value: string, onChange: (val: string) => voi
 };
 
 const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }) => {
+    const toast = useToast();
     const [schedule, setSchedule] = useState<AvailabilitySlot[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -147,12 +149,12 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }
 
     const fetchAvailability = async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/availability', {
+            const response = await fetch('http://localhost:3001/api/availability', {
                 credentials: 'include'
             });
 
             if (response.status === 401) {
-                alert('Your session has expired. Please log in again.');
+                toast.error('Your session has expired. Please log in again.');
                 window.location.href = '/login';
                 return;
             }
@@ -184,7 +186,7 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }
 
     const handleSave = async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/availability', {
+            const response = await fetch('http://localhost:3001/api/availability', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -192,20 +194,20 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }
             });
 
             if (response.status === 401) {
-                alert('Your session has expired. Please log in again.');
+                toast.error('Your session has expired. Please log in again.');
                 window.location.href = '/login';
                 return;
             }
 
             if (response.ok) {
-                alert('Availability updated successfully!');
+                toast.success('Availability updated successfully!');
                 onClose();
             } else {
-                alert('Failed to update availability.');
+                toast.error('Failed to update availability.');
             }
         } catch (error) {
             console.error('Error saving availability:', error);
-            alert('Error saving availability.');
+            toast.error('Error saving availability.');
         }
     };
 

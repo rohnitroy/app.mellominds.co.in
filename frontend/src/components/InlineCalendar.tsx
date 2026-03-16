@@ -28,6 +28,17 @@ const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDateSelect, selectedD
     };
 
     const handleDayClick = (day: number) => {
+        // Check if date is in the past
+        const clickedDate = new Date(year, month, day);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        clickedDate.setHours(0, 0, 0, 0);
+        
+        // Don't allow selection of past dates
+        if (clickedDate < today) {
+            return;
+        }
+        
         // Format as YYYY-MM-DD (local time)
         const date = new Date(year, month, day);
         // Adjust for timezone offset to get correct YYYY-MM-DD string
@@ -49,8 +60,6 @@ const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDateSelect, selectedD
 
         // Days
         for (let day = 1; day <= totalDays; day++) {
-
-
             // Check if selected
             // Construct YYYY-MM-DD for comparison
             const d = new Date(year, month, day);
@@ -60,12 +69,23 @@ const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDateSelect, selectedD
 
             const isSelected = selectedDate === isoDate;
             const isToday = isoDate === new Date().toISOString().split('T')[0];
+            
+            // Check if date is in the past
+            const dateToCheck = new Date(year, month, day);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            dateToCheck.setHours(0, 0, 0, 0);
+            const isPast = dateToCheck < today;
 
             days.push(
                 <div
                     key={day}
-                    className={`calendar-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''}`}
+                    className={`calendar-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${isPast ? 'disabled' : ''}`}
                     onClick={() => handleDayClick(day)}
+                    style={{ 
+                        cursor: isPast ? 'not-allowed' : 'pointer',
+                        opacity: isPast ? 0.4 : 1
+                    }}
                 >
                     {day}
                 </div>

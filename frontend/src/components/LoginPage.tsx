@@ -3,6 +3,7 @@ import './LoginPage.css'
 
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -13,19 +14,20 @@ const LoginPage: React.FC = () => {
   const [searchParams] = useSearchParams()
   const errorParam = searchParams.get('error')
   const detailsParam = searchParams.get('details')
+  const toast = useToast()
 
   // Show error if redirected back with one
   React.useEffect(() => {
     if (errorParam) {
-      alert(`Login Failed: ${errorParam}\nDetails: ${detailsParam || 'None'}`);
+      toast.error(`Login Failed: ${errorParam}${detailsParam ? `\nDetails: ${detailsParam}` : ''}`);
     }
-  }, [errorParam, detailsParam]);
+  }, [errorParam, detailsParam, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000'
+      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001'
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,21 +38,21 @@ const LoginPage: React.FC = () => {
       const data = await response.json()
 
       if (response.ok) {
-        alert('Login successful!')
+        toast.success('Login successful!')
         login()
         navigate('/')
       } else {
-        alert(data.error || 'Login failed')
+        toast.error(data.error || 'Login failed')
       }
     } catch (error) {
       console.error('Login error:', error)
-      alert('Network error. Please try again.')
+      toast.error('Network error. Please try again.')
     }
   }
 
   // Handle Google login - redirect to backend OAuth endpoint
   const handleGoogleLogin = () => {
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000'
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001'
     window.location.href = `${apiUrl}/auth/google`
   }
 

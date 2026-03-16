@@ -142,46 +142,72 @@ router.get('/stats', async (req, res) => {
     const client = await pool.connect();
     try {
         const userId = req.user.id;
+        const { startDate, endDate } = req.query;
+
+        // Build date filter clause
+        let dateFilter = '';
+        let params = [userId];
+
+        if (startDate && endDate) {
+            dateFilter = ' AND start_time >= $2 AND start_time <= $3';
+            params.push(startDate, endDate);
+        }
 
         // Get total sessions
         const sessionsRes = await client.query(
-            "SELECT COUNT(*) FROM Appointments WHERE therapist_id = $1",
-            [userId]
+            `SELECT COUNT(*) FROM Appointments WHERE therapist_id = $1${dateFilter}`,
+            params
         );
         const totalSessions = parseInt(sessionsRes.rows[0].count);
 
         // Get cancelled sessions
         const cancelledRes = await client.query(
-            "SELECT COUNT(*) FROM Appointments WHERE therapist_id = $1 AND status = 'cancelled'",
-            [userId]
+            `SELECT COUNT(*) FROM Appointments WHERE therapist_id = $1 AND status = 'cancelled'${dateFilter}`,
+            params
         );
         const cancelledSessions = parseInt(cancelledRes.rows[0].count);
 
+        // Get no-show sessions
+        const noShowRes = await client.query(
+            `SELECT COUNT(*) FROM Appointments WHERE therapist_id = $1 AND status = 'noshow'${dateFilter}`,
+            params
+        );
+        const noShowSessions = parseInt(noShowRes.rows[0].count);
+
         // Calculate revenue
         const revenueRes = await client.query(
-            "SELECT COALESCE(SUM(payment_amount), 0) as total FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Paid'",
-            [userId]
+            `SELECT COALESCE(SUM(payment_amount), 0) as total FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Paid'${dateFilter}`,
+            params
         );
         const revenue = parseFloat(revenueRes.rows[0].total || 0);
 
         // Calculate refunds
         const refundRes = await client.query(
-            "SELECT COALESCE(SUM(payment_amount), 0) as total FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Refunded'",
-            [userId]
+            `SELECT COALESCE(SUM(payment_amount), 0) as total FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Refunded'${dateFilter}`,
+            params
         );
         const refund = parseFloat(refundRes.rows[0].total || 0);
 
         // Pending payments
         const pendingPaymentRes = await client.query(
-            "SELECT COUNT(*) FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Pending'",
-            [userId]
+            `SELECT COUNT(*) FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Pending'${dateFilter}`,
+            params
         );
         const pendingPayment = parseInt(pendingPaymentRes.rows[0].count);
 
+        // Pending notes - appointments without notes
+        const pendingNotesRes = await client.query(
+            `SELECT COUNT(*) FROM Appointments a 
+             WHERE a.therapist_id = $1 AND a.status NOT IN ('cancelled', 'noshow')
+             AND NOT EXISTS (SELECT 1 FROM SessionNotes WHERE appointment_id = a.id)${dateFilter}`,
+            params
+        );
+        const pendingNotes = parseInt(pendingNotesRes.rows[0].count);
+
         // Count unique clients
         const clientsRes = await client.query(
-            "SELECT COUNT(DISTINCT client_email) FROM Appointments WHERE therapist_id = $1",
-            [userId]
+            `SELECT COUNT(DISTINCT client_email) FROM Appointments WHERE therapist_id = $1${dateFilter}`,
+            params
         );
         const totalClients = parseInt(clientsRes.rows[0].count);
 
@@ -190,8 +216,8 @@ router.get('/stats', async (req, res) => {
             refund: `₹${refund}`,
             sessions: totalSessions,
             cancelled: cancelledSessions,
-            noShow: 0, // Placeholder
-            pendingNotes: 0, // Placeholder
+            noShow: noShowSessions,
+            pendingNotes: pendingNotes,
             pendingPayment: pendingPayment,
             noOfClients: totalClients
         });
@@ -282,6 +308,7 @@ router.get('/', async (req, res) => {
             FROM Appointments a
             LEFT JOIN SessionNotes sn ON a.id = sn.appointment_id AND sn.therapist_id = $1
             WHERE a.therapist_id = $1
+            AND a.start_time >= NOW()
         `;
         let params = [userId];
 
@@ -290,7 +317,7 @@ router.get('/', async (req, res) => {
             params.push(email);
         }
 
-        query += " GROUP BY a.id ORDER BY a.start_time DESC";
+        query += " GROUP BY a.id ORDER BY a.start_time ASC";
 
         const result = await client.query(query, params);
         res.json(result.rows);

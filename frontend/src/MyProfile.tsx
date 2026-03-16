@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import styles from './MyProfile.module.css';
 import { ArrowLeft } from 'react-iconly';
 import DateInput from './components/DateInput';
+import CustomDropdown from './components/CustomDropdown';
+import { useToast } from './context/ToastContext';
 
 interface MyProfileProps {
   onBack: () => void;
 }
 
 const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
+  const toast = useToast();
+  const [profilePicture, setProfilePicture] = useState<string>('');
   const [formData, setFormData] = useState({
     fullName: '',
     phoneNumber: '',
@@ -27,12 +31,19 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch('http://localhost:3000/auth/me', {
+        const response = await fetch('http://localhost:3001/auth/me', {
           credentials: 'include'
         });
         if (response.ok) {
           const data = await response.json();
           if (data.user) {
+            // Handle profile picture URL - prepend backend URL if it's a local path
+            let profilePicUrl = data.user.profile_picture || '';
+            if (profilePicUrl && !profilePicUrl.startsWith('http')) {
+              profilePicUrl = `http://localhost:3001${profilePicUrl}`;
+            }
+            setProfilePicture(profilePicUrl);
+            
             setFormData({
               fullName: data.user.user_name || '',
               phoneNumber: data.user.phone || '',
@@ -63,6 +74,33 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
       ...prev,
       [field]: value
     }));
+    
+    // Auto-fill city and state when pincode is entered
+    if (field === 'pincode' && value.length === 6) {
+      fetchLocationByPincode(value);
+    }
+  };
+
+  const fetchLocationByPincode = async (pincode: string) => {
+    try {
+      // Using India Post API
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+      const data = await response.json();
+      
+      if (data && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
+        const location = data[0].PostOffice[0];
+        setFormData(prev => ({
+          ...prev,
+          city: location.District || prev.city,
+          state: location.State || prev.state
+        }));
+      } else {
+        toast.warning('Could not find location for this pincode');
+      }
+    } catch (error) {
+      console.error('Error fetching location:', error);
+      toast.error('Failed to fetch location details');
+    }
   };
 
   const handleSaveChanges = async () => {
@@ -81,7 +119,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
         address: formData.address
       };
 
-      const response = await fetch('http://localhost:3000/auth/complete-profile', {
+      const response = await fetch('http://localhost:3001/auth/complete-profile', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -91,26 +129,51 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
       });
 
       if (response.ok) {
-        alert('Profile changes saved successfully!');
+        toast.success('Profile changes saved successfully!');
       } else {
-        alert('Failed to save profile changes.');
+        toast.error('Failed to save profile changes.');
       }
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Error saving profile changes.');
+      toast.error('Error saving profile changes.');
     }
   };
 
-  const handleImageChange = () => {
+  const handleImageChange = async () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        console.log('Selected file:', file.name);
-        // Implement image upload logic here if backend supports it
-        alert('Image upload not yet implemented on backend');
+        // Check file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error('Image size must be less than 5MB');
+          return;
+        }
+
+        try {
+          const formData = new FormData();
+          formData.append('profilePicture', file);
+
+          const response = await fetch('http://localhost:3001/auth/upload-profile-picture', {
+            method: 'POST',
+            credentials: 'include',
+            body: formData
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            setProfilePicture(`http://localhost:3001${data.profilePicture}`);
+            toast.success('Profile picture updated successfully!');
+          } else {
+            const error = await response.json();
+            toast.error(error.error || 'Failed to upload image');
+          }
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          toast.error('Error uploading profile picture');
+        }
       }
     };
     input.click();
@@ -136,11 +199,15 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
       <div className={styles.profileContent}>
         <div className={styles.profileImageSection}>
           <div className={styles.profileAvatar}>
-            <svg width="48" height="48" viewBox="0 0 28 24" fill="none">
-              <circle cx="12" cy="7" r="4" stroke="#2D7579" strokeWidth="2" fill="none" />
-              <path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2" stroke="#2D7579" strokeWidth="2" fill="none" />
-              <path d="M20 8h4m-2-2v4" stroke="#2D7579" strokeWidth="2" strokeLinecap="round" />
-            </svg>
+            {profilePicture ? (
+              <img src={profilePicture} alt="Profile" className={styles.profileImage} />
+            ) : (
+              <svg width="48" height="48" viewBox="0 0 28 24" fill="none">
+                <circle cx="12" cy="7" r="4" stroke="#2D7579" strokeWidth="2" fill="none" />
+                <path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2" stroke="#2D7579" strokeWidth="2" fill="none" />
+                <path d="M20 8h4m-2-2v4" stroke="#2D7579" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            )}
           </div>
           <button className={styles.changeImageBtn} onClick={handleImageChange}>+ Change profile image</button>
         </div>
@@ -188,58 +255,54 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
 
           <div className={styles.formGroup}>
             <label>Gender</label>
-            <div className={styles.selectWrapper}>
-              <select
-                value={formData.gender}
-                onChange={(e) => handleInputChange('gender', e.target.value)}
-              >
-                <option>Female</option>
-                <option>Male</option>
-                <option>Other</option>
-              </select>
-            </div>
+            <CustomDropdown
+              options={[
+                { value: 'Female', label: 'Female' },
+                { value: 'Male', label: 'Male' },
+                { value: 'Other', label: 'Other' }
+              ]}
+              value={formData.gender}
+              onChange={(val) => handleInputChange('gender', val)}
+            />
           </div>
 
           <div className={styles.formGroup}>
             <label>Specialization</label>
-            <div className={styles.selectWrapper}>
-              <select
-                value={formData.specialization}
-                onChange={(e) => handleInputChange('specialization', e.target.value)}
-              >
-                <option>Counselling Therapist</option>
-                <option>Clinical Psychologist</option>
-                <option>Psychiatrist</option>
-              </select>
-            </div>
+            <CustomDropdown
+              options={[
+                { value: 'Counselling Therapist', label: 'Counselling Therapist' },
+                { value: 'Clinical Psychologist', label: 'Clinical Psychologist' },
+                { value: 'Psychiatrist', label: 'Psychiatrist' }
+              ]}
+              value={formData.specialization}
+              onChange={(val) => handleInputChange('specialization', val)}
+            />
           </div>
 
           <div className={styles.formGroup}>
             <label>Languages Spoken</label>
-            <div className={styles.selectWrapper}>
-              <select
-                value={formData.languages}
-                onChange={(e) => handleInputChange('languages', e.target.value)}
-              >
-                <option>English, Hindi, Odia</option>
-                <option>English, Hindi</option>
-                <option>English</option>
-              </select>
-            </div>
+            <CustomDropdown
+              options={[
+                { value: 'English, Hindi, Odia', label: 'English, Hindi, Odia' },
+                { value: 'English, Hindi', label: 'English, Hindi' },
+                { value: 'English', label: 'English' }
+              ]}
+              value={formData.languages}
+              onChange={(val) => handleInputChange('languages', val)}
+            />
           </div>
 
           <div className={styles.formGroup}>
             <label>Country<span className={styles.required}>*</span></label>
-            <div className={styles.selectWrapper}>
-              <select
-                value={formData.country}
-                onChange={(e) => handleInputChange('country', e.target.value)}
-              >
-                <option>INDIA</option>
-                <option>USA</option>
-                <option>UK</option>
-              </select>
-            </div>
+            <CustomDropdown
+              options={[
+                { value: 'INDIA', label: 'INDIA' },
+                { value: 'USA', label: 'USA' },
+                { value: 'UK', label: 'UK' }
+              ]}
+              value={formData.country}
+              onChange={(val) => handleInputChange('country', val)}
+            />
           </div>
 
           <div className={styles.formGroup}>

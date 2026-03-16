@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import styles from './CreateBooking.module.css';
 import SendBookingLinkModal from './SendBookingLinkModal';
 import DateInput from './DateInput';
+import CustomDropdown from './CustomDropdown';
+import { useToast } from '../context/ToastContext';
 
 interface CreateBookingProps {
     onBack?: () => void;
@@ -14,6 +16,7 @@ interface Calendar {
 }
 
 const CreateBooking: React.FC<CreateBookingProps> = ({ onBack }) => {
+    const toast = useToast();
     const [formData, setFormData] = useState({
         clientName: '',
         clientWhatsApp: '',
@@ -33,7 +36,7 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack }) => {
     useEffect(() => {
         const fetchCalendars = async () => {
             try {
-                const response = await fetch('http://localhost:3000/api/calendars', {
+                const response = await fetch('http://localhost:3001/api/calendars', {
                     credentials: 'include'
                 });
                 if (response.ok) {
@@ -66,7 +69,7 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack }) => {
 
     const handleCreateBooking = async () => {
         if (!formData.selectedCalendar || !formData.selectedDate || !selectedTimeSlot || !formData.clientName) {
-            alert('Please fill in all required fields');
+            toast.warning('Please fill in all required fields');
             return;
         }
 
@@ -95,7 +98,7 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack }) => {
                 // session_type could be sent if backend supported it, but it expects calendar_id mainly
             };
 
-            const response = await fetch('http://localhost:3000/api/bookings', {
+            const response = await fetch('http://localhost:3001/api/bookings', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -105,15 +108,15 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack }) => {
             });
 
             if (response.ok) {
-                alert('Booking created successfully!');
+                toast.success('Booking created successfully!');
                 if (onBack) onBack();
             } else {
                 const error = await response.json();
-                alert(error.error || 'Failed to create booking');
+                toast.error(error.error || 'Failed to create booking');
             }
         } catch (error) {
             console.error('Error creating booking:', error);
-            alert('Failed to connect to server');
+            toast.error('Failed to connect to server');
         }
     };
 
@@ -189,18 +192,18 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack }) => {
 
                     <div className={styles.formGroup}>
                         <label className={styles.label}>Select Calendar</label>
-                        <div className={styles.selectContainer}>
-                            <select
-                                value={formData.selectedCalendar}
-                                onChange={(e) => handleInputChange('selectedCalendar', e.target.value)}
-                                className={styles.select}
-                            >
-                                <option value="">Select</option>
-                                {calendars.map(cal => (
-                                    <option key={cal.id} value={cal.id}>{cal.title} ({cal.duration})</option>
-                                ))}
-                            </select>
-                        </div>
+                        <CustomDropdown
+                            options={[
+                                { value: '', label: 'Select Calendar' },
+                                ...calendars.map(cal => ({
+                                    value: cal.id.toString(),
+                                    label: `${cal.title} (${cal.duration})`
+                                }))
+                            ]}
+                            value={formData.selectedCalendar}
+                            onChange={(value) => handleInputChange('selectedCalendar', value)}
+                            placeholder="Select Calendar"
+                        />
                     </div>
                 </div>
 

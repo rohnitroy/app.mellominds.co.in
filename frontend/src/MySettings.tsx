@@ -12,7 +12,7 @@ const MySettings: React.FC = () => {
   useEffect(() => {
     const checkGoogleStatus = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/connect-calendar/status', {
+        const response = await fetch('http://localhost:3001/api/connect-calendar/status', {
           credentials: 'include'
         });
         if (response.ok) {
@@ -79,6 +79,7 @@ const MySettings: React.FC = () => {
               <h3>
                 <Paper set="bulk" size="medium" primaryColor="#082421" />
                 Clinical Profile
+                <div className={styles.comingSoonTag}>Coming soon</div>
               </h3>
               <p>customize client's clinical profile form...</p>
             </div>
@@ -94,6 +95,7 @@ const MySettings: React.FC = () => {
               <h3>
                 <Document set="bulk" size="medium" primaryColor="#082421" />
                 Client Notes
+                <div className={styles.comingSoonTag}>Coming soon</div>
               </h3>
               <p>customize client notes form...</p>
             </div>
@@ -145,17 +147,14 @@ const MySettings: React.FC = () => {
               {!googleConnected ? (
                 <button
                   className={styles.connectBtn}
-                  onClick={() => window.location.href = 'http://localhost:3000/api/connect-calendar/start'}
+                  onClick={() => window.location.href = 'http://localhost:3001/api/connect-calendar/start'}
                 >
                   + Connect Calendar
                 </button>
               ) : (
-                <button
-                  className={styles.connectBtn}
-                  style={{ backgroundColor: '#0F9D58', cursor: 'default' }}
-                >
+                <div className={styles.connectedTag}>
                   ✓ Connected
-                </button>
+                </div>
               )}
             </div>
           </div>
@@ -165,9 +164,9 @@ const MySettings: React.FC = () => {
               <h3>
                 <Wallet set="bulk" size="medium" primaryColor="#082421" />
                 Connect Cashfree
+                <div className={styles.upgradeTag}>Upgrade your plan</div>
               </h3>
               <p>Cashfree payment integration to accept appointment payment via Cashfree payment gateway</p>
-              <div className={styles.upgradeTag}>Upgrade your plan</div>
               <button className={styles.connectBtn}>+ Connect Cashfree</button>
             </div>
           </div>
