@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './PaymentsInvoice.module.css';
+import API_BASE_URL from './config/api';
 
 const PaymentsInvoice: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('All Payments');
@@ -10,7 +11,7 @@ const PaymentsInvoice: React.FC = () => {
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/bookings', {
+        const response = await fetch(`${API_BASE_URL}/api/bookings`, {
           credentials: 'include'
         });
         if (response.ok) {

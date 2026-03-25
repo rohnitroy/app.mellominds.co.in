@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DateInput from './DateInput';
+import API_BASE_URL from '../config/api';
 
 interface BookingSlotPickerProps {
     calendarId: number;
@@ -32,7 +33,7 @@ const BookingSlotPicker: React.FC<BookingSlotPickerProps> = ({ calendarId, initi
             // Get user's time zone
             const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-            const response = await fetch(`http://localhost:3001/api/availability/slots?date=${selectedDate}&calendarId=${calendarId}&timeZone=${timeZone}`, {
+            const response = await fetch(`${API_BASE_URL}/api/availability/slots?date=${selectedDate}&calendarId=${calendarId}&timeZone=${timeZone}`, {
                 credentials: 'include'
             });
 

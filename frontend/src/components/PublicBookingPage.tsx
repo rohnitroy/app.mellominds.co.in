@@ -4,6 +4,7 @@ import './PublicBookingPage.css';
 import InlineCalendar from './InlineCalendar';
 import TimeSlotList from './TimeSlotList';
 import { useToast } from '../context/ToastContext';
+import API_BASE_URL from '../config/api';
 
 interface Calendar {
     id: number;
@@ -46,7 +47,7 @@ const PublicBookingPage: React.FC = () => {
     useEffect(() => {
         const fetchCalendar = async () => {
             try {
-                const response = await fetch(`http://localhost:3001/api/calendars/public/${userId}/${slug}`);
+                const response = await fetch(`${API_BASE_URL}/api/calendars/public/${userId}/${slug}`);
                 if (response.ok) {
                     const data = await response.json();
 
@@ -128,7 +129,7 @@ const PublicBookingPage: React.FC = () => {
                 form_responses: formResponses // Send the JSON answer dump
             };
 
-            const response = await fetch('http://localhost:3001/api/bookings/public', {
+            const response = await fetch(`${API_BASE_URL}/api/bookings/public`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)

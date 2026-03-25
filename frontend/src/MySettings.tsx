@@ -3,6 +3,7 @@ import styles from './MySettings.module.css';
 import MyProfile from './MyProfile';
 import { Calendar, Wallet, Document, User, Paper, Filter, People, ArrowRight } from 'react-iconly';
 import { useLocation } from 'react-router-dom';
+import API_BASE_URL from './config/api';
 
 const MySettings: React.FC = () => {
   const location = useLocation();
@@ -12,7 +13,7 @@ const MySettings: React.FC = () => {
   useEffect(() => {
     const checkGoogleStatus = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/connect-calendar/status', {
+        const response = await fetch(`${API_BASE_URL}/api/connect-calendar/status`, {
           credentials: 'include'
         });
         if (response.ok) {
@@ -147,7 +148,7 @@ const MySettings: React.FC = () => {
               {!googleConnected ? (
                 <button
                   className={styles.connectBtn}
-                  onClick={() => window.location.href = 'http://localhost:3001/api/connect-calendar/start'}
+                  onClick={() => window.location.href = `${API_BASE_URL}/api/connect-calendar/start`}
                 >
                   + Connect Calendar
                 </button>

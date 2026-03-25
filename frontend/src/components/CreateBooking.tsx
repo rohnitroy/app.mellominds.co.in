@@ -4,6 +4,7 @@ import SendBookingLinkModal from './SendBookingLinkModal';
 import DateInput from './DateInput';
 import CustomDropdown from './CustomDropdown';
 import { useToast } from '../context/ToastContext';
+import API_BASE_URL from '../config/api';
 
 interface CreateBookingProps {
     onBack?: () => void;
@@ -36,7 +37,7 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack }) => {
     useEffect(() => {
         const fetchCalendars = async () => {
             try {
-                const response = await fetch('http://localhost:3001/api/calendars', {
+                const response = await fetch(`${API_BASE_URL}/api/calendars`, {
                     credentials: 'include'
                 });
                 if (response.ok) {
@@ -98,7 +99,7 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack }) => {
                 // session_type could be sent if backend supported it, but it expects calendar_id mainly
             };
 
-            const response = await fetch('http://localhost:3001/api/bookings', {
+            const response = await fetch(`${API_BASE_URL}/api/bookings`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

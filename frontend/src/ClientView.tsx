@@ -3,6 +3,7 @@ import styles from './ClientView.module.css';
 import { Delete, EditSquare, Call, Message, Calendar, ArrowLeft, ChevronDown } from 'react-iconly';
 import CustomDropdown from './components/CustomDropdown';
 import { useToast } from './context/ToastContext';
+import API_BASE_URL from './config/api';
 
 interface Client {
   id: number;
@@ -65,7 +66,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const fetchClientData = async () => {
     if (!client.email) return;
     try {
-      const response = await fetch(`http://localhost:3001/api/bookings?email=${encodeURIComponent(client.email)}`, {
+      const response = await fetch(`${API_BASE_URL}/api/bookings?email=${encodeURIComponent(client.email)}`, {
         credentials: 'include'
       });
       if (response.ok) {
@@ -108,7 +109,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/notes', {
+      const response = await fetch(`${API_BASE_URL}/api/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -139,7 +140,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
 
   const handleSaveEdit = async () => {
     try {
-      const response = await fetch(`http://localhost:3001/api/clients/${client.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/clients/${client.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

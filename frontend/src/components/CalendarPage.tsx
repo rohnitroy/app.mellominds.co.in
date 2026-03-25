@@ -7,6 +7,7 @@ import BookingSlotPicker from './BookingSlotPicker';
 import CreateCalendarModal from './CreateCalendarModal';
 import CustomDropdown from './CustomDropdown';
 import { useToast } from '../context/ToastContext';
+import API_BASE_URL from '../config/api';
 
 interface Calendar {
   id: number;
@@ -57,7 +58,7 @@ const CalendarPage: React.FC = () => {
 
   const fetchCalendars = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/calendars', {
+      const response = await fetch(`${API_BASE_URL}/api/calendars`, {
         credentials: 'include'
       });
       if (response.ok) {
@@ -112,7 +113,7 @@ const CalendarPage: React.FC = () => {
   const handleSlugUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`http://localhost:3001/api/calendars/${slugFormData.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/calendars/${slugFormData.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -154,8 +155,8 @@ const CalendarPage: React.FC = () => {
   const handleCreateOrUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     const url = editingId
-      ? `http://localhost:3001/api/calendars/${editingId}`
-      : 'http://localhost:3001/api/calendars';
+      ? `${API_BASE_URL}/api/calendars/${editingId}`
+      : `${API_BASE_URL}/api/calendars`;
 
     const method = editingId ? 'PUT' : 'POST';
 
@@ -208,7 +209,7 @@ const CalendarPage: React.FC = () => {
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/calendars/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/calendars/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -229,7 +230,7 @@ const CalendarPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/api/calendars/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/calendars/${id}`, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -265,7 +266,7 @@ const CalendarPage: React.FC = () => {
     if (!selectedCalendar) return;
 
     try {
-      const response = await fetch('http://localhost:3001/api/bookings', {
+      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -332,7 +333,7 @@ const CalendarPage: React.FC = () => {
                       <label htmlFor={`toggle-${resource.id}`} className="switch"></label>
                     </div>
 
-                    <button className="share-btn" title="Open Booking Page" onClick={() => window.open(`http://localhost:5173/book/${user?.id}/${resource.slug}`, '_blank')}>
+                    <button className="share-btn" title="Open Booking Page" onClick={() => window.open(`${window.location.origin}/book/${user?.id}/${resource.slug}`, '_blank')}>
                       <img src="/Send.svg" alt="Share" />
                     </button>
                     <div className="menu-container" ref={menuRef}>

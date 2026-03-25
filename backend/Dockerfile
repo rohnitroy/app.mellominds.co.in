@@ -8,15 +8,16 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm install --omit=dev
 
 # Copy application source code
 COPY . .
 
-# Expose port (default 3000)
+# Expose port
 EXPOSE 3000
 
-# Define environment variables (can be overridden by docker-compose)
+# Set environment
+ENV NODE_ENV=production
 ENV PORT=3000
 
 # Start the application

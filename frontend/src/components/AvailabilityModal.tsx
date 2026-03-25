@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '../context/ToastContext';
+import API_BASE_URL from '../config/api';
 
 interface AvailabilitySlot {
     day_of_week: number;
@@ -149,7 +150,7 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }
 
     const fetchAvailability = async () => {
         try {
-            const response = await fetch('http://localhost:3001/api/availability', {
+            const response = await fetch(`${API_BASE_URL}/api/availability`, {
                 credentials: 'include'
             });
 
@@ -186,7 +187,7 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }
 
     const handleSave = async () => {
         try {
-            const response = await fetch('http://localhost:3001/api/availability', {
+            const response = await fetch(`${API_BASE_URL}/api/availability`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

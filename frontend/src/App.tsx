@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import ToastContainer from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
+import API_BASE_URL from './config/api';
 
 interface NavItem {
   name: string;
@@ -149,7 +150,7 @@ const DashboardLayout: React.FC = () => {
                 user?.profile_picture 
                   ? (user.profile_picture.startsWith('http') 
                       ? user.profile_picture 
-                      : `http://localhost:3001${user.profile_picture}`)
+                      : `${API_BASE_URL}${user.profile_picture}`)
                   : "Profile.svg"
               } 
               alt="Profile" 
@@ -325,7 +326,7 @@ const DashboardHome: React.FC = () => {
     const fetchDashboardData = async () => {
       try {
         // Build stats URL with date filter
-        let statsUrl = 'http://localhost:3001/api/bookings/stats';
+        let statsUrl = `${API_BASE_URL}/api/bookings/stats`;
         if (dateFilter !== 'all_time' && dateFilter !== 'custom') {
           // Parse month filter (e.g., "Dec 2025")
           const [month, year] = dateFilter.split(' ');
@@ -349,7 +350,7 @@ const DashboardHome: React.FC = () => {
         }
 
         // Fetch Recent Bookings
-        const bookingsRes = await fetch('http://localhost:3001/api/bookings', { credentials: 'include' });
+        const bookingsRes = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
         if (bookingsRes.ok) {
           const data = await bookingsRes.json();
           setRecentBookings(data);

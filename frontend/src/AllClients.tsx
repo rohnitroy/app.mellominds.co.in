@@ -1,8 +1,8 @@
-// ... imports
 import React, { useState, useEffect } from 'react';
 import styles from './AllClients.module.css';
 import ClientView from './ClientView';
 import { Search } from 'react-iconly';
+import API_BASE_URL from './config/api';
 
 interface Client {
   id: number;
@@ -24,7 +24,7 @@ const AllClients: React.FC = () => {
   useEffect(() => {
     const fetchClients = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/bookings/clients', {
+        const response = await fetch(`${API_BASE_URL}/api/bookings/clients`, {
           credentials: 'include'
         });
         if (response.ok) {

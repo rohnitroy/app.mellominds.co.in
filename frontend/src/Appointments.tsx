@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './Appointments.module.css';
 import { Search, Upload, MoreCircle } from 'react-iconly';
+import API_BASE_URL from './config/api';
 
 const Appointments: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('Upcoming');
@@ -18,7 +19,7 @@ const Appointments: React.FC = () => {
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/bookings', {
+        const response = await fetch(`${API_BASE_URL}/api/bookings`, {
           credentials: 'include'
         });
         if (response.ok) {

@@ -4,6 +4,7 @@ import { ArrowLeft } from 'react-iconly';
 import DateInput from './components/DateInput';
 import CustomDropdown from './components/CustomDropdown';
 import { useToast } from './context/ToastContext';
+import API_BASE_URL from './config/api';
 
 interface MyProfileProps {
   onBack: () => void;
@@ -31,7 +32,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const response = await fetch('http://localhost:3001/auth/me', {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
           credentials: 'include'
         });
         if (response.ok) {
@@ -40,7 +41,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
             // Handle profile picture URL - prepend backend URL if it's a local path
             let profilePicUrl = data.user.profile_picture || '';
             if (profilePicUrl && !profilePicUrl.startsWith('http')) {
-              profilePicUrl = `http://localhost:3001${profilePicUrl}`;
+              profilePicUrl = `${API_BASE_URL}${profilePicUrl}`;
             }
             setProfilePicture(profilePicUrl);
             
@@ -119,7 +120,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
         address: formData.address
       };
 
-      const response = await fetch('http://localhost:3001/auth/complete-profile', {
+      const response = await fetch(`${API_BASE_URL}/auth/complete-profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -156,7 +157,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
           const formData = new FormData();
           formData.append('profilePicture', file);
 
-          const response = await fetch('http://localhost:3001/auth/upload-profile-picture', {
+          const response = await fetch(`${API_BASE_URL}/auth/upload-profile-picture`, {
             method: 'POST',
             credentials: 'include',
             body: formData
@@ -164,7 +165,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
 
           if (response.ok) {
             const data = await response.json();
-            setProfilePicture(`http://localhost:3001${data.profilePicture}`);
+            setProfilePicture(`${API_BASE_URL}${data.profilePicture}`);
             toast.success('Profile picture updated successfully!');
           } else {
             const error = await response.json();

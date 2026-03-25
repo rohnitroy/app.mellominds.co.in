@@ -4,6 +4,7 @@ import './LoginPage.css'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
+import API_BASE_URL from '../config/api'
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -27,7 +28,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault()
 
     try {
-      const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001'
+      const apiUrl = API_BASE_URL
       const response = await fetch(`${apiUrl}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -52,7 +53,7 @@ const LoginPage: React.FC = () => {
 
   // Handle Google login - redirect to backend OAuth endpoint
   const handleGoogleLogin = () => {
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001'
+    const apiUrl = API_BASE_URL
     window.location.href = `${apiUrl}/auth/google`
   }
 

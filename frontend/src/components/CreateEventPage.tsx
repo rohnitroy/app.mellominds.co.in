@@ -6,6 +6,7 @@ import AddLocationModal from './AddLocationModal';
 import QuestionModal from './QuestionModal';
 import CustomDropdown from './CustomDropdown';
 import { useToast } from '../context/ToastContext';
+import API_BASE_URL from '../config/api';
 
 const CreateEventPage: React.FC = () => {
     const navigate = useNavigate();
@@ -137,7 +138,7 @@ const CreateEventPage: React.FC = () => {
 
     const fetchAvailability = async () => {
         try {
-            const response = await fetch('http://localhost:3001/api/availability', {
+            const response = await fetch(`${API_BASE_URL}/api/availability`, {
                 credentials: 'include'
             });
 
@@ -261,8 +262,8 @@ const CreateEventPage: React.FC = () => {
             };
 
             const url = isEditMode 
-                ? `http://localhost:3001/api/calendars/${existingCalendar.id}`
-                : 'http://localhost:3001/api/calendars';
+                ? `${API_BASE_URL}/api/calendars/${existingCalendar.id}`
+                : `${API_BASE_URL}/api/calendars`;
 
             const response = await fetch(url, {
                 method: isEditMode ? 'PUT' : 'POST',
