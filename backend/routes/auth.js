@@ -3,6 +3,7 @@ import passport from '../config/passport.js';
 import bcrypt from 'bcrypt';
 import pool from '../config/database.js';
 import multer from 'multer';
+import cloudinary from '../config/cloudinary.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -12,21 +13,8 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// Configure multer for image upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads/profile-pictures');
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
+// Configure multer for memory storage (Cloudinary upload)
+const storage = multer.memoryStorage();
 
 const upload = multer({
   storage: storage,
@@ -230,7 +218,27 @@ router.post('/upload-profile-picture', upload.single('profilePicture'), async (r
     }
 
     const userId = req.user.id;
-    const fileUrl = `/uploads/profile-pictures/${req.file.filename}`;
+
+    // Upload to Cloudinary using buffer
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'mellominds/profile-pictures',
+          public_id: `user_${userId}_${Date.now()}`,
+          transformation: [
+            { width: 500, height: 500, crop: 'fill', gravity: 'face' },
+            { quality: 'auto', fetch_format: 'auto' }
+          ]
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(req.file.buffer);
+    });
+
+    const fileUrl = uploadResult.secure_url;
 
     // Update user's profile picture in database
     const result = await pool.query(
@@ -238,11 +246,14 @@ router.post('/upload-profile-picture', upload.single('profilePicture'), async (r
       [fileUrl, userId]
     );
 
-    // Delete old profile picture if it exists and is not a Google URL
-    if (req.user.profile_picture && !req.user.profile_picture.includes('googleusercontent.com')) {
-      const oldFilePath = path.join(__dirname, '..', req.user.profile_picture);
-      if (fs.existsSync(oldFilePath)) {
-        fs.unlinkSync(oldFilePath);
+    // Delete old profile picture from Cloudinary if it exists
+    if (req.user.profile_picture && req.user.profile_picture.includes('cloudinary.com')) {
+      try {
+        const publicId = req.user.profile_picture.split('/').slice(-2).join('/').split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (deleteError) {
+        console.error('Error deleting old image:', deleteError);
+        // Continue even if deletion fails
       }
     }
 
@@ -253,13 +264,6 @@ router.post('/upload-profile-picture', upload.single('profilePicture'), async (r
 
   } catch (error) {
     console.error('Profile picture upload error:', error);
-    // Delete uploaded file if database update fails
-    if (req.file) {
-      const filePath = path.join(__dirname, '../uploads/profile-pictures', req.file.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
     res.status(500).json({ error: 'Failed to upload profile picture', details: error.message });
   }
 });
