@@ -29,8 +29,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // CORS configuration - allow frontend to communicate with backend
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: [process.env.FRONTEND_URL, 'http://localhost:5173'],
   credentials: true, // Allow cookies to be sent
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 // Session configuration - required for Passport
@@ -38,12 +40,13 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Trust proxy for Render
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+    secure: true, // Always use HTTPS in production
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    domain: process.env.NODE_ENV === 'production' ? '.mellominds.co.in' : undefined,
+    sameSite: 'none', // Required for cross-domain cookies
+    domain: '.mellominds.co.in', // Share cookies across subdomains
   }
 }));
 
