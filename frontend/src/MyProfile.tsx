@@ -5,6 +5,7 @@ import DateInput from './components/DateInput';
 import CustomDropdown from './components/CustomDropdown';
 import { useToast } from './context/ToastContext';
 import API_BASE_URL from './config/api';
+import Loader from './components/Loader';
 
 interface MyProfileProps {
   onBack: () => void;
@@ -180,7 +181,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     input.click();
   };
 
-  if (loading) return <div>Loading profile...</div>;
+  if (loading) return <Loader fullScreen />;
 
   return (
     <div className={styles.profilePage}>

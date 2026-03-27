@@ -142,7 +142,7 @@ router.get('/google/callback', (req, res, next) => {
       if (!user.phone) {
         return res.redirect(`${process.env.FRONTEND_URL}/complete-profile`);
       }
-      return res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+      return res.redirect(`${process.env.FRONTEND_URL}/`);
     });
   })(req, res, next);
 });

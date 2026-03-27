@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Outlet, Navigate, useOutletContext } from 'react-router-dom';
 import './App.css';
 import AllClients from './AllClients';
@@ -15,9 +15,12 @@ import PublicBookingPage from './components/PublicBookingPage';
 import CreateEventPage from './components/CreateEventPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
+import { NotificationProvider, useNotifications } from './context/NotificationContext';
 import ToastContainer from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import API_BASE_URL from './config/api';
+import DataTable from './components/DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 
 interface NavItem {
   name: string;
@@ -44,6 +47,143 @@ interface Action {
   bg: string;
 }
 
+// ===== NOTIFICATION BELL COMPONENT =====
+const NotificationBell: React.FC<{
+  showNotificationsPage: boolean;
+  setShowNotificationsPage: (v: boolean) => void;
+  showNotificationDropdown: boolean;
+  setShowNotificationDropdown: (v: boolean) => void;
+}> = ({ showNotificationsPage, setShowNotificationsPage, showNotificationDropdown, setShowNotificationDropdown }) => {
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowNotificationDropdown(false);
+      }
+    };
+    if (showNotificationDropdown) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showNotificationDropdown, setShowNotificationDropdown]);
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    return isToday
+      ? `Today - ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
+      : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const preview = notifications.slice(0, 5);
+
+  return (
+    <div className="notification-container" ref={dropdownRef} style={{ fontSize: '20px', cursor: 'pointer' }}
+      onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}>
+      <img src={showNotificationDropdown ? 'Notification-tap.svg' : 'Notification.svg'} alt="bell" style={{ width: '35px', height: '35px' }} />
+      {unreadCount > 0 && !showNotificationsPage && <div className="notification-badge"></div>}
+      {showNotificationDropdown && (
+        <div className="notification-dropdown" onClick={e => e.stopPropagation()}>
+          <div className="notification-header">
+            <div className="notification-title">Notifications {unreadCount > 0 && <span style={{ background: '#ff0000', color: '#fff', borderRadius: '10px', padding: '1px 7px', fontSize: '11px', marginLeft: '6px' }}>{unreadCount}</span>}</div>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              {unreadCount > 0 && (
+                <button className="notification-view-more" onClick={e => { e.stopPropagation(); markAllAsRead(); }}>mark all read</button>
+              )}
+              <button className="notification-view-more" onClick={e => { e.stopPropagation(); setShowNotificationsPage(true); setShowNotificationDropdown(false); }}>view more→</button>
+            </div>
+          </div>
+          {preview.length === 0 ? (
+            <div style={{ padding: '20px', textAlign: 'center', color: '#6E6E6E', fontSize: '13px' }}>No notifications yet</div>
+          ) : (
+            preview.map(n => (
+              <div key={n.id} className="notification-item" style={{ background: n.is_read ? 'white' : '#f0faf9' }}
+                onClick={() => { if (!n.is_read) markAsRead(n.id); }}>
+                <div className="notification-content">
+                  <div className="notification-item-title" style={{ color: n.is_read ? '#555' : '#000' }}>{n.title}</div>
+                  <div className="notification-item-desc">{n.description}</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '8px' }}>
+                  <span style={{ fontSize: '11px', color: '#6E6E6E', whiteSpace: 'nowrap' }}>{formatTime(n.created_at)}</span>
+                  {!n.is_read && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2D7579', display: 'inline-block' }}></span>}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ===== NOTIFICATIONS FULL PAGE =====
+const NotificationsPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  const { notifications, markAsRead, markAllAsRead } = useNotifications();
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    if (isToday) return `Today - ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+    if (isYesterday) return `Yesterday - ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const grouped = notifications.reduce((acc: Record<string, typeof notifications>, n) => {
+    const d = new Date(n.created_at);
+    const now = new Date();
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    const key = d.toDateString() === now.toDateString() ? "Today's"
+      : d.toDateString() === yesterday.toDateString() ? "Yesterday's"
+      : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(n);
+    return acc;
+  }, {});
+
+  return (
+    <div className="dashboard-content">
+      <div className="dashboard-header">
+        <div>
+          <h1 style={{ fontFamily: 'Urbanist', fontWeight: '700', fontSize: '30px', lineHeight: '100%' }}>Notifications</h1>
+          <p style={{ fontFamily: 'Urbanist', fontWeight: '600', fontSize: '18px', color: '#6E6E6E' }}>Get alerts regarding new bookings, payments, cancellations, and more...</p>
+        </div>
+        {notifications.some(n => !n.is_read) && (
+          <button onClick={markAllAsRead} style={{ background: '#2D7579', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer', fontFamily: 'Urbanist', fontWeight: '600' }}>
+            Mark all as read
+          </button>
+        )}
+      </div>
+      {Object.keys(grouped).length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#6E6E6E', marginTop: '60px', fontSize: '16px' }}>No notifications yet</div>
+      ) : (
+        Object.entries(grouped).map(([group, items]) => (
+          <div className="notifications-section" key={group}>
+            <h3 style={{ fontFamily: 'Urbanist', fontWeight: '600', fontSize: '18px', color: '#6E6E6E', marginBottom: '16px', marginLeft: '5px' }}>{group}</h3>
+            {items.map(n => (
+              <div key={n.id} className="notification-card" style={{ background: n.is_read ? 'white' : '#f0faf9' }}
+                onClick={() => { if (!n.is_read) markAsRead(n.id); }}>
+                <div className="notification-card-content">
+                  <h4 style={{ fontFamily: 'Urbanist', fontWeight: '700', fontSize: '20px', color: '#082421', margin: '0 0 6px 0' }}>{n.title}</h4>
+                  <p style={{ fontFamily: 'Urbanist', fontWeight: '500', fontSize: '14px', color: '#6E6E6E', margin: '0' }}>{n.description}</p>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0, marginLeft: '16px' }}>
+                  <span style={{ fontFamily: 'Urbanist', fontSize: '13px', color: '#6E6E6E', whiteSpace: 'nowrap' }}>{formatTime(n.created_at)}</span>
+                  {!n.is_read && <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#2D7579', display: 'inline-block' }}></span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))
+      )}
+    </div>
+  );
+};
+
 const DashboardLayout: React.FC = () => {
   const [showSendLinkModal, setShowSendLinkModal] = useState<boolean>(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
@@ -56,7 +196,7 @@ const DashboardLayout: React.FC = () => {
   const navItems: NavItem[] = [
     { name: 'Dashboard', icon: 'Category1.svg', path: '/' },
     { name: 'All Clients', icon: '3 User.svg', path: '/clients' },
-    { name: 'Appointments', icon: 'Calendar1.svg', path: '/appointments' },
+    { name: 'Bookings', icon: 'Calendar1.svg', path: '/bookings' },
     { name: 'My Calendars', icon: 'Category.svg', path: '/calendars' },
     { name: 'Payments & Invoice', icon: 'Wallet.svg', path: '/payments' }
   ];
@@ -122,27 +262,12 @@ const DashboardLayout: React.FC = () => {
       </div>
 
       <div className="user-info">
-        <div className="notification-container" style={{ fontSize: '20px', cursor: 'pointer' }} onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}>
-          <img src={showNotificationDropdown ? "Notification-tap.svg" : "Notification.svg"} alt="bell" style={{ width: '35px', height: '35px' }} />
-          {!showNotificationsPage && <div className="notification-badge"></div>}
-          {showNotificationDropdown && (
-            <div className="notification-dropdown">
-              <div className="notification-header">
-                <div className="notification-title">Notifications</div>
-                <button className="notification-view-more" onClick={(e) => { e.stopPropagation(); setShowNotificationsPage(true); setShowNotificationDropdown(false); }}>view more→</button>
-              </div>
-              <div className="notification-item">
-                <div className="notification-content">
-                  <div className="notification-item-title">New Booking</div>
-                  <div className="notification-item-desc">You have received a new booking from Meet</div>
-                </div>
-                <div className="notification-arrow">
-                  <img src="Arrow - Right Square.svg" alt="arrow" style={{ width: '16px', height: '16px' }} />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <NotificationBell
+          showNotificationsPage={showNotificationsPage}
+          setShowNotificationsPage={setShowNotificationsPage}
+          showNotificationDropdown={showNotificationDropdown}
+          setShowNotificationDropdown={setShowNotificationDropdown}
+        />
         <div className="user-info-card">
           <div className="user-avatar">
             <img 
@@ -174,25 +299,7 @@ const DashboardLayout: React.FC = () => {
       <div className="main-content">
         {renderHeader()}
         {showNotificationsPage ? (
-          <div className="dashboard-content">
-            <div className="dashboard-header">
-              <div>
-                <h1 style={{ fontFamily: 'Urbanist', fontWeight: '700', fontStyle: 'Bold', fontSize: '30px', lineHeight: '100%', letterSpacing: '0%' }}>Notifications</h1>
-                <p style={{ fontFamily: 'Urbanist', fontWeight: '600', fontStyle: 'SemiBold', fontSize: '18px', lineHeight: '100%', letterSpacing: '0%', color: '#6E6E6E' }}>Get alerts regarding new booking, payments, cancellations, and more...</p>
-              </div>
-            </div>
-
-            <div className="notifications-section">
-              <h3 style={{ fontFamily: 'Urbanist', fontWeight: '600', fontStyle: 'SemiBold', fontSize: '18px', lineHeight: '100%', letterSpacing: '0%', color: '#6E6E6E', marginBottom: '16px', marginLeft: '5px' }}>Today's</h3>
-              <div className="notification-card">
-                <div className="notification-card-content">
-                  <h4 style={{ fontFamily: 'Urbanist', fontWeight: '700', fontStyle: 'Bold', fontSize: '25px', lineHeight: '100%', letterSpacing: '0%', color: '#082421', margin: '0 0 4px 0' }}>New Booking</h4>
-                  <p style={{ fontFamily: 'Urbanist', fontWeight: '500', fontStyle: 'Medium', fontSize: '15px', lineHeight: '100%', letterSpacing: '0%', color: '#6E6E6E', margin: '0' }}>You have received a new booking from Meet</p>
-                </div>
-                <span style={{ fontFamily: 'Urbanist', fontWeight: '500', fontStyle: 'Medium', fontSize: '15px', lineHeight: '100%', letterSpacing: '0%', color: '#6E6E6E' }}>Today - 07:32PM</span>
-              </div>
-            </div>
-          </div>
+          <NotificationsPage onBack={() => setShowNotificationsPage(false)} />
         ) : (
           <Outlet context={{ setShowSendLinkModal }} />
         )}
@@ -319,8 +426,6 @@ const DashboardHome: React.FC = () => {
     noOfClients: 0
   });
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 3;
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -349,8 +454,8 @@ const DashboardHome: React.FC = () => {
           console.error('Failed to fetch stats:', statsRes.statusText);
         }
 
-        // Fetch Recent Bookings
-        const bookingsRes = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
+        // Fetch Upcoming Bookings only
+        const bookingsRes = await fetch(`${API_BASE_URL}/api/bookings?upcoming=true`, { credentials: 'include' });
         if (bookingsRes.ok) {
           const data = await bookingsRes.json();
           setRecentBookings(data);
@@ -376,16 +481,6 @@ const DashboardHome: React.FC = () => {
     { label: 'No of Clients', value: stats.noOfClients.toString() }
   ];
 
-  const grayFilter = 'invert(43%) sepia(0%) saturate(0%) hue-rotate(180deg) brightness(95%) contrast(87%)';
-  const blackFilter = 'brightness(0)';
-
-  const totalPages = Math.ceil(recentBookings.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentBookings = recentBookings.slice(startIndex, startIndex + itemsPerPage);
-
-  const handlePrevPage = () => currentPage > 1 && setCurrentPage(currentPage - 1);
-  const handleNextPage = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
-
   const { setShowSendLinkModal: setGlobalModal } = useOutletContext<{ setShowSendLinkModal: (v: boolean) => void }>();
 
   const actions: Action[] = [
@@ -409,15 +504,6 @@ const DashboardHome: React.FC = () => {
     }
   ];
 
-  if (showCreateBooking) {
-    return <CreateBooking onBack={() => {
-      setShowCreateBooking(false);
-      // Refresh data on back
-      // Ideally we'd move fetch logic outside or use React Query, but simplified:
-      window.location.reload();
-    }} />;
-  }
-
   const formatDateTime = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleString('en-US', {
@@ -430,6 +516,44 @@ const DashboardHome: React.FC = () => {
       hour12: true
     });
   };
+
+  const upcomingBookings = useMemo(() => {
+    const now = new Date();
+    return recentBookings.filter(b => new Date(b.start_time) >= now && b.status !== 'cancelled');
+  }, [recentBookings]);
+
+  const bookingColumns: ColumnDef<any, any>[] = useMemo(() => [
+    {
+      accessorKey: 'start_time',
+      header: 'Session Timings',
+      cell: ({ getValue }) => <span className="session-time">{formatDateTime(getValue())}</span>,
+    },
+    {
+      accessorKey: 'client_name',
+      header: 'Client Name',
+      cell: ({ getValue }) => <span className="client-name">{getValue() || 'Client'}</span>,
+    },
+    {
+      accessorKey: 'title',
+      header: 'Session Type',
+      cell: ({ getValue }) => <span className="session-type">{getValue()}</span>,
+    },
+    {
+      id: 'mode',
+      header: 'Mode',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className="session-mode">{row.original.meet_link ? 'Google Meet' : 'In-person'}</span>
+      ),
+    },
+  ], []);
+
+  if (showCreateBooking) {
+    return <CreateBooking onBack={() => {
+      setShowCreateBooking(false);
+      window.location.reload();
+    }} />;
+  }
 
   return (
     <div className="dashboard-content">
@@ -462,34 +586,16 @@ const DashboardHome: React.FC = () => {
               <span>{getDateFilterLabel()}</span>
               <div className="dropdown-arrow">▼</div>
             </div>
-            
             {showDateDropdown && (
               <div className="date-dropdown">
-                <div 
-                  className={`dropdown-item ${dateFilter === 'custom' ? 'selected' : ''}`}
-                  onClick={() => handleDateFilterSelect('custom')}
-                >
-                  Custom
-                </div>
-                <div 
-                  className={`dropdown-item ${dateFilter === 'all_time' ? 'selected' : ''}`}
-                  onClick={() => handleDateFilterSelect('all_time')}
-                >
-                  All time
-                </div>
+                <div className={`dropdown-item ${dateFilter === 'custom' ? 'selected' : ''}`} onClick={() => handleDateFilterSelect('custom')}>Custom</div>
+                <div className={`dropdown-item ${dateFilter === 'all_time' ? 'selected' : ''}`} onClick={() => handleDateFilterSelect('all_time')}>All time</div>
                 {getCurrentMonthOptions().map((month) => (
-                  <div
-                    key={month.value}
-                    className={`dropdown-item ${dateFilter === month.value ? 'selected' : ''}`}
-                    onClick={() => handleDateFilterSelect(month.value)}
-                  >
-                    {month.label}
-                  </div>
+                  <div key={month.value} className={`dropdown-item ${dateFilter === month.value ? 'selected' : ''}`} onClick={() => handleDateFilterSelect(month.value)}>{month.label}</div>
                 ))}
               </div>
             )}
           </div>
-          
           {showCustomDatePicker && (
             <div className="custom-date-modal" onClick={() => setShowCustomDatePicker(false)}>
               <div className="custom-date-content" onClick={(e) => e.stopPropagation()}>
@@ -497,34 +603,16 @@ const DashboardHome: React.FC = () => {
                 <div className="date-inputs">
                   <div className="date-input-group">
                     <label>Start Date</label>
-                    <input 
-                      type="date" 
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                    />
+                    <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} />
                   </div>
                   <div className="date-input-group">
                     <label>End Date</label>
-                    <input 
-                      type="date" 
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                    />
+                    <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} />
                   </div>
                 </div>
                 <div className="date-modal-actions">
                   <button onClick={() => setShowCustomDatePicker(false)} className="cancel-btn">Cancel</button>
-                  <button 
-                    onClick={() => {
-                      if (customStartDate && customEndDate) {
-                        setShowCustomDatePicker(false);
-                      }
-                    }}
-                    className="apply-btn"
-                    disabled={!customStartDate || !customEndDate}
-                  >
-                    Apply
-                  </button>
+                  <button onClick={() => { if (customStartDate && customEndDate) setShowCustomDatePicker(false); }} className="apply-btn" disabled={!customStartDate || !customEndDate}>Apply</button>
                 </div>
               </div>
             </div>
@@ -543,43 +631,18 @@ const DashboardHome: React.FC = () => {
 
       <div className="content-sections">
         <div>
-          <h2 style={{ margin: '0 0 24px 15px', fontFamily: 'Urbanist', fontWeight: '600', fontStyle: 'SemiBold', fontSize: '25px', color: '#082421' }}>Upcoming Bookings</h2>
-          <div className="section">
-            <div className="table-header">
-              <span>Session Timings</span>
-              <span>Client Name</span>
-              <span>Session Type</span>
-              <span>Mode</span>
-            </div>
-            {currentBookings.length === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>No upcoming bookings found.</div>
-            ) : (
-              currentBookings.map((booking, index) => (
-                <div key={index} className="table-row">
-                  <span className="session-time">
-                    {formatDateTime(booking.start_time)}
-                  </span>
-                  <span className="client-name">{booking.client_name || 'Client'}</span>
-                  <span className="session-type">{booking.title}</span>
-                  <span className="session-mode">
-                    {booking.meet_link ? 'Google Meet' : 'In-person'}
-                  </span>
-                </div>
-              ))
-            )}
-            <div className="table-footer">
-              <span>Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, recentBookings.length)} of {recentBookings.length} results</span>
-              <div className="pagination">
-                <img src="Arrow - Left Square.svg" alt="Previous" style={{ width: '25px', height: '25px', cursor: currentPage > 1 ? 'pointer' : 'not-allowed', filter: currentPage > 1 ? blackFilter : grayFilter }} onClick={handlePrevPage} />
-                <img src="Arrow - Right Square.svg" alt="Next" style={{ width: '25px', height: '25px', cursor: currentPage < totalPages ? 'pointer' : 'not-allowed', filter: currentPage < totalPages ? blackFilter : grayFilter }} onClick={handleNextPage} />
-              </div>
-            </div>
-          </div>
+          <h2 style={{ margin: '0 0 24px 0', fontFamily: 'Urbanist', fontWeight: '600', fontSize: '20px', color: '#082421' }}>Upcoming Bookings</h2>
+          <DataTable
+            data={upcomingBookings}
+            columns={bookingColumns}
+            pageSize={5}
+            emptyMessage="No upcoming bookings found."
+          />
         </div>
 
         <div>
-          <h2 style={{ margin: '0 0 24px 0', fontFamily: 'Urbanist', fontWeight: '600', fontStyle: 'SemiBold', fontSize: '25px', color: '#082421' }}>Quick Actions</h2>
-          <div style={{ display: 'grid', gridTemplateRows: 'repeat(3, 1fr)', gap: '16px' }}>
+          <h2 style={{ margin: '0 0 24px 0', fontFamily: 'Urbanist', fontWeight: '600', fontSize: '20px', color: '#082421' }}>Quick Actions</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
             {actions.map((action, index) => (
               <div
                 key={index}
@@ -602,7 +665,6 @@ const DashboardHome: React.FC = () => {
               </div>
             ))}
           </div>
-          <div className="footer">All Rights Reserved. 2026 MelloMinds LLP</div>
         </div>
       </div>
     </div>
@@ -624,7 +686,7 @@ const AppContent: React.FC = () => {
             <Route path="/" element={<DashboardLayout />}>
               <Route index element={<DashboardHome />} />
               <Route path="clients" element={<AllClients />} />
-              <Route path="appointments" element={<Appointments />} />
+              <Route path="bookings" element={<Appointments />} />
               <Route path="calendars" element={<CalendarPage />} />
               <Route path="calendars/new" element={<CreateEventPage />} />
               <Route path="calendars/edit" element={<CreateEventPage />} />
@@ -650,7 +712,9 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <ToastProvider>
-        <AppContent />
+        <NotificationProvider>
+          <AppContent />
+        </NotificationProvider>
       </ToastProvider>
     </AuthProvider>
   );

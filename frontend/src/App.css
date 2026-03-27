@@ -31,7 +31,7 @@ body {
 
 /* ===== SIDEBAR ===== */
 .sidebar {
-  width: 285px;
+  width: 240px;
   background: #082421;
   color: white;
   display: flex;
@@ -51,7 +51,7 @@ body {
 
 /* Logo */
 .logo {
-  padding: 12px 20px 50px;
+  padding: 12px 20px 20px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -131,7 +131,7 @@ body {
   display: flex;
   align-items: center;
   font-weight: 700;
-  font-size: 25px;
+  font-size: 16px;
   justify-content: center;
 }
 
@@ -265,9 +265,9 @@ body {
 
 .dashboard-header p {
   font-family: Urbanist;
-  font-weight: 600;
-  font-style: SemiBold;
-  font-size: 18px;
+  font-weight: 500;
+  font-style: Medium;
+  font-size: 16px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #6E6E6E;
@@ -325,7 +325,7 @@ body {
   border: 1px solid #e9ecef;
   cursor: pointer;
   font-weight: 500;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   color: #6E6E6E;
   font-size: 14px;
   transition: all 0.2s ease;
@@ -333,7 +333,7 @@ body {
 
 .date-selector:hover {
   border-color: #2D7579;
-  box-shadow: 0 0 0 3px rgba(45, 117, 121, 0.1);
+  box-shadow: none;
 }
 
 .date-icon {
@@ -363,7 +363,7 @@ body {
   background: white;
   border: 1px solid #e9ecef;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
   z-index: 100;
   min-width: 180px;
   overflow: hidden;
@@ -411,7 +411,7 @@ body {
   background: white;
   padding: 32px;
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
   min-width: 400px;
 }
 
@@ -455,7 +455,7 @@ body {
 .date-input-group input[type="date"]:focus {
   outline: none;
   border-color: #2D7579;
-  box-shadow: 0 0 0 3px rgba(45, 117, 121, 0.1);
+  box-shadow: none;
 }
 
 .date-modal-actions {
@@ -511,7 +511,7 @@ body {
   background: white;
   padding: 20px 18px;
   border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
   border: 1px solid #f1f3f4;
 }
 
@@ -519,7 +519,7 @@ body {
   font-family: Urbanist;
   font-weight: 500;
   font-style: Medium;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 150%;
   letter-spacing: -1.1%;
   color: #000000CC;
@@ -537,8 +537,8 @@ body {
 
 /* ===== CONTENT SECTIONS ===== */
 .content-sections {
-  display: grid;
-  grid-template-columns: 1.75fr 1.25fr;
+  display: flex;
+  flex-direction: column;
   gap: 28px;
 }
 
@@ -546,7 +546,7 @@ body {
   background: white;
   border-radius: 10px;
   padding: 0 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
   border: 1px solid #f1f3f4;
 }
 
@@ -573,7 +573,7 @@ body {
   border-bottom: 1px solid #00000033;
   font-family: Urbanist;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #082421;
@@ -587,7 +587,7 @@ body {
   padding: 16px 0;
   font-family: Urbanist;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #000000;
@@ -613,7 +613,7 @@ body {
   color: #000000;
   font-family: Urbanist;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 150%;
   letter-spacing: 0%;
 }
@@ -621,7 +621,7 @@ body {
 .client-name {
   font-family: Urbanist;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #000000;
@@ -630,7 +630,7 @@ body {
 .session-type {
   font-family: Urbanist;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 150%;
   letter-spacing: 0%;
   color: #000000;
@@ -639,7 +639,7 @@ body {
 .session-mode {
   font-family: Urbanist;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 150%;
   letter-spacing: 0%;
   color: #000000;
@@ -681,7 +681,7 @@ body {
   cursor: pointer;
   transition: transform 0.2s;
   border: 1px solid #f1f3f4;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
 }
 
 .action-card:hover {
@@ -745,7 +745,7 @@ body {
   background: white;
   border: 1px solid #e9ecef;
   border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
   z-index: 10;
   margin-top: 8px;
 }

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { API_URL } from '../config/api';
+import Loader from '../components/Loader';
 
 interface User {
     id: string;
@@ -79,7 +80,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     if (loading) {
-        return <div>Loading...</div>; // Or a spinner
+        return <Loader fullScreen text="Loading..." />;
     }
 
     return (

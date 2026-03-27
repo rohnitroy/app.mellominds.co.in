@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
+import Loader from './Loader';
 
 interface AvailabilitySlot {
     day_of_week: number;
@@ -290,7 +291,7 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }
                 </div>
 
                 {loading ? (
-                    <div>Loading...</div>
+                    <Loader />
                 ) : (
                     <div className="schedule-list">
                         <div style={{ display: 'grid', gridTemplateColumns: '100px 60px 1fr', gap: '10px', padding: '0 10px 10px', borderBottom: '1px solid #eee', marginBottom: '10px', fontWeight: 'bold', color: '#555' }}>

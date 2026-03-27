@@ -65,7 +65,7 @@
   padding: 24px;
   color: #1a1a1a;
   font-family: 'Urbanist', sans-serif;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
   border: 1px solid #e5e5e5;
   aspect-ratio: 4/3;
   display: flex;
@@ -233,7 +233,7 @@
   background-color: white;
   border-radius: 50%;
   transition: transform 0.3s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 input[type="checkbox"]:checked+.switch {
@@ -267,7 +267,7 @@ input[type="checkbox"]:checked+.switch:before {
   width: 100%;
   max-width: 500px;
   font-family: 'Urbanist', sans-serif;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 .modal-header {
@@ -428,7 +428,7 @@ input[type="checkbox"]:checked+.switch:before {
   background: white;
   border: 1px solid #e9ecef;
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: none;
   z-index: 100;
   min-width: 180px;
   overflow: hidden;

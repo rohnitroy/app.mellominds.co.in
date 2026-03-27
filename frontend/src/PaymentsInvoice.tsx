@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styles from './PaymentsInvoice.module.css';
 import API_BASE_URL from './config/api';
+import DataTable from './components/DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 
 const PaymentsInvoice: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('All Payments');
@@ -11,9 +13,7 @@ const PaymentsInvoice: React.FC = () => {
   useEffect(() => {
     const fetchBookings = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/bookings`, {
-          credentials: 'include'
-        });
+        const response = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
           setBookings(data);
@@ -27,26 +27,75 @@ const PaymentsInvoice: React.FC = () => {
 
   const formatDateTime = (isoString: string) => {
     const date = new Date(isoString);
-    return `${date.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })} at ${date.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-  };
-
-  const getFilteredPayments = () => {
-    // Filter based on tab
-    return bookings.filter(b => {
-      switch (activeTab) {
-        case 'All Cancellations':
-          return b.status === 'cancelled' || b.payment_status === 'Refunded';
-        case 'Pending Payments':
-          return b.payment_status === 'Pending';
-        case 'All Payments':
-        default:
-          // Show everything or just Paid/Pending? All implies all history
-          return true;
-      }
+    return date.toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
     });
   };
 
-  const filteredPayments = getFilteredPayments();
+  const filteredPayments = useMemo(() => {
+    return bookings.filter(b => {
+      switch (activeTab) {
+        case 'All Cancellations': return b.status === 'cancelled' || b.payment_status === 'Refunded';
+        case 'Pending Payments':  return b.payment_status === 'Pending';
+        default:                  return true;
+      }
+    });
+  }, [bookings, activeTab]);
+
+  const columns: ColumnDef<any, any>[] = useMemo(() => [
+    {
+      id: 'client',
+      header: 'Client Details',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div>
+          <div className={styles.clientName}>{row.original.client_name || 'Unknown'}</div>
+          <div className={styles.clientPhone}>{row.original.client_phone || '—'}</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'title',
+      header: 'Session Type',
+    },
+    {
+      accessorKey: 'start_time',
+      header: 'Session Timing',
+      cell: ({ getValue }) => formatDateTime(getValue()),
+    },
+    {
+      accessorKey: 'payment_amount',
+      header: 'Amount',
+      cell: ({ getValue }) => <span className={styles.amount}>₹{getValue() || 0}</span>,
+    },
+    {
+      accessorKey: 'payment_status',
+      header: 'Status',
+      cell: ({ getValue }) => {
+        const status = getValue() || 'Pending';
+        const colors: Record<string, { bg: string; color: string }> = {
+          Paid:      { bg: '#e8f5e9', color: '#2e7d32' },
+          Pending:   { bg: '#fff3e0', color: '#e65100' },
+          Refunded:  { bg: '#fdecea', color: '#c62828' },
+        };
+        const style = colors[status] || colors.Pending;
+        return (
+          <span style={{ background: style.bg, color: style.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>
+            {status}
+          </span>
+        );
+      },
+    },
+    {
+      id: 'invoice',
+      header: 'Invoice',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <span className={styles.invoiceLink}>View IN#{row.original.id}</span>
+      ),
+    },
+  ], []);
 
   return (
     <div className={styles.paymentsPage}>
@@ -55,23 +104,10 @@ const PaymentsInvoice: React.FC = () => {
           <h1>Payments & Invoices</h1>
           <p>View Client's payment, cancellations and invoices</p>
         </div>
-        <div className={styles.headerActions}>
-          <div className={styles.searchContainer}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="11" cy="11" r="8" stroke="#6E6E6E" strokeWidth="2" />
-              <path d="m21 21-4.35-4.35" stroke="#6E6E6E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <input type="text" placeholder="Search users by name, or phone no" />
-          </div>
-          <button className={styles.exportBtn}>
-            <img src="/Upload.svg" alt="" />
-            Export to CSV
-          </button>
-        </div>
       </div>
 
       <div className={styles.paymentsTabs}>
-        {tabs.map((tab) => (
+        {tabs.map(tab => (
           <button
             key={tab}
             className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''}`}
@@ -80,49 +116,27 @@ const PaymentsInvoice: React.FC = () => {
             {tab}
           </button>
         ))}
-        <button className={styles.filterBtn}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M22 3H2L10 12.46V19L14 21V12.46L22 3Z" stroke="#6E6E6E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </div>
+
+      <div className={styles.headerActions}>
+        <div className={styles.searchContainer}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="8" stroke="#6E6E6E" strokeWidth="2" />
+            <path d="m21 21-4.35-4.35" stroke="#6E6E6E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
+          <input type="text" placeholder="Search users by name, or phone no" />
+        </div>
+        <button className={styles.exportBtn}>
+          <img src="/Upload.svg" alt="" />Export to CSV
         </button>
       </div>
 
-      <div className={styles.paymentsTable}>
-        <div className={styles.tableHeader}>
-          <span>Client Details</span>
-          <span>Session Type</span>
-          <span>Session Timing</span>
-          <span>Amount</span>
-          <span>Status</span>
-          <span>Invoices</span>
-        </div>
-
-        {filteredPayments.length === 0 ? (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>No payment records found</div>
-        ) : (
-          filteredPayments.map((payment, index) => (
-            <div key={index} className={styles.tableRow}>
-              <div className={styles.clientDetails}>
-                <div className={styles.clientName}>{payment.client_name || 'Unknown'}</div>
-                <div className={styles.clientPhone}>{payment.client_phone || '-'}</div>
-              </div>
-              <span>{payment.title}</span>
-              <span>{formatDateTime(payment.start_time)}</span>
-              <span className={styles.amount}>Rs. {payment.payment_amount || 0}/-</span>
-              <span className={styles.status}>{payment.payment_status || 'Pending'}</span>
-              <span className={styles.invoiceLink}>View IN#{payment.id}</span>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className={styles.pagination}>
-        <span>Showing 1 to {Math.min(10, filteredPayments.length)} of {filteredPayments.length} results</span>
-        <div className={styles.paginationControls}>
-          <img src="/Arrow - Left Square.svg" alt="Previous" className={styles.paginationBtn} />
-          <img src="/Arrow - Right Square.svg" alt="Next" className={styles.paginationBtn} />
-        </div>
-      </div>
+      <DataTable
+        data={filteredPayments}
+        columns={columns}
+        pageSize={10}
+        emptyMessage="No payment records found"
+      />
     </div>
   );
 };

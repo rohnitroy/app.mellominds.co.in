@@ -5,6 +5,7 @@ import InlineCalendar from './InlineCalendar';
 import TimeSlotList from './TimeSlotList';
 import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
+import Loader from './Loader';
 
 interface Calendar {
     id: number;
@@ -147,7 +148,7 @@ const PublicBookingPage: React.FC = () => {
         }
     };
 
-    if (loading) return <div className="loading-screen">Loading...</div>;
+    if (loading) return <Loader fullScreen />;
     if (error || !calendar) return <div className="error-screen">{error}</div>;
 
     if (step === 'success') {

@@ -221,13 +221,13 @@
     cursor: pointer;
     border: 2px solid transparent;
     transition: all 0.2s;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: none;
 }
 
 .colorOption.selected {
     border-color: #082421;
     transform: scale(1.1);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: none;
 }
 
 .locationSelector {
@@ -469,14 +469,14 @@
     align-items: center;
     gap: 8px;
     transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    box-shadow: none;
 }
 
 .templateBtn:hover {
     border-color: #3787F8;
     color: #3787F8;
     background: #f0f7ff;
-    box-shadow: 0 2px 4px rgba(55, 135, 248, 0.1);
+    box-shadow: none;
 }
 
 .questionsHeader {
@@ -527,7 +527,7 @@
 }
 
 .questionItem:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: none;
     border-color: #d0d0d0;
 }
 
@@ -625,7 +625,7 @@
 .modal {
     background: white;
     border-radius: 12px;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+    box-shadow: none;
     width: 500px;
     max-width: 90%;
     margin: 20px;
@@ -782,7 +782,7 @@
     font-size: 14px;
     font-weight: 500;
     color: #1a1a1a;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    box-shadow: none;
 }
 
 .tagRemoveBtn {
@@ -819,7 +819,7 @@
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     margin-top: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: none;
     z-index: 10;
     padding: 8px 0;
 }

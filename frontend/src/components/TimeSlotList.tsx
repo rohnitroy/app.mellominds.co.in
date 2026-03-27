@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import API_BASE_URL from '../config/api';
+import Loader from './Loader';
 
 interface TimeSlotListProps {
     calendarId: number;
@@ -54,7 +55,7 @@ const TimeSlotList: React.FC<TimeSlotListProps> = ({ calendarId, selectedDate, o
             </h3>
 
             <div className="slots-scroll-container">
-                {loading && <div className="loading-slots">Loading availability...</div>}
+                {loading && <Loader />}
 
                 {!loading && slots.length === 0 && (
                     <div className="no-slots">No slots available for this date.</div>

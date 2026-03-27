@@ -526,9 +526,7 @@ const SignUpPage: React.FC = () => {
             </>
           )}
 
-          <p className="footer-text">
-            All Rights Reserved. 2026 MelloMinds LLP
-          </p>
+
         </div>
       </div>
     </div>

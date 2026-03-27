@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DateInput from './DateInput';
 import API_BASE_URL from '../config/api';
+import Loader from './Loader';
 
 interface BookingSlotPickerProps {
     calendarId: number;
@@ -77,7 +78,7 @@ const BookingSlotPicker: React.FC<BookingSlotPickerProps> = ({ calendarId, initi
             <div style={{ marginBottom: '10px' }}>
                 <label className="form-label" style={{ display: 'block', marginBottom: '5px', fontWeight: 500 }}>Available Times</label>
 
-                {loading && <div style={{ fontSize: '14px', color: '#666' }}>Checking availability...</div>}
+                {loading && <Loader />}
 
                 {error && <div style={{ fontSize: '14px', color: '#dc3545' }}>{error}</div>}
 

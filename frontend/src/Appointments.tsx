@@ -1,27 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styles from './Appointments.module.css';
-import { Search, Upload, MoreCircle } from 'react-iconly';
+import { Search } from 'react-iconly';
 import API_BASE_URL from './config/api';
+import DataTable from './components/DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 
 const Appointments: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('Upcoming');
   const [appointments, setAppointments] = useState<any[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const itemsPerPage = 10;
 
-  const tabs = ['Upcoming', 'All Appointments', 'Completed', 'No Show', 'Cancelled'];
-
-  // Reset to page 1 when tab changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab]);
+  const tabs = ['Upcoming', 'All Bookings', 'Completed', 'Pending Session Notes', 'Cancelled', 'No Show'];
 
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/bookings`, {
-          credentials: 'include'
-        });
+        const response = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
         if (response.ok) {
           const data = await response.json();
           setAppointments(data);
@@ -33,75 +26,104 @@ const Appointments: React.FC = () => {
     fetchAppointments();
   }, []);
 
-  const formatDateTime = (isoString: string, durationMinutes: number = 60) => {
-    const startDate = new Date(isoString);
-    const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
-
-    return `${startDate.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })} at ${startDate.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endDate.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} IST`;
+  const formatDateTime = (isoString: string) => {
+    const start = new Date(isoString);
+    return start.toLocaleString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric',
+      year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
+    });
   };
 
-  const getFilteredAppointments = () => {
+  const filteredAppointments = useMemo(() => {
     const now = new Date();
     return appointments.filter(app => {
       const startTime = new Date(app.start_time);
-
       switch (activeTab) {
         case 'Upcoming':
-          return startTime > now && app.status !== 'cancelled';
+          return startTime > now && app.status !== 'cancelled' && app.status !== 'noshow';
         case 'Completed':
-          return startTime < now && app.status !== 'cancelled';
+          return startTime < now && app.status !== 'cancelled' && app.status !== 'noshow';
+        case 'Pending Session Notes':
+          // Appointments that are past, not cancelled/noshow, and have no notes
+          return startTime < now
+            && app.status !== 'cancelled'
+            && app.status !== 'noshow'
+            && (!app.notes || app.notes.length === 0);
         case 'Cancelled':
           return app.status === 'cancelled';
         case 'No Show':
-          return app.status === 'noshow'; // Assuming noshow status exists
-        case 'All Appointments':
+          return app.status === 'noshow';
+        case 'All Bookings':
         default:
           return true;
       }
     });
-  };
+  }, [appointments, activeTab]);
 
-  const filteredAppointments = getFilteredAppointments();
-
-  // Get current posts
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredAppointments.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
+  const columns: ColumnDef<any, any>[] = useMemo(() => [
+    {
+      accessorKey: 'start_time',
+      header: 'Session Timings',
+      cell: ({ getValue }) => formatDateTime(getValue()),
+    },
+    {
+      accessorKey: 'title',
+      header: 'Session Name',
+    },
+    {
+      accessorKey: 'client_name',
+      header: 'Client Name',
+      cell: ({ getValue }) => getValue() || '—',
+    },
+    {
+      id: 'contact',
+      header: 'Contact Info',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div>
+          <div className={styles.clientName}>{row.original.client_email || '—'}</div>
+          <div className={styles.clientPhone}>{row.original.client_phone || '—'}</div>
+        </div>
+      ),
+    },
+    {
+      id: 'mode',
+      header: 'Mode',
+      enableSorting: false,
+      cell: ({ row }) => row.original.meet_link ? 'Google Meet' : 'In-person',
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ getValue }) => {
+        const status = (getValue() || 'scheduled') as string;
+        const colors: Record<string, { bg: string; color: string }> = {
+          scheduled: { bg: '#e8f5e9', color: '#2e7d32' },
+          cancelled:  { bg: '#fdecea', color: '#c62828' },
+          completed:  { bg: '#e3f2fd', color: '#1565c0' },
+          noshow:     { bg: '#fff3e0', color: '#e65100' },
+        };
+        const style = colors[status] || colors.scheduled;
+        return (
+          <span style={{ background: style.bg, color: style.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, textTransform: 'capitalize' }}>
+            {status}
+          </span>
+        );
+      },
+    },
+  ], []);
 
   return (
     <div className={styles.appointmentsPage}>
       <div className={styles.appointmentsHeader}>
         <div className={styles.headerContent}>
-          <h1>My Appointments</h1>
-          <p>View Recently Book Session, Send Invite and more...</p>
-        </div>
-        <div className={styles.headerActions}>
-          <div className={styles.searchContainer}>
-            <Search size="small" primaryColor="#6E6E6E" />
-            <input type="text" placeholder="Search users by name, or phone no" />
-          </div>
-          <button className={styles.exportBtn}>
-            <img src="/Upload.svg" alt="" />
-            Export to CSV
-          </button>
+          <h1>Bookings</h1>
+          <p>View Recently Booked Sessions, Send Invite and more...</p>
         </div>
       </div>
 
       <div className={styles.appointmentsTabs}>
-        {tabs.map((tab) => (
+        {tabs.map(tab => (
           <button
             key={tab}
             className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''}`}
@@ -112,68 +134,22 @@ const Appointments: React.FC = () => {
         ))}
       </div>
 
-      <div className={styles.tableContainer}>
-        {filteredAppointments.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>No appointments found</div>
-        ) : (
-          <table className={styles.appointmentsTable}>
-            <thead>
-              <tr>
-                <th>Client Details</th>
-                <th>Session Type</th>
-                <th>Session Timing</th>
-                <th>Mode</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentItems.map((appointment, index) => (
-                <tr key={index}>
-                  <td>
-                    <div className={styles.clientDetails}>
-                      <div className={styles.clientName}>{appointment.client_name || 'Unknown'}</div>
-                      <div className={styles.clientPhone}>{appointment.client_phone || '-'}</div>
-                    </div>
-                  </td>
-                  <td>{appointment.title}</td>
-                  <td>{formatDateTime(appointment.start_time)}</td>
-                  <td>{appointment.meet_link ? 'Google Meet' : 'In-person'}</td>
-                  <td>{appointment.status || 'Scheduled'}</td>
-                  <td>
-                    <button className={styles.actionsBtn}>
-                      <MoreCircle set="light" size={24} primaryColor="#6E6E6E" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <div className={styles.headerActions}>
+        <div className={styles.searchContainer}>
+          <Search size="small" primaryColor="#6E6E6E" />
+          <input type="text" placeholder="Search users by name, or phone no" />
+        </div>
+        <button className={styles.exportBtn}>
+          <img src="/Upload.svg" alt="" />Export to CSV
+        </button>
       </div>
 
-      {filteredAppointments.length > 0 && (
-        <div className={styles.pagination}>
-          <span>Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredAppointments.length)} of {filteredAppointments.length} results</span>
-          <div className={styles.paginationControls}>
-            <img
-              src="/Arrow - Left Square.svg"
-              alt="Previous"
-              className={styles.paginationBtn}
-              style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'default' : 'pointer' }}
-              onClick={handlePrevPage}
-            />
-            <span style={{ margin: '0 10px', fontSize: '14px', fontWeight: 500 }}>Page {currentPage} of {totalPages}</span>
-            <img
-              src="/Arrow - Right Square.svg"
-              alt="Next"
-              className={styles.paginationBtn}
-              style={{ opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'default' : 'pointer' }}
-              onClick={handleNextPage}
-            />
-          </div>
-        </div>
-      )}
+      <DataTable
+        data={filteredAppointments}
+        columns={columns}
+        pageSize={10}
+        emptyMessage="No bookings found"
+      />
     </div>
   );
 };

@@ -9,7 +9,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   gap: 20px;
 }
 
@@ -23,8 +23,8 @@
 
 .headerContent p {
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
-  font-size: 18px;
+  font-weight: 500;
+  font-size: 16px;
   color: #6E6E6E;
   margin: 0;
 }
@@ -33,12 +33,20 @@
   display: flex;
   gap: 16px;
   align-items: center;
+  padding: 16px 0;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.searchContainer input {
+  width: 100%;
 }
 
 .searchContainer {
   position: relative;
   display: flex;
   align-items: center;
+  flex: 1;
 }
 
 .searchContainer svg,
@@ -58,7 +66,7 @@
   border-radius: 12px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   background: white;
@@ -68,7 +76,7 @@
 .searchContainer input::placeholder {
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #6E6E6E;
@@ -102,7 +110,7 @@
   padding: 16px 24px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 18px;
+  font-size: 16px;
   color: #6E6E6E;
   cursor: pointer;
   border-bottom: 3px solid transparent;

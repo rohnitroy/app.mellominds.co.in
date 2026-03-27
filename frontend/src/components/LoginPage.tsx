@@ -157,9 +157,7 @@ const LoginPage: React.FC = () => {
             Don't have an account? <Link to="/signup">Create an account!</Link>
           </p>
 
-          <p className="footer-text">
-            All Rights Reserved. 2026 MelloMinds LLP
-          </p>
+
         </div>
       </div>
     </div>

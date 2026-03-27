@@ -11,6 +11,7 @@ import bookingsRoutes from './routes/bookings.js';
 import clientsRoutes from './routes/clients.js';
 import availabilityRoutes from './routes/availability.js';
 import notesRoutes from './routes/notes.js';
+import notificationsRoutes from './routes/notifications.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -36,17 +37,18 @@ app.use(cors({
 }));
 
 // Session configuration - required for Passport
+const isProduction = process.env.NODE_ENV === 'production';
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  proxy: true, // Trust proxy for Render
+  proxy: isProduction,
   cookie: {
-    secure: true, // Always use HTTPS in production
+    secure: isProduction,
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'none', // Required for cross-domain cookies
-    domain: '.mellominds.co.in', // Share cookies across subdomains
+    sameSite: isProduction ? 'none' : 'lax',
+    domain: isProduction ? '.mellominds.co.in' : undefined,
   }
 }));
 
@@ -63,6 +65,7 @@ app.use('/api/connect-calendar', connectCalendarRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/notes', notesRoutes);
+app.use('/api/notifications', notificationsRoutes);
 app.use('/api/availability', availabilityRoutes);
 
 // Global Error Handler

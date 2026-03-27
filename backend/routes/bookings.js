@@ -1,6 +1,7 @@
 import express from 'express';
 import { google } from 'googleapis';
 import pool from '../config/database.js';
+import { createNotification } from '../lib/notifications.js';
 
 const router = express.Router();
 
@@ -124,6 +125,16 @@ router.post('/public', async (req, res) => {
         );
 
         await client.query('COMMIT');
+
+        // Notify therapist of new booking (public)
+        await createNotification({
+            userId,
+            type: 'new_booking',
+            title: 'New Booking',
+            description: `You have received a new booking from ${client_name}`,
+            relatedId: insertRes.rows[0].id
+        });
+
         res.status(201).json(insertRes.rows[0]);
 
     } catch (error) {
@@ -244,6 +255,7 @@ router.get('/clients', async (req, res) => {
                 c.phone,
                 COUNT(a.id) as sessions,
                 COALESCE(SUM(a.payment_amount), 0) as total_revenue,
+                MAX(a.start_time) as last_session,
                 c.age,
                 c.occupation,
                 c.gender,
@@ -266,6 +278,7 @@ router.get('/clients', async (req, res) => {
             email: row.email,
             sessions: row.sessions.toString(),
             revenue: `₹${row.total_revenue}`,
+            lastSession: row.last_session ? new Date(row.last_session).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
             // Include other details for ClientView
             age: row.age || '-',
             occupation: row.occupation || '-',
@@ -290,7 +303,7 @@ router.get('/', async (req, res) => {
     const client = await pool.connect();
     try {
         const userId = req.user.id;
-        const { email } = req.query; // Optional filter by client email
+        const { email, upcoming } = req.query;
 
         let query = `
             SELECT 
@@ -308,9 +321,12 @@ router.get('/', async (req, res) => {
             FROM Appointments a
             LEFT JOIN SessionNotes sn ON a.id = sn.appointment_id AND sn.therapist_id = $1
             WHERE a.therapist_id = $1
-            AND a.start_time >= NOW()
         `;
         let params = [userId];
+
+        if (upcoming === 'true') {
+            query += ' AND a.start_time >= NOW() AND a.status != \'cancelled\'';
+        }
 
         if (email) {
             query += " AND a.client_email = $2"; // Note the table alias 'a'
@@ -448,6 +464,16 @@ router.post('/', async (req, res) => {
         );
 
         await client.query('COMMIT');
+
+        // Notify therapist of manually created booking
+        await createNotification({
+            userId,
+            type: 'new_booking',
+            title: 'Booking Created',
+            description: `A new session has been scheduled for ${client_name || 'a client'}`,
+            relatedId: insertRes.rows[0].id
+        });
+
         res.status(201).json(insertRes.rows[0]);
 
     } catch (error) {

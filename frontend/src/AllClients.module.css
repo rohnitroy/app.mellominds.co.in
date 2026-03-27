@@ -8,7 +8,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .pageHeader h1 {
@@ -23,8 +23,8 @@
 
 .pageHeader p {
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
-  font-size: 18px;
+  font-weight: 500;
+  font-size: 16px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #6E6E6E;
@@ -35,12 +35,20 @@
   display: flex;
   gap: 16px;
   align-items: center;
+  width: 100%;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
 
 .searchContainer {
   position: relative;
   display: flex;
   align-items: center;
+  flex: 1;
+}
+
+.searchInput {
+  width: 100%;
 }
 
 .searchContainer svg {
@@ -52,13 +60,12 @@
 .searchInput {
   width: 376px;
   height: 50px;
-  /* Reduced height */
   padding: 0 16px 0 50px;
   border: 1px solid rgba(0, 0, 0, 0.3);
   border-radius: 12px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   background: white;
@@ -68,7 +75,7 @@
 .searchInput::placeholder {
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #6E6E6E;
@@ -93,7 +100,7 @@
   background: white;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
   border: 1px solid #f1f3f4;
 }
 
@@ -108,7 +115,7 @@
   padding: 20px 24px;
   text-align: left;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   color: #082421;
   border-bottom: 2px solid #00000033;
   font-family: 'Urbanist', sans-serif;
@@ -138,7 +145,7 @@
 
 .clientName {
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   color: #082421;
   line-height: 1.4;
 }
@@ -149,7 +156,7 @@
 
 .phoneNumber {
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   color: #000000;
   line-height: 1.4;
   margin-bottom: 4px;
@@ -157,7 +164,7 @@
 
 .emailAddress {
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   color: #6E6E6E;
   line-height: 1.4;
 }
@@ -173,7 +180,7 @@
 
 .sessionCount {
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   color: #082421;
   display: inline-block;
   min-width: 24px;
@@ -186,7 +193,7 @@
 
 .revenueAmount {
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   color: #082421;
   line-height: 1.4;
 }
