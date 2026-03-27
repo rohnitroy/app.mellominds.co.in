@@ -6,40 +6,64 @@
     <title>MelloMinds Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="icon" href="%PUBLIC_URL%/MelloFevicon 1.png" />
-    <script>
-      (function() {
-        var isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-          || window.innerWidth < 768;
-        var isBookingPage = window.location.pathname.startsWith('/book/');
-        if (isMobile && !isBookingPage) {
-          document.addEventListener('DOMContentLoaded', function() {
-            var root = document.getElementById('root');
-            var count = 5;
-            root.innerHTML =
-              '<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f4fffe;font-family:Urbanist,sans-serif;padding:32px;text-align:center;">' +
-                '<img src="/MelloFevicon 1.png" alt="MelloMinds" style="width:72px;height:72px;margin-bottom:24px;" />' +
-                '<h1 style="font-size:22px;font-weight:700;color:#082421;margin:0 0 12px;">Desktop & Tablet Only</h1>' +
-                '<p style="font-size:15px;color:#4a6360;max-width:320px;line-height:1.6;margin:0 0 32px;">The MelloMinds dashboard is optimised for desktop and tablet screens. Please open it on a larger device for the best experience.</p>' +
-                '<div style="width:72px;height:72px;border-radius:50%;background:#082421;display:flex;align-items:center;justify-content:center;margin-bottom:20px;">' +
-                  '<span id="mm-count" style="font-size:28px;font-weight:700;color:#F9E141;">' + count + '</span>' +
-                '</div>' +
-                '<p style="font-size:13px;color:#7f8c8d;">Redirecting to <strong>mellominds.co.in</strong>&hellip;</p>' +
-              '</div>';
-            var interval = setInterval(function() {
-              count--;
-              var el = document.getElementById('mm-count');
-              if (el) el.textContent = count;
-              if (count <= 0) {
-                clearInterval(interval);
-                window.location.replace('https://mellominds.co.in');
-              }
-            }, 1000);
-          });
-        }
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function() {
+        var ua = navigator.userAgent;
+        var isTablet = /iPad/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua));
+        var isMobile = !isTablet && (
+          /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+          || window.innerWidth < 768
+        );
+        var isBookingPage = window.location.pathname.startsWith('/book/');
+
+        if (!isMobile || isBookingPage) return;
+
+        // Mobile detected — hijack #root before React mounts
+        var root = document.getElementById('root');
+        var count = 5;
+
+        root.style.cssText = [
+          'min-height:100vh',
+          'display:flex',
+          'flex-direction:column',
+          'align-items:center',
+          'justify-content:center',
+          'background:#f4fffe',
+          'font-family:Urbanist,sans-serif',
+          'padding:32px',
+          'text-align:center',
+          'box-sizing:border-box'
+        ].join(';');
+
+        root.innerHTML =
+          '<img src="/MelloFevicon 1.png" alt="MelloMinds" style="width:72px;height:72px;margin-bottom:24px;" />' +
+          '<h1 style="font-size:22px;font-weight:700;color:#082421;margin:0 0 12px;">Desktop &amp; Tablet Only</h1>' +
+          '<p style="font-size:15px;color:#4a6360;max-width:300px;line-height:1.6;margin:0 0 32px;">' +
+            'The MelloMinds dashboard is optimised for desktop and tablet screens. ' +
+            'Please open it on a larger device for the best experience.' +
+          '</p>' +
+          '<div style="width:72px;height:72px;border-radius:50%;background:#082421;display:flex;align-items:center;justify-content:center;margin-bottom:16px;">' +
+            '<span id="mm-count" style="font-size:28px;font-weight:700;color:#F9E141;">' + count + '</span>' +
+          '</div>' +
+          '<p style="font-size:13px;color:#7f8c8d;margin:0;">Redirecting to <strong>mellominds.co.in</strong>&#8230;</p>';
+
+        // Tick every second
+        var interval = setInterval(function() {
+          count--;
+          var el = document.getElementById('mm-count');
+          if (el) el.textContent = String(count);
+          if (count <= 0) {
+            clearInterval(interval);
+            window.location.replace('https://mellominds.co.in');
+          }
+        }, 1000);
+
+        // Prevent React bundle scripts from running
+        window.__MOBILE_BLOCKED__ = true;
+      })();
+    </script>
   </body>
 </html>
