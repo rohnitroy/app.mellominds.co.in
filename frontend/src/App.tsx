@@ -19,6 +19,7 @@ import { NotificationProvider, useNotifications } from './context/NotificationCo
 import ToastContainer from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import API_BASE_URL from './config/api';
+import { Category, TwoUsers, Calendar, Discovery, Wallet, Setting, Paper } from 'react-iconly';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 
@@ -190,6 +191,7 @@ const DashboardLayout: React.FC = () => {
   const [showNotificationsPage, setShowNotificationsPage] = useState<boolean>(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const { logout, user } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -202,9 +204,29 @@ const DashboardLayout: React.FC = () => {
   ];
 
   const bottomNavItems: NavItem[] = [
-    { name: 'My Settings', icon: 'Setting.svg', path: '/settings' },
-    { name: 'Contact Support', icon: 'Calling.svg', path: '/support' }
+    { name: 'Notifications', icon: 'Notification.svg', path: '/notifications' },
+    { name: 'My Settings', icon: 'Setting.svg', path: '/settings' }
   ];
+
+  const isNavActive = (item: NavItem) =>
+    !showNotificationsPage && (
+      location.pathname === item.path ||
+      (item.path !== '/' && location.pathname.startsWith(item.path))
+    );
+
+  const renderNavIcon = (name: string, active: boolean) => {
+    const color = active ? '#082421' : '#D5FFFA';
+    const props = { size: 24, primaryColor: color } as any;
+    switch (name) {
+      case 'Dashboard':          return <Category {...props} />;
+      case 'All Clients':        return <TwoUsers {...props} />;
+      case 'Bookings':           return <Paper {...props} />;
+      case 'My Calendars':       return <Calendar {...props} />;
+      case 'Payments & Invoice': return <Wallet {...props} />;
+      case 'My Settings':        return <Setting {...props} />;
+      default:                   return null;
+    }
+  };
 
   const renderSidebar = (): JSX.Element => (
     <div className="sidebar">
@@ -216,11 +238,11 @@ const DashboardLayout: React.FC = () => {
         {navItems.map((item) => (
           <div
             key={item.name}
-            className={`nav-item ${location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path)) ? 'active' : ''}`}
+            className={`nav-item ${isNavActive(item) ? 'active' : ''}`}
             onClick={() => { setShowNotificationsPage(false); navigate(item.path); }}
           >
             <span className={`nav-icon ${item.name === 'My Calendars' ? 'calendar-icon' : ''}`}>
-              <img src={item.icon} alt={item.name} />
+              {renderNavIcon(item.name, isNavActive(item))}
             </span>
             {item.name}
           </div>
@@ -231,10 +253,37 @@ const DashboardLayout: React.FC = () => {
 
       <div className="nav-bottom">
         {bottomNavItems.map((item) => (
-          <div key={item.name} className={`nav-item ${location.pathname === item.path ? 'active' : ''}`} onClick={() => { setShowNotificationsPage(false); navigate(item.path); }}>
-            <span className="nav-icon">
-              <img src={item.icon} alt={item.name} />
-            </span>
+          <div key={item.name} className={`nav-item ${
+            item.name === 'Notifications'
+              ? showNotificationsPage ? 'active' : ''
+              : !showNotificationsPage && location.pathname === item.path ? 'active' : ''
+          }`} onClick={() => {
+            if (item.name === 'Notifications') {
+              setShowNotificationsPage(true);
+            } else {
+              setShowNotificationsPage(false);
+              navigate(item.path);
+            }
+          }}>
+            {item.name === 'Notifications' ? (
+              <span className="nav-icon" style={{ position: 'relative' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {unreadCount > 0 && !showNotificationsPage && (
+                  <span style={{
+                    position: 'absolute', top: '-4px', right: '-4px',
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: '#ff0000', border: '1.5px solid #082421'
+                  }} />
+                )}
+              </span>
+            ) : (
+              <span className="nav-icon">
+                {renderNavIcon(item.name, !showNotificationsPage && location.pathname === item.path)}
+              </span>
+            )}
             {item.name}
           </div>
         ))}
@@ -475,7 +524,7 @@ const DashboardHome: React.FC = () => {
     { label: 'Refund', value: stats.refund },
     { label: 'Sessions', value: stats.sessions.toString() },
     { label: 'Cancelled', value: stats.cancelled.toString() },
-    { label: 'NoShow', value: stats.noShow.toString() },
+    { label: 'No Show', value: stats.noShow.toString() },
     { label: 'Pending Notes', value: stats.pendingNotes.toString() },
     { label: 'Pending Payment', value: stats.pendingPayment.toString() },
     { label: 'No of Clients', value: stats.noOfClients.toString() }
@@ -692,7 +741,6 @@ const AppContent: React.FC = () => {
               <Route path="calendars/edit" element={<CreateEventPage />} />
               <Route path="payments" element={<PaymentsInvoice />} />
               <Route path="settings" element={<MySettings />} />
-              <Route path="support" element={<div className="dashboard-content"><h1>Contact Support</h1></div>} />
             </Route>
           </Route>
 

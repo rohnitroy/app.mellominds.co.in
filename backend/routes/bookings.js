@@ -215,10 +215,10 @@ router.get('/stats', async (req, res) => {
         );
         const pendingNotes = parseInt(pendingNotesRes.rows[0].count);
 
-        // Count unique clients
+        // Count unique clients from Clients table
         const clientsRes = await client.query(
-            `SELECT COUNT(DISTINCT client_email) FROM Appointments WHERE therapist_id = $1${dateFilter}`,
-            params
+            `SELECT COUNT(*) FROM Clients WHERE therapist_id = $1`,
+            [userId]
         );
         const totalClients = parseInt(clientsRes.rows[0].count);
 

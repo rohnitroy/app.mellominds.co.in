@@ -31,7 +31,7 @@ interface ClientViewProps {
 const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<string>('Overview');
-  const [selectedDate, setSelectedDate] = useState<string>('Dec 2025');
+  const [selectedDate, setSelectedDate] = useState<string>('all');
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
   const [showAddNotesModal, setShowAddNotesModal] = useState<boolean>(false);
   const [showAddActivitiesModal, setShowAddActivitiesModal] = useState<boolean>(false);
@@ -125,19 +125,32 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
       });
       if (response.ok) {
         const data = await response.json();
-        setAppointments(data);
 
-        const totalSessions = data.length;
-        const totalRevenue = data.reduce((sum: number, app: any) => sum + (parseFloat(app.payment_amount) || 0), 0);
-        const cancelled = data.filter((app: any) => app.status === 'cancelled').length;
-        const noShow = data.filter((app: any) => app.status === 'noshow').length;
+        // Apply date filter client-side
+        const filtered = selectedDate === 'all' ? data : data.filter((app: any) => {
+          const d = new Date(app.start_time);
+          const [mon, yr] = selectedDate.split(' ');
+          const monthIndex = new Date(`${mon} 1, 2000`).getMonth();
+          return d.getMonth() === monthIndex && d.getFullYear() === parseInt(yr);
+        });
+
+        setAppointments(filtered);
+
+        const totalSessions = filtered.length;
+        // Only count Paid revenue
+        const totalRevenue = filtered.reduce((sum: number, app: any) =>
+          app.payment_status === 'Paid' ? sum + (parseFloat(app.payment_amount) || 0) : sum, 0);
+        const cancelled = filtered.filter((app: any) => app.status === 'cancelled').length;
+        const noShow = filtered.filter((app: any) => app.status === 'noshow').length;
 
         const now = new Date();
         const upcoming = data
-          .filter((app: any) => new Date(app.start_time) > now)
+          .filter((app: any) => new Date(app.start_time) > now && app.status !== 'cancelled')
           .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0];
 
-        const nextSessionDate = upcoming ? new Date(upcoming.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-';
+        const nextSessionDate = upcoming
+          ? new Date(upcoming.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          : '-';
 
         setStats({
           sessions: totalSessions.toString().padStart(2, '0'),
@@ -154,7 +167,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
 
   useEffect(() => {
     fetchClientData();
-  }, [client.email, refreshTrigger]);
+  }, [client.email, refreshTrigger, selectedDate]);
 
   const handleNoteSubmit = async () => {
     if (!selectedAppointmentId || !noteContent) {
@@ -239,7 +252,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     }
   };
 
-  const tabs: string[] = ['Overview', 'Sessions', 'Activity Suggestion'];
+  const tabs: string[] = ['Overview', 'Session Notes', 'Activity Suggestion'];
 
   const formatDateTime = (isoString: string) => {
     const date = new Date(isoString);
@@ -367,11 +380,25 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                     <div className={styles.dateIcon}>
                       <Calendar size="small" primaryColor="#6E6E6E" />
                     </div>
-                    <span>{selectedDate}</span>
+                    <span>{selectedDate === 'all' ? 'All Time' : selectedDate}</span>
                     <div className={styles.dropdownArrow}>
                       <ChevronDown size="small" primaryColor="#6E6E6E" />
                     </div>
-                    {/* Date Dropdown Logic here (omitted for brevity) */}
+                    {showDateDropdown && (
+                      <div className={styles.dateDropdown} onClick={e => e.stopPropagation()}>
+                        <div className={styles.dropdownItem} onClick={() => { setSelectedDate('all'); setShowDateDropdown(false); }}>All Time</div>
+                        {(() => {
+                          const now = new Date();
+                          const months = [];
+                          for (let i = 0; i < 6; i++) {
+                            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                            const label = d.toLocaleString('en-US', { month: 'short' }) + ' ' + d.getFullYear();
+                            months.push(<div key={label} className={styles.dropdownItem} onClick={() => { setSelectedDate(label); setShowDateDropdown(false); }}>{label}</div>);
+                          }
+                          return months;
+                        })()}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -393,7 +420,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                     <div className={styles.statValue}>{stats.cancellations}</div>
                   </div>
                   <div className={styles.statCard}>
-                    <div className={styles.statLabel}>NoShow</div>
+                    <div className={styles.statLabel}>No Show</div>
                     <div className={styles.statValue}>{stats.noShow}</div>
                   </div>
                 </div>
@@ -410,41 +437,49 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
               </div>
             )}
 
-            {activeTab === 'Sessions' && (
+            {activeTab === 'Session Notes' && (
               <>
-                <div className={styles.sessionsHeader}>
-                  {/* Header controls same as before */}
-                </div>
-
                 <div className={styles.sessionList}>
+                  {appointments.length === 0 && (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px' }}>No bookings found for this client.</div>
+                  )}
                   {appointments.map((app, i) => (
                     <div className={styles.sessionItem} key={i}>
                       <div className={styles.sessionHeader}>
                         <span className={styles.sessionTime}>{formatDateTime(app.start_time)}</span>
-                      </div>
-                      <div className={styles.sessionTags}>
-                        <span className={styles.sessionMode}>{app.meet_link ? 'Google Meet' : 'In-person'}</span>
-                        <span className={styles.sessionType}>#{app.title}</span>
+                        <div className={styles.sessionTags}>
+                          <span className={styles.sessionMode}>{app.meet_link ? 'Google Meet' : 'In-person'}</span>
+                          <span className={styles.sessionType}>{app.title}</span>
+                          <span style={{
+                            fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '12px',
+                            background: app.status === 'cancelled' ? '#fdecea' : app.status === 'noshow' ? '#fff3e0' : '#e8f5e9',
+                            color: app.status === 'cancelled' ? '#c62828' : app.status === 'noshow' ? '#e65100' : '#2e7d32',
+                            textTransform: 'capitalize'
+                          }}>{app.status || 'scheduled'}</span>
+                        </div>
                       </div>
                       <div className={styles.sessionNotes}>
                         {app.notes && app.notes.length > 0 ? (
                           app.notes.map((note: any, idx: number) => (
-                            <div key={idx} style={{ marginBottom: '8px', borderBottom: '1px dashed #eee', paddingBottom: '4px' }}>
-                              <div style={{ fontWeight: 'bold', fontSize: '12px', color: '#555' }}>Note {idx + 1}:</div>
-                              <div>{note.content?.text || JSON.stringify(note.content)}</div>
+                            <div key={idx} style={{ marginBottom: '8px', padding: '10px 12px', background: '#f8fffe', borderRadius: '8px', border: '1px solid #e9ecef' }}>
+                              <div style={{ fontSize: '11px', color: '#9CA3AF', marginBottom: '4px', fontFamily: 'Urbanist' }}>
+                                {new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </div>
+                              <div style={{ fontSize: '14px', fontFamily: 'Urbanist', fontWeight: 500, color: '#1a1a1a' }}>
+                                {typeof note.content === 'object' ? note.content?.text : note.content}
+                              </div>
                             </div>
                           ))
                         ) : (
-                          <div>No notes added yet.</div>
+                          <div style={{ fontSize: '13px', color: '#9CA3AF', fontStyle: 'italic', padding: '4px 0' }}>No notes for this session.</div>
                         )}
                       </div>
                     </div>
                   ))}
-                  {appointments.length === 0 && <div style={{ padding: '20px' }}>No bookings found.</div>}
                 </div>
 
                 <div className={styles.addNotesSection}>
-                  <button className={styles.addNotesButton} onClick={() => setShowAddNotesModal(true)}>+ Add Notes</button>
+                  <button className={styles.addNotesButton} onClick={() => setShowAddNotesModal(true)}>+ Add Note</button>
                 </div>
               </>
             )}
@@ -582,7 +617,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 <option value="">Select booking</option>
                 {appointments.map(app => (
                   <option key={app.id} value={app.id}>
-                    {formatDateTime(app.start_time)} - {app.title}
+                    {formatDateTime(app.start_time)} - {app.title}{app.notes?.length > 0 ? ' ✓' : ''}
                   </option>
                 ))}
               </select>
