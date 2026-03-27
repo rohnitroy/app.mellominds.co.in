@@ -3,6 +3,8 @@ import styles from './MyProfile.module.css';
 import { ArrowLeft } from 'react-iconly';
 import DateInput from './components/DateInput';
 import CustomDropdown from './components/CustomDropdown';
+import LanguageMultiSelect from './components/LanguageMultiSelect';
+import CountrySelect from './components/CountrySelect';
 import { useToast } from './context/ToastContext';
 import API_BASE_URL from './config/api';
 import Loader from './components/Loader';
@@ -22,7 +24,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     gender: 'Female',
     specialization: 'Counselling Therapist',
     languages: 'English, Hindi, Odia',
-    country: 'INDIA',
+    country: 'India',
     state: '',
     city: '',
     pincode: '',
@@ -54,7 +56,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
               gender: data.user.gender || 'Female',
               specialization: data.user.specialization || 'Counselling Therapist',
               languages: data.user.language_spoken || 'English, Hindi, Odia',
-              country: data.user.country || 'INDIA',
+              country: data.user.country || 'India',
               state: data.user.state || '',
               city: data.user.city || '',
               pincode: data.user.pincode || '',
@@ -283,12 +285,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
 
           <div className={styles.formGroup}>
             <label>Languages Spoken</label>
-            <CustomDropdown
-              options={[
-                { value: 'English, Hindi, Odia', label: 'English, Hindi, Odia' },
-                { value: 'English, Hindi', label: 'English, Hindi' },
-                { value: 'English', label: 'English' }
-              ]}
+            <LanguageMultiSelect
               value={formData.languages}
               onChange={(val) => handleInputChange('languages', val)}
             />
@@ -296,12 +293,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
 
           <div className={styles.formGroup}>
             <label>Country<span className={styles.required}>*</span></label>
-            <CustomDropdown
-              options={[
-                { value: 'INDIA', label: 'INDIA' },
-                { value: 'USA', label: 'USA' },
-                { value: 'UK', label: 'UK' }
-              ]}
+            <CountrySelect
               value={formData.country}
               onChange={(val) => handleInputChange('country', val)}
             />
