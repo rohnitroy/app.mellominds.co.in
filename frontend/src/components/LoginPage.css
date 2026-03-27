@@ -151,7 +151,7 @@
   border: 1px solid #00000080;
   border-radius: 8px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   font-family: 'Urbanist', sans-serif;
   color: #050505;
   outline: none;
@@ -250,6 +250,10 @@
   cursor: pointer;
   transition: all 0.2s;
   margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .google-button:hover {
@@ -302,7 +306,7 @@
   border: 1px solid #00000080;
   border-radius: 8px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   font-family: 'Urbanist', sans-serif;
   color: #050505;
   outline: none;
@@ -318,7 +322,7 @@
   border: 1px solid #00000080;
   border-radius: 8px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   font-family: 'Urbanist', sans-serif;
   color: #050505;
   text-align: center;
@@ -341,7 +345,7 @@
   border: 1px solid #00000080;
   border-radius: 8px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   font-family: 'Urbanist', sans-serif;
   color: #050505;
   outline: none;

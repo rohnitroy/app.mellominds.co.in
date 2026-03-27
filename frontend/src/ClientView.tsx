@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styles from './ClientView.module.css';
 import { Delete, EditSquare, Call, Message, Calendar, ArrowLeft, ChevronDown } from 'react-iconly';
 import CustomDropdown from './components/CustomDropdown';
 import { useToast } from './context/ToastContext';
 import API_BASE_URL from './config/api';
+import DataTable from './components/DataTable';
+import { ColumnDef } from '@tanstack/react-table';
 
 interface Client {
   id: number;
@@ -33,8 +35,19 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
   const [showAddNotesModal, setShowAddNotesModal] = useState<boolean>(false);
   const [showAddActivitiesModal, setShowAddActivitiesModal] = useState<boolean>(false);
+  const [showActionMenu, setShowActionMenu] = useState<boolean>(false);
+  const actionMenuRef = React.useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
-  const [isEditHovered, setIsEditHovered] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setShowActionMenu(false);
+      }
+    };
+    if (showActionMenu) document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showActionMenu]);
 
   // Real data state
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -46,22 +59,63 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     noShow: '0'
   });
 
-  const [editData, setEditData] = useState({
+  // Track saved state separately so cancel always resets to last saved
+  const [savedData, setSavedData] = useState({
     name: client.name || '',
     phone: client.phone || '',
     email: client.email || '',
-    emergencyName: client.emergencyName || '-',
-    emergencyRelation: client.emergencyRelation || '-',
-    emergencyPhone: client.emergencyPhone || '-',
-    age: client.age || '-',
-    occupation: client.occupation || '-',
+    emergencyName: client.emergencyName || '',
+    emergencyRelation: client.emergencyRelation || '',
+    emergencyPhone: client.emergencyPhone || '',
+    age: client.age || '',
+    occupation: client.occupation || '',
     gender: client.gender || 'Male',
     maritalStatus: client.maritalStatus || 'Single'
   });
 
+  const [editData, setEditData] = useState({ ...savedData });
+
+  const [activities, setActivities] = useState<any[]>([]);
+  const [activityForm, setActivityForm] = useState({ name: '', description: '', visible_to_client: false });
+
+  const fetchActivities = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/activities/${client.id}`, { credentials: 'include' });
+      if (res.ok) setActivities(await res.json());
+    } catch (e) { console.error('Failed to fetch activities:', e); }
+  };
+
+  useEffect(() => { fetchActivities(); }, [client.id]);
+
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
   const [noteContent, setNoteContent] = useState<string>('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleActivitySubmit = async () => {
+    if (!activityForm.name.trim()) { toast.warning('Activity name is required.'); return; }
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/activities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: client.id, ...activityForm }),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        toast.success('Activity added!');
+        setShowAddActivitiesModal(false);
+        setActivityForm({ name: '', description: '', visible_to_client: false });
+        fetchActivities();
+      } else { toast.error('Failed to add activity.'); }
+    } catch (e) { toast.error('Error adding activity.'); }
+  };
+
+  const handleDeleteActivity = async (id: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/activities/${id}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) { toast.success('Activity removed.'); fetchActivities(); }
+      else toast.error('Failed to delete activity.');
+    } catch (e) { toast.error('Error deleting activity.'); }
+  };
 
   const fetchClientData = async () => {
     if (!client.email) return;
@@ -104,7 +158,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
 
   const handleNoteSubmit = async () => {
     if (!selectedAppointmentId || !noteContent) {
-      toast.warning('Please select an appointment and enter note content.');
+      toast.warning('Please select a booking and enter note content.');
       return;
     }
 
@@ -135,25 +189,46 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   };
 
   const handleEditClient = () => {
-    setIsEditing(!isEditing);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditData({ ...savedData });
+    setIsEditing(false);
   };
 
   const handleSaveEdit = async () => {
+    // Sanitize: replace '-' placeholder with empty string so DB gets null via COALESCE
+    const sanitized = Object.fromEntries(
+      Object.entries(editData).map(([k, v]) => [k, v === '-' ? '' : v])
+    );
     try {
       const response = await fetch(`${API_BASE_URL}/api/clients/${client.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(editData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sanitized),
         credentials: 'include'
       });
 
       if (response.ok) {
-        // const updatedClient = await response.json();
+        const updated = await response.json();
+        // Update savedData so cancel resets to the newly saved values
+        const newSaved = {
+          name: updated.name || '',
+          phone: updated.phone || '',
+          email: updated.email || '',
+          emergencyName: updated.emergencyName || '',
+          emergencyRelation: updated.emergencyRelation || '',
+          emergencyPhone: updated.emergencyPhone || '',
+          age: updated.age || '',
+          occupation: updated.occupation || '',
+          gender: updated.gender || 'Male',
+          maritalStatus: updated.maritalStatus || 'Single'
+        };
+        setSavedData(newSaved);
+        setEditData(newSaved);
         setIsEditing(false);
         toast.success('Client information updated successfully!');
-        // Ideally update local state or trigger refresh
         setRefreshTrigger(prev => prev + 1);
       } else {
         toast.error('Failed to update client information.');
@@ -179,6 +254,24 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     });
   };
 
+  const bookingColumns: ColumnDef<any, any>[] = useMemo(() => [
+    {
+      accessorKey: 'start_time',
+      header: 'Session Timings',
+      cell: ({ getValue }) => formatDateTime(getValue()),
+    },
+    {
+      accessorKey: 'title',
+      header: 'Session Type',
+    },
+    {
+      id: 'mode',
+      header: 'Mode',
+      enableSorting: false,
+      cell: ({ row }) => row.original.meet_link ? 'Google Meet' : 'In-person',
+    },
+  ], []);
+
   return (
     <div className={styles.clientView}>
       <div className={styles.clientLayout}>
@@ -188,56 +281,31 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
               <ArrowLeft size="medium" primaryColor="#000000" />
             </button>
             <div className={styles.clientInfo}>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editData.name}
-                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                  style={{ fontSize: '25px', fontWeight: '700', border: '1px solid #ccc', padding: '4px' }}
-                />
-              ) : (
-                <h1>{client.name}</h1>
-              )}
+              <h1>{editData.name}</h1>
               <p>Client ID: {client.id}</p>
             </div>
-            <button
-              className={styles.editButton}
-              onClick={isEditing ? handleSaveEdit : handleEditClient}
-              onMouseEnter={() => setIsEditHovered(true)}
-              onMouseLeave={() => setIsEditHovered(false)}
-            >
-              <EditSquare size="small" primaryColor={isEditHovered ? "#ffffff" : "#2D7579"} />
-              {isEditing ? 'Save' : 'Edit'}
-            </button>
+            {isEditing ? null : (
+              <div className={styles.actionMenuWrapper} ref={actionMenuRef}>
+                <button className={styles.actionMenuBtn} onClick={() => setShowActionMenu(!showActionMenu)}>···</button>
+                {showActionMenu && (
+                  <div className={styles.actionMenuDropdown}>
+                    <div className={styles.actionMenuItem} onClick={() => { handleEditClient(); setShowActionMenu(false); }}>Edit</div>
+                    <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); toast.info('Transfer feature coming soon'); }}>Transfer</div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className={styles.infoSection}>
             <h3>Contact Info:</h3>
             <div className={styles.contactItem}>
               <Call size="small" primaryColor="#000000" />
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editData.phone}
-                  onChange={(e) => setEditData({ ...editData, phone: e.target.value })}
-                  style={{ border: '1px solid #ccc', padding: '2px' }}
-                />
-              ) : (
-                <span>{editData.phone || '-'}</span>
-              )}
+              <span>{editData.phone || '-'}</span>
             </div>
             <div className={styles.contactItem}>
               <Message size="small" primaryColor="#000000" />
-              {isEditing ? (
-                <input
-                  type="email"
-                  value={editData.email}
-                  onChange={(e) => setEditData({ ...editData, email: e.target.value })}
-                  style={{ border: '1px solid #ccc', padding: '2px' }}
-                />
-              ) : (
-                <span>{editData.email || '-'}</span>
-              )}
+              <span>{editData.email || '-'}</span>
             </div>
           </div>
 
@@ -245,41 +313,10 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
             <h3>Emergency Contact:</h3>
             <div className={styles.emergencyContactCard}>
               <div className={styles.emergencyName}>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editData.emergencyName}
-                    onChange={(e) => setEditData({ ...editData, emergencyName: e.target.value })}
-                    style={{ border: '1px solid #ccc', padding: '2px', marginRight: '8px' }}
-                  />
-                ) : (
-                  editData.emergencyName
-                )}
-                <span className={styles.relationship}>
-                  ({isEditing ? (
-                    <input
-                      type="text"
-                      value={editData.emergencyRelation}
-                      onChange={(e) => setEditData({ ...editData, emergencyRelation: e.target.value })}
-                      style={{ border: '1px solid #ccc', padding: '2px', width: '80px' }}
-                    />
-                  ) : (
-                    editData.emergencyRelation
-                  )})
-                </span>
+                {editData.emergencyName || '—'}
+                <span className={styles.relationship}> ({editData.emergencyRelation || '—'})</span>
               </div>
-              <div className={styles.emergencyPhone}>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editData.emergencyPhone}
-                    onChange={(e) => setEditData({ ...editData, emergencyPhone: e.target.value })}
-                    style={{ border: '1px solid #ccc', padding: '2px' }}
-                  />
-                ) : (
-                  editData.emergencyPhone
-                )}
-              </div>
+              <div className={styles.emergencyPhone}>{editData.emergencyPhone || '—'}</div>
             </div>
           </div>
 
@@ -288,63 +325,15 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
             <div className={styles.demographicsGrid}>
               <div className={styles.demoRow}>
                 <span className={styles.demoLabel}>Age</span>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editData.age}
-                    onChange={(e) => setEditData({ ...editData, age: e.target.value })}
-                    style={{ border: '1px solid #ccc', padding: '2px', width: '50px' }}
-                  />
-                ) : (
-                  <span className={styles.demoValue}>{editData.age}</span>
-                )}
+                <span className={styles.demoValue}>{editData.age || '—'}</span>
                 <span className={styles.demoLabel}>Occupation</span>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editData.occupation}
-                    onChange={(e) => setEditData({ ...editData, occupation: e.target.value })}
-                    style={{ border: '1px solid #ccc', padding: '2px', width: '80px' }}
-                  />
-                ) : (
-                  <span className={styles.demoValue}>{editData.occupation}</span>
-                )}
+                <span className={styles.demoValue}>{editData.occupation || '—'}</span>
               </div>
               <div className={styles.demoRow}>
                 <span className={styles.demoLabel}>Gender</span>
-                {isEditing ? (
-                  <div style={{ minWidth: '150px' }}>
-                    <CustomDropdown
-                      options={[
-                        { value: 'Male', label: 'Male' },
-                        { value: 'Female', label: 'Female' },
-                        { value: 'Other', label: 'Other' }
-                      ]}
-                      value={editData.gender}
-                      onChange={(value) => setEditData({ ...editData, gender: value })}
-                      placeholder="Select gender"
-                    />
-                  </div>
-                ) : (
-                  <span className={styles.demoValue}>{editData.gender}</span>
-                )}
+                <span className={styles.demoValue}>{editData.gender || '—'}</span>
                 <span className={styles.demoLabel}>Marital Status</span>
-                {isEditing ? (
-                  <div style={{ minWidth: '150px' }}>
-                    <CustomDropdown
-                      options={[
-                        { value: 'Single', label: 'Single' },
-                        { value: 'Married', label: 'Married' },
-                        { value: 'Divorced', label: 'Divorced' }
-                      ]}
-                      value={editData.maritalStatus}
-                      onChange={(value) => setEditData({ ...editData, maritalStatus: value })}
-                      placeholder="Select status"
-                    />
-                  </div>
-                ) : (
-                  <span className={styles.demoValue}>{editData.maritalStatus}</span>
-                )}
+                <span className={styles.demoValue}>{editData.maritalStatus || '—'}</span>
               </div>
             </div>
           </div>
@@ -410,30 +399,13 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 </div>
 
                 <div className={styles.appointmentsSection}>
-                  <h3>Appointments</h3>
-                  <div className={styles.appointmentsTable}>
-                    <div className={styles.tableHeader}>
-                      <span>Session Timings</span>
-                      <span>Session Type</span>
-                      <span>Mode</span>
-                    </div>
-                    {appointments.slice(0, 3).map((app, i) => ( // Show first 3
-                      <div className={styles.tableRow} key={i}>
-                        <span>{formatDateTime(app.start_time)}</span>
-                        <span>{app.title}</span>
-                        <span>{app.meet_link ? 'Google Meet' : 'In-person'}</span>
-                      </div>
-                    ))}
-                    {appointments.length === 0 && <div style={{ padding: '10px', textAlign: 'center' }}>No appointments found</div>}
-
-                    <div className={styles.tableFooter}>
-                      <span>Showing {Math.min(appointments.length, 3)} of {appointments.length} results</span>
-                      <div className={styles.pagination}>
-                        <img src="/Arrow - Left Square.svg" alt="Previous" />
-                        <img src="/Arrow - Right Square.svg" alt="Next" />
-                      </div>
-                    </div>
-                  </div>
+                  <h3>Bookings</h3>
+                  <DataTable
+                    data={appointments}
+                    columns={bookingColumns}
+                    pageSize={3}
+                    emptyMessage="No bookings found"
+                  />
                 </div>
               </div>
             )}
@@ -468,7 +440,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                       </div>
                     </div>
                   ))}
-                  {appointments.length === 0 && <div style={{ padding: '20px' }}>No sessions found.</div>}
+                  {appointments.length === 0 && <div style={{ padding: '20px' }}>No bookings found.</div>}
                 </div>
 
                 <div className={styles.addNotesSection}>
@@ -503,45 +475,21 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 </div>
 
                 <div className={styles.activityList}>
-                  <div className={styles.activityItem}>
-                    <div className={styles.activityInfo}>
-                      <div className={styles.activityName}>&lt;Activity_name&gt;</div>
-                      <div className={styles.activityDescription}>&lt;Activity_description&gt;</div>
-                    </div>
-                    <button className={styles.deleteBtn}>
-                      <Delete size="small" primaryColor="#dc3545" />
-                    </button>
-                  </div>
-
-                  <div className={styles.activityItem}>
-                    <div className={styles.activityInfo}>
-                      <div className={styles.activityName}>&lt;Activity_name&gt;</div>
-                      <div className={styles.activityDescription}>&lt;Activity_description&gt;</div>
-                    </div>
-                    <button className={styles.deleteBtn}>
-                      <Delete size="small" primaryColor="#dc3545" />
-                    </button>
-                  </div>
-
-                  <div className={styles.activityItem}>
-                    <div className={styles.activityInfo}>
-                      <div className={styles.activityName}>&lt;Activity_name&gt;</div>
-                      <div className={styles.activityDescription}>&lt;Activity_description&gt;</div>
-                    </div>
-                    <button className={styles.deleteBtn}>
-                      <Delete size="small" primaryColor="#dc3545" />
-                    </button>
-                  </div>
-
-                  <div className={styles.activityItem}>
-                    <div className={styles.activityInfo}>
-                      <div className={styles.activityName}>&lt;Activity_name&gt;</div>
-                      <div className={styles.activityDescription}>&lt;Activity_description&gt;</div>
-                    </div>
-                    <button className={styles.deleteBtn}>
-                      <Delete size="small" primaryColor="#dc3545" />
-                    </button>
-                  </div>
+                  {activities.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px' }}>No activities added yet.</div>
+                  ) : (
+                    activities.map((act) => (
+                      <div className={styles.activityItem} key={act.id}>
+                        <div className={styles.activityInfo}>
+                          <div className={styles.activityName}>{act.name}</div>
+                          <div className={styles.activityDescription}>{act.description || '—'}</div>
+                        </div>
+                        <button className={styles.deleteBtn} onClick={() => handleDeleteActivity(act.id)}>
+                          <Delete size="small" primaryColor="#dc3545" />
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 <button className={styles.addActivitiesBtn} onClick={() => setShowAddActivitiesModal(true)}>+ Add Activities</button>
@@ -551,21 +499,87 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
         </div>
       </div>
 
+      {/* Edit Client Modal */}
+      {isEditing && (
+        <div className={styles.modalOverlay} onClick={handleCancelEdit}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px', width: '100%' }}>
+            <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px', margin: '0 0 4px 0' }}>Edit Client Details</h2>
+            <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>Update client information below</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className={styles.formGroup}>
+                <label>Full Name</label>
+                <input className={styles.formInput} type="text" value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Phone</label>
+                <input className={styles.formInput} type="text" value={editData.phone} onChange={(e) => setEditData({ ...editData, phone: e.target.value })} />
+              </div>
+              <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
+                <label>Email</label>
+                <input className={styles.formInput} type="email" value={editData.email} onChange={(e) => setEditData({ ...editData, email: e.target.value })} />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Age</label>
+                <input className={styles.formInput} type="text" value={editData.age} onChange={(e) => setEditData({ ...editData, age: e.target.value })} />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Occupation</label>
+                <input className={styles.formInput} type="text" value={editData.occupation} onChange={(e) => setEditData({ ...editData, occupation: e.target.value })} />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Gender</label>
+                <select className={styles.formSelect} value={editData.gender} onChange={(e) => setEditData({ ...editData, gender: e.target.value })}>
+                  <option>Male</option>
+                  <option>Female</option>
+                  <option>Other</option>
+                </select>
+              </div>
+              <div className={styles.formGroup}>
+                <label>Marital Status</label>
+                <select className={styles.formSelect} value={editData.maritalStatus} onChange={(e) => setEditData({ ...editData, maritalStatus: e.target.value })}>
+                  <option>Single</option>
+                  <option>Married</option>
+                  <option>Divorced</option>
+                </select>
+              </div>
+              <div className={styles.formGroup}>
+                <label>Emergency Contact Name</label>
+                <input className={styles.formInput} type="text" value={editData.emergencyName} onChange={(e) => setEditData({ ...editData, emergencyName: e.target.value })} />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Relation</label>
+                <input className={styles.formInput} type="text" value={editData.emergencyRelation} onChange={(e) => setEditData({ ...editData, emergencyRelation: e.target.value })} />
+              </div>
+              <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
+                <label>Emergency Phone</label>
+                <input className={styles.formInput} type="text" value={editData.emergencyPhone} onChange={(e) => setEditData({ ...editData, emergencyPhone: e.target.value })} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button className={styles.editButton} style={{ background: '#f1f3f4', color: '#082421' }} onClick={handleCancelEdit}>Cancel</button>
+              <button className={styles.editButton} onClick={handleSaveEdit}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Notes Modal */}
       {showAddNotesModal && (
         <div className={styles.modalOverlay} onClick={() => setShowAddNotesModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <h2>+ Add Notes</h2>
-            <p>add private notes to a dedicated client appointment.</p>
+            <p>add private notes to a dedicated client booking.</p>
 
             <div className={styles.formGroup}>
-              <label>Select Appointment</label>
+              <label>Select Booking</label>
               <select
                 className={styles.formSelect}
                 value={selectedAppointmentId}
                 onChange={(e) => setSelectedAppointmentId(e.target.value)}
               >
-                <option value="">Select appointment</option>
+                <option value="">Select booking</option>
                 {appointments.map(app => (
                   <option key={app.id} value={app.id}>
                     {formatDateTime(app.start_time)} - {app.title}
@@ -596,28 +610,30 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
         <div className={styles.modalOverlay} onClick={() => setShowAddActivitiesModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <h2>+ Add Activity</h2>
-            <p>add activity to a dedicated client appointment.</p>
+            <p>Add an activity suggestion for this client.</p>
 
             <div className={styles.formGroup}>
-              <label>Should this activity visible to client?</label>
-              <select className={styles.formSelect}>
-                <option>select yes/no</option>
-                <option>Yes</option>
+              <label>Visible to client?</label>
+              <select className={styles.formSelect} value={activityForm.visible_to_client ? 'Yes' : 'No'}
+                onChange={(e) => setActivityForm({ ...activityForm, visible_to_client: e.target.value === 'Yes' })}>
                 <option>No</option>
+                <option>Yes</option>
               </select>
             </div>
 
             <div className={styles.formGroup}>
               <label>Activity Name</label>
-              <input type="text" placeholder="enter activity name" className={styles.formInput} />
+              <input type="text" placeholder="Enter activity name" className={styles.formInput}
+                value={activityForm.name} onChange={(e) => setActivityForm({ ...activityForm, name: e.target.value })} />
             </div>
 
             <div className={styles.formGroup}>
               <label>Activity Description</label>
-              <textarea placeholder="enter activity description" className={styles.formTextarea} rows={4}></textarea>
+              <textarea placeholder="Enter activity description" className={styles.formTextarea} rows={4}
+                value={activityForm.description} onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}></textarea>
             </div>
 
-            <button className={styles.modalSubmitBtn} onClick={() => setShowAddActivitiesModal(false)}>Add Activity</button>
+            <button className={styles.modalSubmitBtn} onClick={handleActivitySubmit}>Add Activity</button>
           </div>
         </div>
       )}

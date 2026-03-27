@@ -63,40 +63,75 @@
 }
 
 .editButton {
-  background: #ffffff;
-  border: 2px solid #00403999;
-  border-radius: 12px;
-  padding: 12px;
+  background: #082421;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 12px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 15px;
-  color: #2D7579;
-  transition: all 0.2s;
+  font-size: 14px;
+  color: #ffffff;
+  transition: background 0.2s;
 }
 
 .editButton:hover {
   background: #2D7579;
-  color: #ffffff;
 }
 
-.editButton:hover svg {
-  color: #ffffff;
+.actionMenuWrapper {
+  position: relative;
 }
 
-.editButton img {
-  width: 20px;
-  height: 20px;
-  transition: filter 0.2s;
+.actionMenuBtn {
+  background: none;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 700;
+  color: #082421;
+  line-height: 1;
+  letter-spacing: 2px;
+  transition: background 0.2s;
+}
+
+.actionMenuBtn:hover {
+  background: #f1f3f4;
+}
+
+.actionMenuDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  min-width: 140px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.actionMenuItem {
+  padding: 12px 16px;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #082421;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.actionMenuItem:hover {
+  background: #f0faf9;
+  color: #2D7579;
 }
 
 .leftPanel .infoSection h3 {
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #6E6E6E;
@@ -110,7 +145,7 @@
   margin-bottom: 12px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 16px;
+  font-size: 14px;
   color: #000000;
 }
 
@@ -130,7 +165,7 @@
 .leftPanel .emergencyName {
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   color: #000000;
   margin-bottom: 8px;
 }
@@ -170,7 +205,7 @@
 .leftPanel .demoValue {
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 16px;
+  font-size: 14px;
   color: #6E6E6E;
 }
 
@@ -488,7 +523,7 @@
   padding-left: 20px;
   padding-right: 20px;
   border-bottom: 1px solid #00000033;
-  font-family: Urbanist;
+  font-family: 'Urbanist', sans-serif;
   font-weight: 600;
   font-size: 13px;
   line-height: 100%;
@@ -501,26 +536,32 @@
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 20px;
-  padding: 16px 0;
-  font-family: Urbanist;
-  font-weight: 600;
-  font-size: 13px;
+  padding: 14px 0;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
-  color: #000000;
+  color: #1a1a1a;
   align-items: center;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.appointmentsTable .tableRow:last-child {
+  border-bottom: none;
 }
 
 .appointmentsTable .tableFooter {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 0;
+  padding: 14px 0;
   margin: 0 -20px;
   padding-left: 20px;
   padding-right: 20px;
-  border-top: 1px solid #00000033;
+  border-top: 1px solid #f1f3f4;
   color: #9CA3AF;
+  font-family: 'Urbanist', sans-serif;
   font-size: 13px;
   font-weight: 500;
 }

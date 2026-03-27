@@ -46,8 +46,14 @@ const AllClients: React.FC = () => {
     {
       accessorKey: 'name',
       header: 'Client Name',
-      cell: ({ getValue }) => (
-        <div className={styles.clientName}>{getValue()}</div>
+      cell: ({ row }) => (
+        <div
+          className={styles.clientName}
+          style={{ cursor: 'pointer', color: '#2D7579', textDecoration: 'underline' }}
+          onClick={() => setSelectedClient(row.original)}
+        >
+          {row.original.name}
+        </div>
       ),
     },
     {
@@ -80,18 +86,6 @@ const AllClients: React.FC = () => {
       header: 'Revenue',
       cell: ({ getValue }) => (
         <span className={styles.revenueAmount}>{getValue()}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      header: '',
-      enableSorting: false,
-      cell: ({ row }) => (
-        <div className={styles.actionButtons}>
-          <button className={styles.viewClientBtn} onClick={() => setSelectedClient(row.original)}>
-            View Client
-          </button>
-        </div>
       ),
     },
   ], []);
