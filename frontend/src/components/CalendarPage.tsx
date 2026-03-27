@@ -197,14 +197,14 @@ const CalendarPage: React.FC = () => {
 
   const handleTypeSelect = (type: string) => {
     setShowResourceTypeModal(false);
-    navigate('/calendars/new', { state: { type } });
+    navigate('/my-calendar/new', { state: { type } });
   };
 
 
 
   const openEditModal = (calendar: Calendar) => {
     // Navigate to CreateEventPage with calendar data for editing
-    navigate('/calendars/edit', { state: { calendar, isEditing: true } });
+    navigate('/my-calendar/edit', { state: { calendar, isEditing: true } });
   };
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {

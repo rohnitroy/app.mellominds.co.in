@@ -277,7 +277,7 @@ const CreateEventPage: React.FC = () => {
             if (response.ok) {
                 toast.success(isEditMode ? 'Calendar updated successfully!' : 'Calendar created successfully!');
                 // Success: Redirect back to My Calendars
-                navigate('/calendars');
+                navigate('/my-calendar');
             } else {
                 const errorData = await response.json();
                 toast.error(`Failed to save calendar: ${errorData.error}`);
@@ -1125,7 +1125,7 @@ const CreateEventPage: React.FC = () => {
             {/* Header */}
             < header className={styles.header} >
                 <div className={styles.headerLeft}>
-                    <button className={styles.backButton} onClick={() => navigate('/calendars')}>
+                    <button className={styles.backButton} onClick={() => navigate('/my-calendar')}>
                         ←
                     </button>
                     <div className={styles.titleSection}>

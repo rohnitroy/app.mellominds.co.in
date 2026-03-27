@@ -27,7 +27,7 @@ const QuickActionMenu: React.FC<QuickActionMenuProps> = ({ onCreateBooking, onSe
       label: 'Create Resources',
       description: 'Add new resource and connect it with your calendar',
       icon: '🗓️',
-      onClick: () => { navigate('/calendars/new'); setOpen(false); },
+      onClick: () => { navigate('/my-calendar/new'); setOpen(false); },
     },
     {
       label: 'Create a Booking',

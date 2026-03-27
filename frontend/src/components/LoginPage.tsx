@@ -41,7 +41,7 @@ const LoginPage: React.FC = () => {
       if (response.ok) {
         toast.success('Login successful!')
         login()
-        navigate('/')
+        navigate('/dashboard')
       } else {
         toast.error(data.error || 'Login failed')
       }

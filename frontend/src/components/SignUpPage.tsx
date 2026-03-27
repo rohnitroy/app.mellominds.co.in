@@ -100,7 +100,7 @@ const SignUpPage: React.FC = () => {
 
       // Registration successful, redirect to login
       toast.success('Registration successful! Please login.')
-      navigate('/')
+      navigate('/dashboard')
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.')
     } finally {
@@ -264,7 +264,7 @@ const SignUpPage: React.FC = () => {
               </form>
 
               <p className="signup-text">
-                Already have an account? <a href="/">Login Now!</a>
+                Already have an account? <a href="/login">Login Now!</a>
               </p>
             </>
           ) : step === 2 ? (

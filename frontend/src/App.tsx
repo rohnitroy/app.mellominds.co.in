@@ -191,11 +191,11 @@ const DashboardLayout: React.FC = () => {
   const location = useLocation();
 
   const navItems: NavItem[] = [
-    { name: 'Dashboard', icon: 'Category1.svg', path: '/' },
+    { name: 'Dashboard', icon: 'Category1.svg', path: '/dashboard' },
     { name: 'All Clients', icon: '3 User.svg', path: '/clients' },
     { name: 'Bookings', icon: 'Calendar1.svg', path: '/bookings' },
-    { name: 'My Calendars', icon: 'Category.svg', path: '/calendars' },
-    { name: 'Payments & Invoice', icon: 'Wallet.svg', path: '/payments' }
+    { name: 'My Calendars', icon: 'Category.svg', path: '/my-calendar' },
+    { name: 'Payments & Invoice', icon: 'Wallet.svg', path: '/payment-invoice' }
   ];
 
   const bottomNavItems: NavItem[] = [
@@ -206,7 +206,7 @@ const DashboardLayout: React.FC = () => {
   const isNavActive = (item: NavItem) =>
     !showNotificationsPage && (
       location.pathname === item.path ||
-      (item.path !== '/' && location.pathname.startsWith(item.path))
+      (item.path !== '/dashboard' && location.pathname.startsWith(item.path))
     );
 
   const renderNavIcon = (name: string, active: boolean) => {
@@ -609,7 +609,7 @@ const DashboardHome: React.FC = () => {
                   <text x="24" y="28" textAnchor="middle" fontSize="12" fontWeight="600" fill="#000000">{profileProgress}%</text>
                 </svg>
               </div>
-              <span onClick={() => navigate('/settings', { state: { activeSection: 'My Profile' } })} style={{ cursor: 'pointer' }}>Complete your profile <img src="Edit.svg" alt="Edit" style={{ width: '16px', height: '16px', marginLeft: '4px' }} /></span>
+              <span onClick={() => navigate('/settings/my-profile')} style={{ cursor: 'pointer' }}>Complete your profile <img src="Edit.svg" alt="Edit" style={{ width: '16px', height: '16px', marginLeft: '4px' }} /></span>
             </div>
           )}
           <div className="date-selector-wrapper" ref={dateDropdownRef}>
@@ -691,22 +691,24 @@ const AppContent: React.FC = () => {
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<DashboardLayout />}>
-              <Route index element={<DashboardHome />} />
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardHome />} />
               <Route path="clients" element={<AllClients />} />
               <Route path="bookings" element={<Appointments />} />
-              <Route path="calendars" element={<CalendarPage />} />
-              <Route path="calendars/new" element={<CreateEventPage />} />
-              <Route path="calendars/edit" element={<CreateEventPage />} />
-              <Route path="payments" element={<PaymentsInvoice />} />
+              <Route path="my-calendar" element={<CalendarPage />} />
+              <Route path="my-calendar/new" element={<CreateEventPage />} />
+              <Route path="my-calendar/edit" element={<CreateEventPage />} />
+              <Route path="payment-invoice" element={<PaymentsInvoice />} />
               <Route path="settings" element={<MySettings />} />
+              <Route path="settings/my-profile" element={<MySettings />} />
             </Route>
           </Route>
 
           {/* Public Booking Route */}
           <Route path="/book/:userId/:slug" element={<PublicBookingPage />} />
 
-          {/* Catch all redirect to login or dashboard */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          {/* Catch all redirect to dashboard */}
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
       <ToastContainer toasts={toasts} onClose={removeToast} />

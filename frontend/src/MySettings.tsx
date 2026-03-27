@@ -7,7 +7,9 @@ import API_BASE_URL from './config/api';
 
 const MySettings: React.FC = () => {
   const location = useLocation();
-  const [activeSection, setActiveSection] = useState<string>(location.state?.activeSection || '');
+  const [activeSection, setActiveSection] = useState<string>(
+    location.pathname === '/settings/my-profile' ? 'My Profile' : (location.state?.activeSection || '')
+  );
   const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
