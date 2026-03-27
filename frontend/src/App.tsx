@@ -45,11 +45,11 @@ interface Booking {
 // ===== NOTIFICATION BELL COMPONENT =====
 const NotificationBell: React.FC<{
   showNotificationsPage: boolean;
-  setShowNotificationsPage: (v: boolean) => void;
   showNotificationDropdown: boolean;
   setShowNotificationDropdown: (v: boolean) => void;
-}> = ({ showNotificationsPage, setShowNotificationsPage, showNotificationDropdown, setShowNotificationDropdown }) => {
+}> = ({ showNotificationsPage, showNotificationDropdown, setShowNotificationDropdown }) => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const navigate = useNavigate();
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -87,7 +87,7 @@ const NotificationBell: React.FC<{
               {unreadCount > 0 && (
                 <button className="notification-view-more" onClick={e => { e.stopPropagation(); markAllAsRead(); }}>mark all read</button>
               )}
-              <button className="notification-view-more" onClick={e => { e.stopPropagation(); setShowNotificationsPage(true); setShowNotificationDropdown(false); }}>view more→</button>
+              <button className="notification-view-more" onClick={e => { e.stopPropagation(); navigate('/notifications'); setShowNotificationDropdown(false); }}>view more→</button>
             </div>
           </div>
           {preview.length === 0 ? (
@@ -182,13 +182,14 @@ const NotificationsPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 const DashboardLayout: React.FC = () => {
   const [showSendLinkModal, setShowSendLinkModal] = useState<boolean>(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
-  const [showNotificationsPage, setShowNotificationsPage] = useState<boolean>(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [showCreateBookingModal, setShowCreateBookingModal] = useState<boolean>(false);
   const { logout, user } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const showNotificationsPage = location.pathname === '/notifications';
 
   const navItems: NavItem[] = [
     { name: 'Dashboard', icon: 'Category1.svg', path: '/dashboard' },
@@ -234,7 +235,7 @@ const DashboardLayout: React.FC = () => {
           <div
             key={item.name}
             className={`nav-item ${isNavActive(item) ? 'active' : ''}`}
-            onClick={() => { setShowNotificationsPage(false); navigate(item.path); }}
+            onClick={() => { navigate(item.path); }}
           >
             <span className={`nav-icon ${item.name === 'My Calendars' ? 'calendar-icon' : ''}`}>
               {renderNavIcon(item.name, isNavActive(item))}
@@ -249,14 +250,12 @@ const DashboardLayout: React.FC = () => {
       <div className="nav-bottom">
         {bottomNavItems.map((item) => (
           <div key={item.name} className={`nav-item ${
-            item.name === 'Notifications'
-              ? showNotificationsPage ? 'active' : ''
-              : !showNotificationsPage && location.pathname === item.path ? 'active' : ''
+            !showNotificationsPage && location.pathname === item.path ? 'active' :
+            item.name === 'Notifications' && showNotificationsPage ? 'active' : ''
           }`} onClick={() => {
             if (item.name === 'Notifications') {
-              setShowNotificationsPage(true);
+              navigate('/notifications');
             } else {
-              setShowNotificationsPage(false);
               navigate(item.path);
             }
           }}>
@@ -312,7 +311,6 @@ const DashboardLayout: React.FC = () => {
         />
         <NotificationBell
           showNotificationsPage={showNotificationsPage}
-          setShowNotificationsPage={setShowNotificationsPage}
           showNotificationDropdown={showNotificationDropdown}
           setShowNotificationDropdown={setShowNotificationDropdown}
         />
@@ -346,11 +344,7 @@ const DashboardLayout: React.FC = () => {
       {renderSidebar()}
       <div className="main-content">
         {renderHeader()}
-        {showNotificationsPage ? (
-          <NotificationsPage onBack={() => setShowNotificationsPage(false)} />
-        ) : (
-          <Outlet context={{ setShowSendLinkModal }} />
-        )}
+        <Outlet context={{ setShowSendLinkModal }} />
       </div>
       <SendBookingLinkModal
         isOpen={showSendLinkModal}
@@ -701,6 +695,8 @@ const AppContent: React.FC = () => {
               <Route path="payment-invoice" element={<PaymentsInvoice />} />
               <Route path="settings" element={<MySettings />} />
               <Route path="settings/my-profile" element={<MySettings />} />
+              <Route path="notifications" element={<NotificationsPage onBack={() => {}} />} />
+              <Route path="notifications" element={<NotificationsPage onBack={() => {}} />} />
             </Route>
           </Route>
 

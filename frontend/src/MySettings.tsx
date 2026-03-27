@@ -10,6 +10,12 @@ const MySettings: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>(
     location.pathname === '/settings/my-profile' ? 'My Profile' : (location.state?.activeSection || '')
   );
+
+  useEffect(() => {
+    if (location.pathname === '/settings/my-profile') {
+      setActiveSection('My Profile');
+    }
+  }, [location.pathname]);
   const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
