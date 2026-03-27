@@ -4,10 +4,12 @@ import { Search } from 'react-iconly';
 import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
+import Loader from './components/Loader';
 
 const Appointments: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('Upcoming');
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const tabs = ['Upcoming', 'All Bookings', 'Completed', 'Pending Session Notes', 'Cancelled', 'No Show'];
 
@@ -20,6 +22,8 @@ const Appointments: React.FC = () => {
       }
     } catch (error) {
       console.error('Failed to fetch appointments:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -211,12 +215,16 @@ const Appointments: React.FC = () => {
         </button>
       </div>
 
-      <DataTable
-        data={filteredAppointments}
-        columns={columns}
-        pageSize={10}
-        emptyMessage="No bookings found"
-      />
+      {loading ? (
+        <Loader />
+      ) : (
+        <DataTable
+          data={filteredAppointments}
+          columns={columns}
+          pageSize={10}
+          emptyMessage="No bookings found"
+        />
+      )}
     </div>
   );
 };

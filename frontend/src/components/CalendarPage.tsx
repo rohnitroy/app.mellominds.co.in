@@ -8,6 +8,7 @@ import CreateCalendarModal from './CreateCalendarModal';
 import CustomDropdown from './CustomDropdown';
 import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
+import Loader from './Loader';
 
 interface Calendar {
   id: number;
@@ -313,7 +314,7 @@ const CalendarPage: React.FC = () => {
 
       <div className="calendar-content">
         {loading ? (
-          <div style={{ textAlign: 'center', marginTop: '40px' }}>Loading...</div>
+          <Loader />
         ) : calendars.length === 0 ? (
           <div style={{ textAlign: 'center', marginTop: '40px', color: '#666' }}>No calendars found. Create one to get started!</div>
         ) : (

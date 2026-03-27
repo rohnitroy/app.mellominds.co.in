@@ -23,6 +23,7 @@ import { Category, TwoUsers, Calendar, Discovery, Wallet, Setting, Paper } from 
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import QuickActionMenu from './components/QuickActionMenu';
+import Loader from './components/Loader';
 
 interface NavItem {
   name: string;
@@ -470,6 +471,7 @@ const DashboardHome: React.FC = () => {
   };
 
   const profileProgress = calculateProfileProgress();
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({
     revenue: '₹0',
     refund: '₹0',
@@ -484,6 +486,7 @@ const DashboardHome: React.FC = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      setLoading(true);
       try {
         // Build stats URL with date filter
         let statsUrl = `${API_BASE_URL}/api/bookings/stats`;
@@ -519,6 +522,8 @@ const DashboardHome: React.FC = () => {
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -658,15 +663,17 @@ const DashboardHome: React.FC = () => {
       <div className="content-sections">
         <div>
           <h2 style={{ margin: '0 0 24px 0', fontFamily: 'Urbanist', fontWeight: '600', fontSize: '20px', color: '#082421' }}>Upcoming Bookings</h2>
-          <DataTable
-            data={upcomingBookings}
-            columns={bookingColumns}
-            pageSize={5}
-            emptyMessage="No upcoming bookings found."
-          />
+          {loading ? (
+            <Loader />
+          ) : (
+            <DataTable
+              data={upcomingBookings}
+              columns={bookingColumns}
+              pageSize={5}
+              emptyMessage="No upcoming bookings found."
+            />
+          )}
         </div>
-
-
       </div>
     </div>
   );
@@ -695,7 +702,6 @@ const AppContent: React.FC = () => {
               <Route path="payment-invoice" element={<PaymentsInvoice />} />
               <Route path="settings" element={<MySettings />} />
               <Route path="settings/my-profile" element={<MySettings />} />
-              <Route path="notifications" element={<NotificationsPage onBack={() => {}} />} />
               <Route path="notifications" element={<NotificationsPage onBack={() => {}} />} />
             </Route>
           </Route>

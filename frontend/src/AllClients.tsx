@@ -5,6 +5,7 @@ import { Search } from 'react-iconly';
 import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
+import Loader from './components/Loader';
 
 interface Client {
   id: number;
@@ -20,6 +21,7 @@ const AllClients: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -31,6 +33,8 @@ const AllClients: React.FC = () => {
         }
       } catch (error) {
         console.error('Failed to fetch clients:', error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchClients();
@@ -117,12 +121,16 @@ const AllClients: React.FC = () => {
         <button className={styles.exportBtn}><img src="/Upload.svg" alt="" />Export to CSV</button>
       </div>
 
-      <DataTable
-        data={filteredClients}
-        columns={columns}
-        pageSize={10}
-        emptyMessage="No clients found"
-      />
+      {loading ? (
+        <Loader />
+      ) : (
+        <DataTable
+          data={filteredClients}
+          columns={columns}
+          pageSize={10}
+          emptyMessage="No clients found"
+        />
+      )}
     </div>
   );
 };

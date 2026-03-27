@@ -3,10 +3,12 @@ import styles from './PaymentsInvoice.module.css';
 import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
+import Loader from './components/Loader';
 
 const PaymentsInvoice: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('All Payments');
   const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const tabs = ['All Payments', 'All Cancellations', 'Pending Payments'];
 
@@ -20,6 +22,8 @@ const PaymentsInvoice: React.FC = () => {
         }
       } catch (error) {
         console.error('Failed to fetch bookings for payments:', error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchBookings();
@@ -131,12 +135,16 @@ const PaymentsInvoice: React.FC = () => {
         </button>
       </div>
 
-      <DataTable
-        data={filteredPayments}
-        columns={columns}
-        pageSize={10}
-        emptyMessage="No payment records found"
-      />
+      {loading ? (
+        <Loader />
+      ) : (
+        <DataTable
+          data={filteredPayments}
+          columns={columns}
+          pageSize={10}
+          emptyMessage="No payment records found"
+        />
+      )}
     </div>
   );
 };
