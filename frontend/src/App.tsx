@@ -150,7 +150,7 @@ const NotificationsPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       <div className="dashboard-header">
         <div>
           <h1 style={{ fontFamily: 'Urbanist', fontWeight: '700', fontSize: '30px', lineHeight: '100%' }}>Notifications</h1>
-          <p style={{ fontFamily: 'Urbanist', fontWeight: '600', fontSize: '18px', color: '#6E6E6E' }}>Get alerts regarding new bookings, payments, cancellations, and more...</p>
+          <p style={{ fontFamily: 'Urbanist', fontWeight: '500', fontSize: '16px', color: '#6E6E6E' }}>Get alerts regarding new bookings, payments, cancellations, and more...</p>
         </div>
         {notifications.some(n => !n.is_read) && (
           <button onClick={markAllAsRead} style={{ background: '#2D7579', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer', fontFamily: 'Urbanist', fontWeight: '600' }}>
@@ -217,7 +217,7 @@ const DashboardLayout: React.FC = () => {
           <div
             key={item.name}
             className={`nav-item ${location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path)) ? 'active' : ''}`}
-            onClick={() => navigate(item.path)}
+            onClick={() => { setShowNotificationsPage(false); navigate(item.path); }}
           >
             <span className={`nav-icon ${item.name === 'My Calendars' ? 'calendar-icon' : ''}`}>
               <img src={item.icon} alt={item.name} />
@@ -231,7 +231,7 @@ const DashboardLayout: React.FC = () => {
 
       <div className="nav-bottom">
         {bottomNavItems.map((item) => (
-          <div key={item.name} className={`nav-item ${location.pathname === item.path ? 'active' : ''}`} onClick={() => navigate(item.path)}>
+          <div key={item.name} className={`nav-item ${location.pathname === item.path ? 'active' : ''}`} onClick={() => { setShowNotificationsPage(false); navigate(item.path); }}>
             <span className="nav-icon">
               <img src={item.icon} alt={item.name} />
             </span>
