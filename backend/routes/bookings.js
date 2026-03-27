@@ -155,12 +155,14 @@ router.get('/stats', async (req, res) => {
         const userId = req.user.id;
         const { startDate, endDate } = req.query;
 
-        // Build date filter clause
-        let dateFilter = '';
+        // Build date filter clauses
+        let dateFilter = '';        // for queries without table alias
+        let dateFilterA = '';       // for queries using alias 'a'
         let params = [userId];
 
         if (startDate && endDate) {
             dateFilter = ' AND start_time >= $2 AND start_time <= $3';
+            dateFilterA = ' AND a.start_time >= $2 AND a.start_time <= $3';
             params.push(startDate, endDate);
         }
 
@@ -206,16 +208,16 @@ router.get('/stats', async (req, res) => {
         );
         const pendingPayment = parseInt(pendingPaymentRes.rows[0].count);
 
-        // Pending notes - appointments without notes
+        // Pending notes - appointments without notes (uses alias 'a')
         const pendingNotesRes = await client.query(
             `SELECT COUNT(*) FROM Appointments a 
              WHERE a.therapist_id = $1 AND a.status NOT IN ('cancelled', 'noshow')
-             AND NOT EXISTS (SELECT 1 FROM SessionNotes WHERE appointment_id = a.id)${dateFilter}`,
+             AND NOT EXISTS (SELECT 1 FROM SessionNotes WHERE appointment_id = a.id)${dateFilterA}`,
             params
         );
         const pendingNotes = parseInt(pendingNotesRes.rows[0].count);
 
-        // Count unique clients from Clients table
+        // Count unique clients from Clients table (not date-filtered — total client base)
         const clientsRes = await client.query(
             `SELECT COUNT(*) FROM Clients WHERE therapist_id = $1`,
             [userId]
@@ -480,6 +482,86 @@ router.post('/', async (req, res) => {
         await client.query('ROLLBACK');
         console.error('Error creating booking:', error);
         res.status(500).json({ error: 'Failed to create booking' });
+    } finally {
+        client.release();
+    }
+});
+
+// PATCH /api/bookings/:id/status - Update appointment status (cancelled, noshow, scheduled, completed)
+router.patch('/:id/status', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const allowed = ['scheduled', 'cancelled', 'completed', 'noshow'];
+        if (!allowed.includes(status)) {
+            return res.status(400).json({ error: `Invalid status. Must be one of: ${allowed.join(', ')}` });
+        }
+
+        const result = await client.query(
+            `UPDATE Appointments SET status = $1
+             WHERE id = $2 AND therapist_id = $3
+             RETURNING *`,
+            [status, id, userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating booking status:', error);
+        res.status(500).json({ error: 'Failed to update booking status' });
+    } finally {
+        client.release();
+    }
+});
+
+// PATCH /api/bookings/:id/payment - Update payment status and/or amount
+router.patch('/:id/payment', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const { payment_status, payment_amount } = req.body;
+
+        const allowedStatuses = ['Pending', 'Paid', 'Refunded'];
+        if (payment_status && !allowedStatuses.includes(payment_status)) {
+            return res.status(400).json({ error: `Invalid payment_status. Must be one of: ${allowedStatuses.join(', ')}` });
+        }
+
+        // Build dynamic update
+        const fields = [];
+        const params = [];
+        let idx = 1;
+
+        if (payment_status !== undefined) { fields.push(`payment_status = $${idx++}`); params.push(payment_status); }
+        if (payment_amount !== undefined) { fields.push(`payment_amount = $${idx++}`); params.push(payment_amount); }
+
+        if (fields.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        params.push(id, userId);
+
+        const result = await client.query(
+            `UPDATE Appointments SET ${fields.join(', ')}
+             WHERE id = $${idx} AND therapist_id = $${idx + 1}
+             RETURNING *`,
+            params
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating payment:', error);
+        res.status(500).json({ error: 'Failed to update payment' });
     } finally {
         client.release();
     }

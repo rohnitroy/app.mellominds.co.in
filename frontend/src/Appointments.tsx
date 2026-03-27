@@ -11,20 +11,47 @@ const Appointments: React.FC = () => {
 
   const tabs = ['Upcoming', 'All Bookings', 'Completed', 'Pending Session Notes', 'Cancelled', 'No Show'];
 
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          setAppointments(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch appointments:', error);
+  const fetchAppointments = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setAppointments(data);
       }
-    };
-    fetchAppointments();
-  }, []);
+    } catch (error) {
+      console.error('Failed to fetch appointments:', error);
+    }
+  };
+
+  useEffect(() => { fetchAppointments(); }, []);
+
+  const updateStatus = async (id: number, status: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) fetchAppointments();
+    } catch (e) {
+      console.error('Failed to update status:', e);
+    }
+  };
+
+  const updatePayment = async (id: number, payment_status: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/payment`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ payment_status }),
+      });
+      if (res.ok) fetchAppointments();
+    } catch (e) {
+      console.error('Failed to update payment:', e);
+    }
+  };
 
   const formatDateTime = (isoString: string) => {
     const start = new Date(isoString);
@@ -111,7 +138,47 @@ const Appointments: React.FC = () => {
         );
       },
     },
-  ], []);
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const { id, status, payment_status } = row.original;
+        const btnStyle: React.CSSProperties = {
+          fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '6px',
+          border: 'none', cursor: 'pointer', marginRight: '4px', marginBottom: '2px'
+        };
+        return (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px' }}>
+            {status !== 'cancelled' && status !== 'noshow' && (
+              <>
+                {status !== 'completed' && (
+                  <button style={{ ...btnStyle, background: '#e3f2fd', color: '#1565c0' }}
+                    onClick={() => updateStatus(id, 'completed')}>Complete</button>
+                )}
+                <button style={{ ...btnStyle, background: '#fff3e0', color: '#e65100' }}
+                  onClick={() => updateStatus(id, 'noshow')}>No Show</button>
+                <button style={{ ...btnStyle, background: '#fdecea', color: '#c62828' }}
+                  onClick={() => updateStatus(id, 'cancelled')}>Cancel</button>
+              </>
+            )}
+            {status === 'cancelled' || status === 'noshow' ? (
+              <button style={{ ...btnStyle, background: '#e8f5e9', color: '#2e7d32' }}
+                onClick={() => updateStatus(id, 'scheduled')}>Restore</button>
+            ) : null}
+            {payment_status === 'Pending' && (
+              <button style={{ ...btnStyle, background: '#e8f5e9', color: '#2e7d32' }}
+                onClick={() => updatePayment(id, 'Paid')}>Mark Paid</button>
+            )}
+            {payment_status === 'Paid' && (
+              <button style={{ ...btnStyle, background: '#fdecea', color: '#c62828' }}
+                onClick={() => updatePayment(id, 'Refunded')}>Refund</button>
+            )}
+          </div>
+        );
+      },
+    },
+  ], [appointments]);
 
   return (
     <div className={styles.appointmentsPage}>

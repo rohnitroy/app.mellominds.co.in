@@ -22,6 +22,7 @@ import API_BASE_URL from './config/api';
 import { Category, TwoUsers, Calendar, Discovery, Wallet, Setting, Paper } from 'react-iconly';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
+import QuickActionMenu from './components/QuickActionMenu';
 
 interface NavItem {
   name: string;
@@ -39,13 +40,6 @@ interface Booking {
   client: string;
   type: string;
   mode: string;
-}
-
-interface Action {
-  title: string;
-  description: string;
-  icon: JSX.Element;
-  bg: string;
 }
 
 // ===== NOTIFICATION BELL COMPONENT =====
@@ -190,6 +184,7 @@ const DashboardLayout: React.FC = () => {
   const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
   const [showNotificationsPage, setShowNotificationsPage] = useState<boolean>(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+  const [showCreateBookingModal, setShowCreateBookingModal] = useState<boolean>(false);
   const { logout, user } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
@@ -311,6 +306,10 @@ const DashboardLayout: React.FC = () => {
       </div>
 
       <div className="user-info">
+        <QuickActionMenu
+          onCreateBooking={() => setShowCreateBookingModal(true)}
+          onSendBookingLink={() => setShowSendLinkModal(true)}
+        />
         <NotificationBell
           showNotificationsPage={showNotificationsPage}
           setShowNotificationsPage={setShowNotificationsPage}
@@ -361,6 +360,20 @@ const DashboardLayout: React.FC = () => {
         isOpen={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
       />
+      {showCreateBookingModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '24px'
+        }} onClick={() => setShowCreateBookingModal(false)}>
+          <div style={{
+            background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '860px',
+            maxHeight: '90vh', overflowY: 'auto'
+          }} onClick={e => e.stopPropagation()}>
+            <CreateBooking onBack={() => setShowCreateBookingModal(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -463,7 +476,6 @@ const DashboardHome: React.FC = () => {
   };
 
   const profileProgress = calculateProfileProgress();
-  const [showCreateBooking, setShowCreateBooking] = useState<boolean>(false);
   const [stats, setStats] = useState<any>({
     revenue: '₹0',
     refund: '₹0',
@@ -530,28 +542,6 @@ const DashboardHome: React.FC = () => {
     { label: 'No of Clients', value: stats.noOfClients.toString() }
   ];
 
-  const { setShowSendLinkModal: setGlobalModal } = useOutletContext<{ setShowSendLinkModal: (v: boolean) => void }>();
-
-  const actions: Action[] = [
-    {
-      title: 'Create Resources',
-      description: 'Add new resource and connect it with your calendar',
-      icon: <img src="Category.svg" alt="Create Resources" style={{ width: '24px', height: '24px' }} />,
-      bg: '#9CFFF499'
-    },
-    {
-      title: 'Create a Booking',
-      description: 'Schedule a session for your client manually',
-      icon: <img src="Calendar.svg" alt="Create a Booking" style={{ width: '24px', height: '24px' }} />,
-      bg: '#FFF29C'
-    },
-    {
-      title: 'Send Booking Link',
-      description: 'Share booking link to client to schedule a session',
-      icon: <img src="Send.svg" alt="Send Booking link" style={{ width: '24px', height: '24px' }} />,
-      bg: '#00403999'
-    }
-  ];
 
   const formatDateTime = (isoString: string) => {
     const date = new Date(isoString);
@@ -596,13 +586,6 @@ const DashboardHome: React.FC = () => {
       ),
     },
   ], []);
-
-  if (showCreateBooking) {
-    return <CreateBooking onBack={() => {
-      setShowCreateBooking(false);
-      window.location.reload();
-    }} />;
-  }
 
   return (
     <div className="dashboard-content">
@@ -689,32 +672,7 @@ const DashboardHome: React.FC = () => {
           />
         </div>
 
-        <div>
-          <h2 style={{ margin: '0 0 24px 0', fontFamily: 'Urbanist', fontWeight: '600', fontSize: '20px', color: '#082421' }}>Quick Actions</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-            {actions.map((action, index) => (
-              <div
-                key={index}
-                className="action-card"
-                onClick={() => {
-                  if (action.title === 'Create Resources') {
-                    navigate('/calendars?openModal=true');
-                  } else if (action.title === 'Create a Booking') {
-                    setShowCreateBooking(true);
-                  } else if (action.title === 'Send Booking Link') {
-                    if (setGlobalModal) setGlobalModal(true);
-                  }
-                }}
-              >
-                <div className="action-icon" style={{ background: action.bg }}>{action.icon}</div>
-                <div>
-                  <div className="action-title">{action.title}</div>
-                  <div className="action-description">{action.description}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+
       </div>
     </div>
   );
