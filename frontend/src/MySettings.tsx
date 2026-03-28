@@ -18,6 +18,11 @@ const MySettings: React.FC = () => {
   }, [location.pathname]);
 
   const [googleConnected, setGoogleConnected] = useState(false);
+  const [cashfreeConnected, setCashfreeConnected] = useState(false);
+  const [cashfreeEnv, setCashfreeEnv] = useState('sandbox');
+  const [showCashfreeForm, setShowCashfreeForm] = useState(false);
+  const [cashfreeForm, setCashfreeForm] = useState({ app_id: '', secret_key: '', environment: 'sandbox' });
+  const [cashfreeLoading, setCashfreeLoading] = useState(false);
 
   useEffect(() => {
     const checkGoogleStatus = async () => {
@@ -34,11 +39,50 @@ const MySettings: React.FC = () => {
       }
     };
     checkGoogleStatus();
+
+    // Check Cashfree status
+    fetch(`${API_BASE_URL}/api/cashfree/status`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : { connected: false })
+      .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
+      .catch(() => {});
   }, []);
 
   if (activeSection === 'My Profile') {
     return <MyProfile onBack={() => setActiveSection('')} />;
   }
+
+  const handleCashfreeConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCashfreeLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/cashfree/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(cashfreeForm),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCashfreeConnected(true);
+        setCashfreeEnv(cashfreeForm.environment);
+        setShowCashfreeForm(false);
+        setCashfreeForm({ app_id: '', secret_key: '', environment: 'sandbox' });
+      } else {
+        alert(data.error || 'Failed to connect Cashfree');
+      }
+    } catch {
+      alert('Network error. Please try again.');
+    } finally {
+      setCashfreeLoading(false);
+    }
+  };
+
+  const handleCashfreeDisconnect = async () => {
+    if (!window.confirm('Disconnect Cashfree? Payments will stop working for your calendars.')) return;
+    await fetch(`${API_BASE_URL}/api/cashfree/disconnect`, { method: 'DELETE', credentials: 'include' });
+    setCashfreeConnected(false);
+    setShowCashfreeForm(false);
+  };
 
   return (
     <div className={styles.settingsPage}>
@@ -174,10 +218,49 @@ const MySettings: React.FC = () => {
               <h3>
                 <Wallet set="bulk" size="medium" primaryColor="#082421" />
                 Connect Cashfree
-                <div className={styles.upgradeTag}>Upgrade your plan</div>
               </h3>
-              <p>Cashfree payment integration to accept appointment payment via Cashfree payment gateway</p>
-              <button className={styles.connectBtn}>+ Connect Cashfree</button>
+              <p>Accept appointment payments via Cashfree payment gateway</p>
+              {cashfreeConnected ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                  <div className={styles.connectedTag}>✓ Connected ({cashfreeEnv})</div>
+                  <button className={styles.connectBtn} style={{ background: 'none', color: '#dc3545', border: '1px solid #dc3545' }} onClick={handleCashfreeDisconnect}>Disconnect</button>
+                </div>
+              ) : showCashfreeForm ? (
+                <form onSubmit={handleCashfreeConnect} style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <select
+                    value={cashfreeForm.environment}
+                    onChange={e => setCashfreeForm({ ...cashfreeForm, environment: e.target.value })}
+                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px' }}
+                  >
+                    <option value="sandbox">Sandbox (Testing)</option>
+                    <option value="production">Production (Live)</option>
+                  </select>
+                  <input
+                    required
+                    type="text"
+                    placeholder="App ID"
+                    value={cashfreeForm.app_id}
+                    onChange={e => setCashfreeForm({ ...cashfreeForm, app_id: e.target.value })}
+                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px' }}
+                  />
+                  <input
+                    required
+                    type="password"
+                    placeholder="Secret Key"
+                    value={cashfreeForm.secret_key}
+                    onChange={e => setCashfreeForm({ ...cashfreeForm, secret_key: e.target.value })}
+                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px' }}
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button type="submit" className={styles.connectBtn} disabled={cashfreeLoading}>
+                      {cashfreeLoading ? 'Verifying...' : 'Save & Connect'}
+                    </button>
+                    <button type="button" className={styles.connectBtn} style={{ background: 'none', color: '#666', border: '1px solid #ddd' }} onClick={() => setShowCashfreeForm(false)}>Cancel</button>
+                  </div>
+                </form>
+              ) : (
+                <button className={styles.connectBtn} onClick={() => setShowCashfreeForm(true)}>+ Connect Cashfree</button>
+              )}
             </div>
           </div>
         </div>

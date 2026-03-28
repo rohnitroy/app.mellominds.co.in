@@ -23,7 +23,7 @@ const ensureAuthenticated = (req, res, next) => {
 router.post('/public', async (req, res) => {
     const client = await pool.connect();
     try {
-        const { calendar_id, start_time, client_email, client_name, client_phone, form_responses, location_type } = req.body;
+        const { calendar_id, start_time, client_email, client_name, client_phone, form_responses, location_type, cashfree_order_id } = req.body;
 
         if (!calendar_id || !start_time || !client_email || !client_name) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -110,8 +110,8 @@ router.post('/public', async (req, res) => {
 
         const insertRes = await client.query(
             `INSERT INTO Appointments 
-       (therapist_id, calendar_id, title, start_time, end_time, google_event_id, meet_link, client_email, client_name, client_phone, payment_amount, payment_status, form_responses, location_type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Pending', $12, $13)
+       (therapist_id, calendar_id, title, start_time, end_time, google_event_id, meet_link, client_email, client_name, client_phone, payment_amount, payment_status, form_responses, location_type, cashfree_order_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
             [
                 userId,
@@ -125,8 +125,10 @@ router.post('/public', async (req, res) => {
                 client_name,
                 client_phone || null,
                 bookingAmount,
+                cashfree_order_id ? 'Pending' : 'Pending',
                 form_responses ? JSON.stringify(form_responses) : null,
-                location_type || 'google_meet'
+                location_type || 'google_meet',
+                cashfree_order_id || null
             ]
         );
 

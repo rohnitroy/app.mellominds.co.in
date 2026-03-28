@@ -27,6 +27,38 @@ router.get('/public/:userId/:slug', async (req, res) => {
     }
 });
 
+// GET /api/calendars/payment-gateways - Returns available payment modes
+// "offline" is always available; connected PGs are appended dynamically
+router.get('/payment-gateways', async (req, res) => {
+    const offline = { value: 'offline', label: 'Cash / UPI / Offline Payment' };
+
+    // If not authenticated, return only offline
+    if (!req.isAuthenticated()) {
+        return res.json([offline]);
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT provider FROM UserIntegrations WHERE user_id = $1 AND provider NOT IN ('google')`,
+            [req.user.id]
+        );
+
+        const pgMap: Record<string, string> = {
+            razorpay: 'Razorpay',
+            cashfree: 'Cashfree',
+        };
+
+        const connected = result.rows
+            .filter((r: { provider: string }) => pgMap[r.provider])
+            .map((r: { provider: string }) => ({ value: r.provider, label: pgMap[r.provider] }));
+
+        res.json([offline, ...connected]);
+    } catch (error) {
+        console.error('Error fetching payment gateways:', error);
+        res.json([offline]);
+    }
+});
+
 router.use(ensureAuthenticated);
 
 // GET /api/calendars
@@ -47,7 +79,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const userId = req.user.id;
-        const { title, duration, type, description, slug, form_data, payment_data } = req.body;
+        const { title, duration, type, description, slug, form_data, payment_data, locations, schedule_settings } = req.body;
 
         if (!title || !duration || !type) {
             return res.status(400).json({ error: 'Title, duration, and type are required' });
@@ -58,8 +90,9 @@ router.post('/', async (req, res) => {
         const result = await pool.query(
             `INSERT INTO Calendars 
                 (user_id, title, duration, type, description, slug, form_data,
-                 payment_enabled, payment_gateway, prices, cancellation_policy, reschedule_policy) 
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) 
+                 payment_enabled, payment_gateway, prices, cancellation_policy, reschedule_policy,
+                 locations, schedule_settings) 
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) 
              RETURNING *`,
             [
                 userId, title, duration, type, description, finalSlug,
@@ -68,7 +101,9 @@ router.post('/', async (req, res) => {
                 payment_data?.paymentGateways?.[0] || null,
                 payment_data?.prices?.length ? JSON.stringify(payment_data.prices) : null,
                 payment_data?.cancellation ? JSON.stringify(payment_data.cancellation) : null,
-                payment_data?.reschedule ? JSON.stringify(payment_data.reschedule) : null
+                payment_data?.reschedule ? JSON.stringify(payment_data.reschedule) : null,
+                locations ? JSON.stringify(locations) : null,
+                schedule_settings ? JSON.stringify(schedule_settings) : null
             ]
         );
 
@@ -85,7 +120,7 @@ router.put('/:id', async (req, res) => {
     try {
         const userId = req.user.id;
         const calendarId = req.params.id;
-        const { title, duration, type, description, slug, is_active, form_data, payment_data } = req.body;
+        const { title, duration, type, description, slug, is_active, form_data, payment_data, locations, schedule_settings } = req.body;
 
         const fields = [];
         const values = [];
@@ -99,6 +134,8 @@ router.put('/:id', async (req, res) => {
         if (is_active !== undefined) add('is_active', is_active);
         if (form_data !== undefined) add('form_data', JSON.stringify(form_data));
         if (slug !== undefined) add('slug', slug.startsWith('/') ? slug : `/${slug}`);
+        if (locations !== undefined) add('locations', JSON.stringify(locations));
+        if (schedule_settings !== undefined) add('schedule_settings', JSON.stringify(schedule_settings));
 
         if (payment_data !== undefined) {
             add('payment_enabled', payment_data.acceptPayment || false);

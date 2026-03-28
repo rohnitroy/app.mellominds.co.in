@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
 import Loader from './Loader';
@@ -142,14 +142,7 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }
         });
     };
 
-    useEffect(() => {
-        if (isOpen) {
-            setLoading(true);
-            fetchAvailability();
-        }
-    }, [isOpen]);
-
-    const fetchAvailability = async () => {
+    const fetchAvailability = useCallback(async () => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/availability`, {
                 credentials: 'include'
@@ -184,15 +177,25 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }
         } finally {
             setLoading(false);
         }
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            setLoading(true);
+            fetchAvailability();
+        }
+    }, [isOpen, fetchAvailability]);
 
     const handleSave = async () => {
+        // Only send enabled slots to the backend — disabled days are omitted (backend deletes all then re-inserts)
+        const enabledSchedule = schedule.filter(s => s.is_enabled);
         try {
             const response = await fetch(`${API_BASE_URL}/api/availability`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ schedule })
+                body: JSON.stringify({ schedule: enabledSchedule })
             });
 
             if (response.status === 401) {
@@ -302,7 +305,7 @@ const AvailabilityModal: React.FC<AvailabilityModalProps> = ({ isOpen, onClose }
 
                         {days.map((dayName, dayIndex) => {
                             const isActive = isDayActive(dayIndex);
-                            const daySlots = getDaySlots(dayIndex).filter(s => s.is_enabled);
+                            const daySlots = getDaySlots(dayIndex);
 
                             return (
                                 <div key={dayIndex} style={{

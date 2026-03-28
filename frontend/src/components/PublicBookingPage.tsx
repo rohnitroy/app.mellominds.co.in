@@ -128,10 +128,61 @@ const PublicBookingPage: React.FC = () => {
                 client_name: formData.client_name,
                 client_email: formData.client_email,
                 client_phone: formData.whatsapp_number,
-                location_type: formData.location, // 'google_meet' or 'in_person'
+                location_type: formData.location,
                 form_responses: formResponses
             };
 
+            // If payment is enabled and gateway is cashfree, create a payment order first
+            if (calendar.payment_enabled && calendar.payment_gateway === 'cashfree') {
+                const orderRes = await fetch(`${API_BASE_URL}/api/cashfree/create-order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        calendar_id: calendar.id,
+                        client_name: formData.client_name,
+                        client_email: formData.client_email,
+                        client_phone: formData.whatsapp_number,
+                        start_time: selectedSlot,
+                    }),
+                });
+
+                if (!orderRes.ok) {
+                    const err = await orderRes.json();
+                    toast.error(`Payment setup failed: ${err.error}`);
+                    return;
+                }
+
+                const orderData = await orderRes.json();
+                const { payment_session_id, environment } = orderData;
+
+                // Load Cashfree JS SDK and redirect to checkout
+                const cfBase = environment === 'production'
+                    ? 'https://sdk.cashfree.com/js/v3/cashfree.js'
+                    : 'https://sdk.cashfree.com/js/v3/cashfree.js';
+
+                // Dynamically load Cashfree SDK if not already loaded
+                if (!(window as any).Cashfree) {
+                    await new Promise<void>((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = cfBase;
+                        script.onload = () => resolve();
+                        script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
+                        document.head.appendChild(script);
+                    });
+                }
+
+                const cashfree = (window as any).Cashfree({
+                    mode: environment === 'production' ? 'production' : 'sandbox',
+                });
+
+                cashfree.checkout({
+                    paymentSessionId: payment_session_id,
+                    redirectTarget: '_self',
+                });
+                return; // Cashfree will redirect; booking confirmed via webhook + return_url
+            }
+
+            // No payment or offline payment — create booking directly
             const response = await fetch(`${API_BASE_URL}/api/bookings/public`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

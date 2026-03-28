@@ -25,6 +25,13 @@ const CreateEventPage: React.FC = () => {
     const [isSlugEdited, setIsSlugEdited] = useState(isEditMode);
     const [showAddLocationModal, setShowAddLocationModal] = useState(false);
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+
+    useEffect(() => {
+        fetch(`${API_BASE_URL}/api/connect-calendar/status`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : { connected: false })
+            .then(data => setIsGoogleConnected(data.connected))
+            .catch(() => setIsGoogleConnected(false));
+    }, []);
     const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
 
     const applyFormat = (format: 'bold' | 'italic' | 'bullet' | 'link') => {
@@ -60,13 +67,27 @@ const CreateEventPage: React.FC = () => {
         }, 0);
     };
 
-    const [eventData, setEventData] = useState({
+    interface LocationItem {
+        type: string;
+        address?: string;
+        details?: Record<string, string>;
+    }
+
+    const [eventData, setEventData] = useState<{
+        name: string;
+        description: string;
+        url: string;
+        color: string;
+        locations: LocationItem[];
+        duration: string;
+        owner: string;
+    }>({
         name: existingCalendar?.title || '',
         description: existingCalendar?.description || '',
         // Strip leading slash — the UI renders "/" prefix separately
         url: existingCalendar?.slug ? existingCalendar.slug.replace(/^\//, '') : '',
         color: '#3787F8',
-        locations: [{ type: 'google_meet' }] as any[],
+        locations: existingCalendar?.locations || [{ type: 'google_meet' }],
         duration: existingCalendar?.duration?.replace(' m', '') || '60',
         owner: user?.user_name || 'Therapist',
     });
@@ -81,13 +102,13 @@ const CreateEventPage: React.FC = () => {
     const [scheduleData, setScheduleData] = useState({
         duration: parsedDuration.duration,
         durationUnit: parsedDuration.durationUnit,
-        dateRangeType: 'calendar_days', // calendar_days, business_days, range, indefinitely
-        dateRangeValue: '60',
-        selectedSchedule: 'default', // Default mock schedule
-        slotInterval: '30',
-        bufferType: 'after_event', // before_event, after_event
-        bufferTime: '0',
-        minNotice: '0'
+        dateRangeType: existingCalendar?.schedule_settings?.dateRangeType || 'calendar_days',
+        dateRangeValue: existingCalendar?.schedule_settings?.dateRangeValue || '60',
+        selectedSchedule: 'default',
+        slotInterval: existingCalendar?.schedule_settings?.slotInterval || '30',
+        bufferType: existingCalendar?.schedule_settings?.bufferType || 'after_event',
+        bufferTime: existingCalendar?.schedule_settings?.bufferTime || '0',
+        minNotice: existingCalendar?.schedule_settings?.minNotice || '0'
     });
 
     interface FormQuestion {
@@ -135,6 +156,15 @@ const CreateEventPage: React.FC = () => {
             fee: ''
         }
     });
+
+    const [paymentGateways, setPaymentGateways] = useState<{ value: string; label: string }[]>([]);
+
+    useEffect(() => {
+        fetch(`${API_BASE_URL}/api/calendars/payment-gateways`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : [{ value: 'offline', label: 'Cash / UPI / Offline Payment' }])
+            .then(data => setPaymentGateways(data))
+            .catch(() => setPaymentGateways([{ value: 'offline', label: 'Cash / UPI / Offline Payment' }]));
+    }, []);
 
     const [isGatewayDropdownOpen, setIsGatewayDropdownOpen] = useState(false);
     const gatewayDropdownRef = React.useRef<HTMLDivElement>(null);
@@ -327,8 +357,7 @@ const CreateEventPage: React.FC = () => {
     };
 
     const handleConnectGoogle = () => {
-        console.log('Connect to Google Calendar');
-        // Add actual logic if available
+        window.location.href = `${API_BASE_URL}/api/connect-calendar/start`;
     };
 
     // Derive the public booking URL for this calendar
@@ -386,6 +415,15 @@ const CreateEventPage: React.FC = () => {
                 description: eventData.description,
                 slug: normalizedSlug,
                 is_active: true,
+                locations: eventData.locations,
+                schedule_settings: {
+                    dateRangeType: scheduleData.dateRangeType,
+                    dateRangeValue: scheduleData.dateRangeValue,
+                    slotInterval: scheduleData.slotInterval,
+                    bufferType: scheduleData.bufferType,
+                    bufferTime: scheduleData.bufferTime,
+                    minNotice: scheduleData.minNotice,
+                },
                 form_data: formData,
                 payment_data: paymentData
             };
@@ -520,7 +558,7 @@ const CreateEventPage: React.FC = () => {
                         </button>
                     </div>
                     <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
-                        Connect with Video conferencing apps to auto create the meeting link when booked: <a href="#" style={{ color: '#3787F8' }}>Go to Connections →</a>
+                        Connect with Video conferencing apps to auto create the meeting link when booked: <a href="/settings" style={{ color: '#3787F8' }}>Go to Connections →</a>
                     </p>
                 </div>
             </div>
@@ -532,7 +570,7 @@ const CreateEventPage: React.FC = () => {
             {/* Durations */}
             <div className={styles.scheduleSection}>
                 <h3>Durations</h3>
-                <p>Set custom duration options for this event <a href="#" className={styles.link}>Learn more ↗</a></p>
+                <p>Set custom duration options for this event</p>
                 <div className={styles.rowInputs}>
                     <input
                         type="number"
@@ -549,7 +587,7 @@ const CreateEventPage: React.FC = () => {
                         <option value="Hours">Hours</option>
                     </select>
                 </div>
-                <button className={styles.addDurationBtn}>+ Add Duration Option</button>
+
             </div>
 
             {/* Date Ranges */}
@@ -643,7 +681,7 @@ const CreateEventPage: React.FC = () => {
             {/* Slots Generator */}
             <div className={styles.scheduleSection}>
                 <h3>Slots Generator</h3>
-                <p>Generate slot times in increments of X minutes instead of using the event duration. <a href="#" className={styles.link}>Learn more ↗</a></p>
+                <p>Generate slot times in increments of X minutes instead of using the event duration.</p>
                 <div className={styles.rowInputs}>
                     <input
                         type="number"
@@ -661,7 +699,7 @@ const CreateEventPage: React.FC = () => {
             {/* Break Time */}
             <div className={styles.scheduleSection}>
                 <h3>Break Time</h3>
-                <p>Add buffer time before and after events <a href="#" className={styles.link}>Learn more ↗</a></p>
+                <p>Add buffer time before and after events</p>
                 <div className={styles.radioGroup} style={{ flexDirection: 'row', gap: '24px', marginBottom: '24px' }}>
                     <label className={styles.radioOption}>
                         <input
@@ -698,7 +736,7 @@ const CreateEventPage: React.FC = () => {
             {/* Minimum Notice */}
             <div className={styles.scheduleSection}>
                 <h3>Minimum Notice</h3>
-                <p>Set minimum advance notice required for bookings <a href="#" className={styles.link}>Learn more ↗</a></p>
+                <p>Set minimum advance notice required for bookings</p>
                 <div className={styles.rowInputs}>
                     <input
                         type="number"
@@ -796,7 +834,7 @@ const CreateEventPage: React.FC = () => {
         <>
             <div className={styles.scheduleSection}>
                 <h3>Registration Form</h3>
-                <p>Customize the registration form to add and configure fields to collect specific information from invitees. <a href="#" className={styles.link}>Learn more ↗</a></p>
+                <p>Customize the registration form to add and configure fields to collect specific information from invitees.</p>
 
                 <div className={styles.formGroup}>
                     <label className={styles.label}>Form Heading</label>
@@ -903,7 +941,7 @@ const CreateEventPage: React.FC = () => {
                 <div>
                     <h3>Accept Payment</h3>
                     <p className={styles.paymentDescription}>
-                        Collect payment when someone books an appointment <a href="#" className={styles.link}>Learn more ↗</a>
+                        Collect payment when someone books an appointment
                     </p>
                 </div>
                 <label className={styles.toggleSwitch}>
@@ -917,8 +955,10 @@ const CreateEventPage: React.FC = () => {
                 </label>
             </div>
 
+            {paymentData.acceptPayment && (
+            <>
             <div style={{ marginTop: '24px' }}>
-                <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px', fontFamily: '"Urbanist", sans-serif' }}>Payment Gateways</h3>
+                <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px', fontFamily: '"Urbanist", sans-serif' }}>Payment Mode</h3>
                 <select
                     className={styles.selectInput}
                     style={{ width: '100%' }}
@@ -926,9 +966,9 @@ const CreateEventPage: React.FC = () => {
                     onChange={(e) => setPaymentData(prev => ({ ...prev, paymentGateways: e.target.value ? [e.target.value] : [] }))}
                 >
                     <option value="">Select a payment gateway...</option>
-                    <option value="razorpay">Razorpay</option>
-                    <option value="cashfree">Cashfree</option>
-                    <option value="upi">UPI/Cash</option>
+                    {paymentGateways.map(gw => (
+                        <option key={gw.value} value={gw.value}>{gw.label}</option>
+                    ))}
                 </select>
             </div>
 
@@ -1221,8 +1261,10 @@ const CreateEventPage: React.FC = () => {
             </div>
 
             <p className={styles.connectionsLink}>
-                Connect with Payment apps to accept payment for bookings : <a href="#" className={styles.link}>Go to Connections →</a>
+                Connect with Payment apps to accept payment for bookings : <a href="/settings" className={styles.link}>Go to Connections →</a>
             </p>
+            </> /* end acceptPayment */
+            )}
         </div>
     );
 
