@@ -362,7 +362,10 @@ const AllClients: React.FC = () => {
             }}
             onClick={e => e.stopPropagation()}
           >
-            <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '22px', margin: '0 0 4px 0' }}>Add New Client</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+              <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '22px', margin: 0 }}>Add New Client</h2>
+              <button onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+            </div>
             <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>Fill in the client's details below</p>
 
             <form onSubmit={handleAddClient}>

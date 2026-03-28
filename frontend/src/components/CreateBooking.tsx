@@ -8,6 +8,7 @@ import API_BASE_URL from '../config/api';
 
 interface CreateBookingProps {
     onBack?: () => void;
+    prefillClient?: { name: string; email: string; phone: string };
 }
 
 interface Calendar {
@@ -27,9 +28,14 @@ const defaultForm = {
     sessionType: { online: false, inPerson: false }
 };
 
-const CreateBooking: React.FC<CreateBookingProps> = ({ onBack }) => {
+const CreateBooking: React.FC<CreateBookingProps> = ({ onBack, prefillClient }) => {
     const toast = useToast();
-    const [formData, setFormData] = useState({ ...defaultForm });
+    const [formData, setFormData] = useState({
+        ...defaultForm,
+        clientName: prefillClient?.name || '',
+        clientWhatsApp: prefillClient?.phone || '',
+        clientEmail: prefillClient?.email || '',
+    });
     const [calendars, setCalendars] = useState<Calendar[]>([]);
     const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
     const [availableSlots, setAvailableSlots] = useState<string[]>([]);

@@ -1339,7 +1339,10 @@ const CreateEventPage: React.FC = () => {
                     onClick={() => setShowEmbedModal(false)}>
                     <div style={{ background: '#fff', borderRadius: '12px', padding: '28px', width: '560px', maxWidth: '90vw' }}
                         onClick={e => e.stopPropagation()}>
-                        <h3 style={{ margin: '0 0 12px', fontFamily: 'Urbanist', fontWeight: 700 }}>Embed Calendar</h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                          <h3 style={{ margin: 0, fontFamily: 'Urbanist', fontWeight: 700 }}>Embed Calendar</h3>
+                          <button onClick={() => setShowEmbedModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+                        </div>
                         <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px' }}>Copy and paste this code into your website to embed the booking page.</p>
                         <textarea
                             readOnly

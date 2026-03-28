@@ -279,7 +279,10 @@ const AddClientModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       onClick={() => !saving && onClose()}>
       <div style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}>
-        <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '22px', margin: '0 0 4px 0' }}>Add New Client</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+          <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '22px', margin: 0 }}>Add New Client</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+        </div>
         <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>Fill in the client's details below</p>
         <form onSubmit={handleSubmit}>
           <p style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#2D7579', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Basic Info</p>
@@ -513,8 +516,9 @@ const DashboardLayout: React.FC = () => {
         }} onClick={() => setShowCreateBookingModal(false)}>
           <div style={{
             background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '860px',
-            maxHeight: '90vh', overflowY: 'auto'
+            maxHeight: '90vh', overflowY: 'auto', position: 'relative'
           }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowCreateBookingModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', zIndex: 1 }}>×</button>
             <CreateBooking onBack={() => setShowCreateBookingModal(false)} />
           </div>
         </div>

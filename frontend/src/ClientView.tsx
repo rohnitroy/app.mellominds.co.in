@@ -5,6 +5,7 @@ import CustomDropdown from './components/CustomDropdown';
 import { useToast } from './context/ToastContext';
 import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
+import CreateBooking from './components/CreateBooking';
 import { ColumnDef } from '@tanstack/react-table';
 
 interface Client {
@@ -41,6 +42,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
+  const [showCreateBookingModal, setShowCreateBookingModal] = useState<boolean>(false);
   const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
   const [transferEmail, setTransferEmail] = useState('');
   const [transferOptions, setTransferOptions] = useState({
@@ -567,7 +569,15 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 </div>
 
                 <div className={styles.appointmentsSection}>
-                  <h3>Bookings</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <h3 style={{ margin: 0 }}>Bookings</h3>
+                    <button
+                      onClick={() => setShowCreateBookingModal(true)}
+                      style={{ padding: '7px 16px', background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                    >
+                      + Create Booking
+                    </button>
+                  </div>
                   <DataTable
                     data={appointments}
                     columns={bookingColumns}
@@ -679,9 +689,11 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
       {isEditing && (
         <div className={styles.modalOverlay} onClick={handleCancelEdit}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px', width: '100%' }}>
-            <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px', margin: '0 0 4px 0' }}>Edit Client Details</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+              <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px', margin: 0 }}>Edit Client Details</h2>
+              <button onClick={handleCancelEdit} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+            </div>
             <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>Update client information below</p>
-
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div className={styles.formGroup}>
                 <label>Full Name</label>
@@ -745,7 +757,10 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
       {showAddNotesModal && (
         <div className={styles.modalOverlay} onClick={() => setShowAddNotesModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h2>+ Add Notes</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <h2 style={{ margin: 0 }}>+ Add Notes</h2>
+              <button onClick={() => setShowAddNotesModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+            </div>
             <p>add private notes to a dedicated client booking.</p>
 
             <div className={styles.formGroup}>
@@ -785,7 +800,10 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
       {showAddActivitiesModal && (
         <div className={styles.modalOverlay} onClick={() => setShowAddActivitiesModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <h2>+ Add Activity</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <h2 style={{ margin: 0 }}>+ Add Activity</h2>
+              <button onClick={() => setShowAddActivitiesModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+            </div>
             <p>Add an activity suggestion for this client.</p>
 
             <div className={styles.formGroup}>
@@ -827,6 +845,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 </svg>
               </div>
               <h3 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '18px', color: '#1a1a1a', margin: 0 }}>Delete Client?</h3>
+              <button onClick={() => setShowDeleteModal(false)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
             </div>
             <p style={{ fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#6E6E6E', marginBottom: '24px', lineHeight: 1.6 }}>
               Are you sure you want to delete <strong>{client.name}</strong>? This will remove their profile. Their booking history will be preserved.
@@ -852,10 +871,15 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
           <div style={{ background: '#fff', borderRadius: '16px', padding: '32px 28px', width: '100%', maxWidth: '460px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
             onClick={e => e.stopPropagation()}>
 
-            <h3 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '18px', color: '#1a1a1a', margin: '0 0 6px 0' }}>Transfer Client</h3>
-            <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>
-              Transfer <strong>{client.name}</strong> to another therapist using their registered email.
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '18px', color: '#1a1a1a', margin: '0 0 6px 0' }}>Transfer Client</h3>
+                <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>
+                  Transfer <strong>{client.name}</strong> to another therapist using their registered email.
+                </p>
+              </div>
+              <button onClick={() => { setShowTransferModal(false); setTransferEmail(''); setEmailLookup({ status: 'idle' }); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1, flexShrink: 0 }}>×</button>
+            </div>
 
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#333', display: 'block', marginBottom: '6px' }}>
@@ -921,6 +945,20 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 {transferring ? 'Sending Request...' : 'Send Transfer Request'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Create Booking Modal */}
+      {showCreateBookingModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          onClick={() => setShowCreateBookingModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}
+            onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowCreateBookingModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', zIndex: 1 }}>×</button>
+            <CreateBooking
+              onBack={() => { setShowCreateBookingModal(false); setRefreshTrigger(prev => prev + 1); }}
+              prefillClient={{ name: editData.name, email: editData.email, phone: editData.phone }}
+            />
           </div>
         </div>
       )}
