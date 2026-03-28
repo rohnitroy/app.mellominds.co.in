@@ -28,7 +28,7 @@
 .pageHeader h1 {
   font-family: 'Urbanist', sans-serif;
   font-weight: 700;
-  font-size: 45px;
+  font-size: 20px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #000000;
@@ -61,7 +61,7 @@
   display: block;
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #000000;
@@ -80,7 +80,7 @@
   border-radius: 12px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   background: white;
@@ -91,7 +91,7 @@
 .input::placeholder {
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #6E6E6E;
@@ -120,7 +120,7 @@
   border-right: 1px solid rgba(0, 0, 0, 0.1);
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   color: #000000;
   min-width: 60px;
 }
@@ -131,7 +131,7 @@
   padding: 0 16px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   background: white;
@@ -141,7 +141,7 @@
 .phoneInput::placeholder {
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #6E6E6E;
@@ -164,7 +164,7 @@
   border-radius: 12px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   background: white;
@@ -209,7 +209,7 @@
   border-radius: 12px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 100%;
   letter-spacing: 0%;
   background: white;
@@ -250,7 +250,7 @@
 .slotsHeader h3 {
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 100%;
   letter-spacing: 0%;
   color: #000000;
@@ -268,7 +268,7 @@
   gap: 8px;
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 16px;
+  font-size: 14px;
   color: #000000;
   cursor: pointer;
 }
@@ -347,14 +347,14 @@
 .totalLabel {
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 18px;
+  font-size: 16px;
   color: #6E6E6E;
 }
 
 .totalAmount {
   font-family: 'Urbanist', sans-serif;
   font-weight: 700;
-  font-size: 24px;
+  font-size: 18px;
   color: #000000;
 }
 
@@ -370,7 +370,7 @@
   background: white;
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   color: #000000;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -388,7 +388,7 @@
   background: #082421;
   font-family: 'Urbanist', sans-serif;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 14px;
   color: white;
   cursor: pointer;
   transition: all 0.2s ease;

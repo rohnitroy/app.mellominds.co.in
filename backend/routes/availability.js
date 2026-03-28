@@ -70,26 +70,27 @@ router.post('/', ensureAuthenticated, async (req, res) => {
     }
 });
 
-// GET /api/availability/slots?date=YYYY-MM-DD&calendarId=...&timeZone=...
+// GET /api/availability/slots?date=YYYY-MM-DD&calendar_id=...
 // Public endpoint for checking slots
 router.get('/slots', async (req, res) => {
     const client = await pool.connect();
     try {
-        const { date, calendarId, timeZone = 'UTC' } = req.query;
+        const { date, calendar_id, calendarId, timeZone = 'Asia/Kolkata' } = req.query;
+        const calId = calendar_id || calendarId; // accept both param names
 
-        if (!date || !calendarId) {
-            return res.status(400).json({ error: 'Date and Calendar ID are required' });
+        if (!date || !calId) {
+            return res.status(400).json({ error: 'Date and calendar_id are required' });
         }
 
         // 1. Get Calendar & Therapist Info
-        const calRes = await client.query('SELECT user_id, duration FROM Calendars WHERE id = $1', [calendarId]);
+        const calRes = await client.query('SELECT user_id, duration FROM Calendars WHERE id = $1', [calId]);
         if (calRes.rows.length === 0) return res.status(404).json({ error: 'Calendar not found' });
 
         const { user_id: therapistId, duration } = calRes.rows[0];
-        const durationMinutes = parseInt(duration.match(/\d+/)[0]) || 60;
+        const durationMinutes = parseInt((duration || '60').match(/\d+/)[0]) || 60;
 
-        // 2. Determine Day of Week (0-6)
-        const selectedDate = new Date(date);
+        // 2. Determine Day of Week (0=Sun, 6=Sat)
+        const selectedDate = new Date(date + 'T00:00:00');
         const dayOfWeek = selectedDate.getDay();
 
         // 3. Fetch Platform Availability for that day
@@ -101,10 +102,10 @@ router.get('/slots', async (req, res) => {
         );
 
         if (availRes.rows.length === 0) {
-            return res.json([]); // No availability set for this day
+            return res.json({ slots: [] });
         }
 
-        // 4. Fetch Google Calendar "Busy" Times
+        // 4. Fetch Google Calendar busy times (optional)
         let busySlots = [];
         const tokenRes = await client.query(
             "SELECT access_token, refresh_token, expiry_date FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
@@ -112,85 +113,66 @@ router.get('/slots', async (req, res) => {
         );
 
         if (tokenRes.rows.length > 0) {
-            const tokens = tokenRes.rows[0];
-            oauth2Client.setCredentials(tokens);
-            const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-
-            // Calculate day start/end in ISO
-            const timeMin = new Date(date).toISOString(); // 00:00:00
-            const timeMax = new Date(new Date(date).setDate(new Date(date).getDate() + 1)).toISOString(); // 23:59:59 next day
-
             try {
+                oauth2Client.setCredentials(tokenRes.rows[0]);
+                const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+                const timeMin = new Date(date + 'T00:00:00').toISOString();
+                const timeMax = new Date(date + 'T23:59:59').toISOString();
                 const fbRes = await calendar.freebusy.query({
-                    requestBody: {
-                        timeMin,
-                        timeMax,
-                        timeZone,
-                        items: [{ id: 'primary' }]
-                    }
+                    requestBody: { timeMin, timeMax, timeZone, items: [{ id: 'primary' }] }
                 });
                 busySlots = fbRes.data.calendars.primary.busy || [];
             } catch (gErr) {
-                console.error('Google FreeBusy Error:', gErr);
-                // Fail gracefully? Or block all? Let's proceed with platform availability only but log error.
+                console.error('Google FreeBusy Error:', gErr.message);
             }
         }
 
-        // 5. Fetch Internal Appointments "Busy" Times
+        // 5. Fetch internal appointments busy times
         const apptRes = await client.query(
             `SELECT start_time, end_time FROM Appointments 
              WHERE therapist_id = $1 
-             AND start_time >= $2::timestamp 
-             AND start_time < ($2::timestamp + interval '1 day')
+             AND start_time >= $2::date 
+             AND start_time < ($2::date + interval '1 day')
              AND status != 'cancelled'`,
             [therapistId, date]
         );
-        const internalBusy = apptRes.rows.map(row => ({
-            start: new Date(row.start_time).toISOString(),
-            end: new Date(row.end_time).toISOString()
-        }));
 
-        // Combine all busy slots
-        const allBusy = [...busySlots, ...internalBusy].map(slot => ({
-            start: new Date(slot.start).getTime(),
-            end: new Date(slot.end).getTime()
-        }));
+        const allBusy = [
+            ...busySlots.map(s => ({ start: new Date(s.start).getTime(), end: new Date(s.end).getTime() })),
+            ...apptRes.rows.map(r => ({ start: new Date(r.start_time).getTime(), end: new Date(r.end_time).getTime() }))
+        ];
 
-        // 6. Calculate Available Slots
-        let availableSlots = [];
+        // 6. Generate available slots
+        const formatSlot = (d) => {
+            let h = d.getHours();
+            const m = d.getMinutes();
+            const period = h >= 12 ? 'PM' : 'AM';
+            if (h > 12) h -= 12;
+            if (h === 0) h = 12;
+            return `${h}:${m.toString().padStart(2, '0')}${period}`;
+        };
+
+        const availableSlots = [];
 
         for (const window of availRes.rows) {
-            // Convert "09:00:00" strings to timestamps for calculation
-            const [h1, m1] = window.start_time.split(':');
-            const [h2, m2] = window.end_time.split(':');
+            const [h1, m1] = window.start_time.split(':').map(Number);
+            const [h2, m2] = window.end_time.split(':').map(Number);
 
-            let slotStart = new Date(selectedDate); // Clone date
-            slotStart.setHours(parseInt(h1), parseInt(m1), 0, 0);
+            let slotStart = new Date(date + 'T00:00:00');
+            slotStart.setHours(h1, m1, 0, 0);
 
-            let windowEnd = new Date(selectedDate);
-            windowEnd.setHours(parseInt(h2), parseInt(m2), 0, 0);
+            const windowEnd = new Date(date + 'T00:00:00');
+            windowEnd.setHours(h2, m2, 0, 0);
 
-            // Generate potential slots
             while (slotStart.getTime() + durationMinutes * 60000 <= windowEnd.getTime()) {
                 const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
-
-                // Check if this slot overlaps with any busy slot
-                const isBusy = allBusy.some(busy => {
-                    return (
-                        (slotStart.getTime() < busy.end) && (slotEnd.getTime() > busy.start)
-                    );
-                });
-
-                if (!isBusy) {
-                    availableSlots.push(slotStart.toISOString());
-                }
-
-                // Increment slot by 30 minutes (fixed interval)
+                const isBusy = allBusy.some(b => slotStart.getTime() < b.end && slotEnd.getTime() > b.start);
+                if (!isBusy) availableSlots.push(formatSlot(slotStart));
                 slotStart = new Date(slotStart.getTime() + 30 * 60000);
             }
         }
 
-        res.json(availableSlots);
+        res.json({ slots: availableSlots });
 
     } catch (error) {
         console.error('Error calculating slots:', error);
