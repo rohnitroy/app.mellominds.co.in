@@ -801,12 +801,41 @@ const DashboardHome: React.FC = () => {
   );
 };
 
+const PageTitle: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      '/dashboard': 'Dashboard',
+      '/clients': 'All Clients',
+      '/bookings': 'Bookings',
+      '/my-calendar': 'My Calendars',
+      '/my-calendar/new': 'Create Event',
+      '/my-calendar/edit': 'Edit Event',
+      '/payment-invoice': 'Payments & Invoice',
+      '/settings': 'My Settings',
+      '/settings/my-profile': 'My Profile',
+      '/notifications': 'Notifications',
+      '/login': 'Login',
+      '/signup': 'Sign Up',
+    };
+
+    const match = Object.keys(titles).find(path => location.pathname === path)
+      || Object.keys(titles).find(path => location.pathname.startsWith(path + '/'));
+
+    document.title = match ? `${titles[match]} - MelloMinds` : 'MelloMinds';
+  }, [location.pathname]);
+
+  return null;
+};
+
 const AppContent: React.FC = () => {
   const { toasts, removeToast } = useToast();
 
   return (
     <>
       <BrowserRouter>
+        <PageTitle />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
