@@ -266,6 +266,11 @@ const SignUpPage: React.FC = () => {
               <p className="signup-text">
                 Already have an account? <a href="/login">Login Now!</a>
               </p>
+              <p style={{ textAlign: 'center', fontSize: '12px', color: '#9CA3AF', marginTop: '12px' }}>
+                <a href="/privacy-policy" style={{ color: '#9CA3AF', textDecoration: 'underline' }}>Privacy Policy</a>
+                {' · '}
+                <a href="/terms-of-service" style={{ color: '#9CA3AF', textDecoration: 'underline' }}>Terms of Service</a>
+              </p>
             </>
           ) : step === 2 ? (
             <>

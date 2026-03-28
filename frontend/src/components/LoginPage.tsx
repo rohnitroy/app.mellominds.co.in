@@ -195,6 +195,11 @@ const LoginPage: React.FC = () => {
           <p className="signup-text">
             Don't have an account? <Link to="/signup">Create an account!</Link>
           </p>
+          <p style={{ textAlign: 'center', fontSize: '12px', color: '#9CA3AF', marginTop: '12px' }}>
+            <Link to="/privacy-policy" style={{ color: '#9CA3AF', textDecoration: 'underline' }}>Privacy Policy</Link>
+            {' · '}
+            <Link to="/terms-of-service" style={{ color: '#9CA3AF', textDecoration: 'underline' }}>Terms of Service</Link>
+          </p>
 
 
         </div>
