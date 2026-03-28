@@ -7,7 +7,7 @@ const router = express.Router();
 const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`}/api/connect-calendar/callback`
+    process.env.CONNECT_CALENDAR_CALLBACK_URL || `http://localhost:${process.env.PORT || 3001}/api/connect-calendar/callback`
 );
 
 // Middleware to ensure authentication
