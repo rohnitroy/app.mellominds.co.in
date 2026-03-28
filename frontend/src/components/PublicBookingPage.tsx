@@ -370,29 +370,38 @@ const PublicBookingPage: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Price Section */}
-                            <div className="form-section">
-                                <label className="section-label">Select Price</label>
-                                <div className="selection-card selected price-card">
-                                    <div className="card-radio"><div className="radio-inner" /></div>
-                                    <div className="card-content">
-                                        <div className="card-title">₹{calendar.price || '1,700.00'}</div>
-                                        <div className="card-desc">Session Charges</div>
-                                    </div>
+                            {/* Price Section - only show if payment is enabled and prices are configured */}
+                            {calendar.payment_enabled && calendar.prices && calendar.prices.length > 0 && (
+                                <div className="form-section">
+                                    <label className="section-label">Session Price</label>
+                                    {calendar.prices.map((p: any, i: number) => (
+                                        <div key={i} className="selection-card selected price-card">
+                                            <div className="card-radio"><div className="radio-inner" /></div>
+                                            <div className="card-content">
+                                                <div className="card-title">{p.currency} {p.amount}</div>
+                                                <div className="card-desc">{p.label || 'Session Charges'}</div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Payment Method Section */}
-                            <div className="form-section">
-                                <label className="section-label">Select Payment Method</label>
-                                <div className="selection-card selected">
-                                    <div className="card-radio"><div className="radio-inner" /></div>
-                                    <div className="card-content">
-                                        <div className="card-title">Razorpay</div>
+                            {/* Payment Method Section - only show if payment is enabled and gateway is configured */}
+                            {calendar.payment_enabled && calendar.payment_gateway && (
+                                <div className="form-section">
+                                    <label className="section-label">Payment Method</label>
+                                    <div className="selection-card selected">
+                                        <div className="card-radio"><div className="radio-inner" /></div>
+                                        <div className="card-content">
+                                            <div className="card-title">
+                                                {calendar.payment_gateway === 'razorpay' ? 'Razorpay'
+                                                    : calendar.payment_gateway === 'cashfree' ? 'Cashfree'
+                                                    : 'UPI/Cash'}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <img src="/razorpay-logo.svg" alt="Razorpay" style={{ height: '20px', marginLeft: 'auto' }} onError={(e) => { e.currentTarget.style.display = 'none' }} />
                                 </div>
-                            </div>
+                            )}
 
                             <div className="add-guests" style={{ margin: '20px 0', color: '#333', cursor: 'pointer', fontSize: '14px' }}>
                                 + Add Guests

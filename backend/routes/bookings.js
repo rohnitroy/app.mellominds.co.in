@@ -103,6 +103,11 @@ router.post('/public', async (req, res) => {
         }
 
         // 3. Create Appointment in DB
+        // Use first configured price from calendar if payment is enabled
+        const bookingAmount = calendarService.payment_enabled && calendarService.prices?.length
+            ? (calendarService.prices[0]?.amount || 0)
+            : 0;
+
         const insertRes = await client.query(
             `INSERT INTO Appointments 
        (therapist_id, calendar_id, title, start_time, end_time, google_event_id, meet_link, client_email, client_name, client_phone, payment_amount, payment_status, form_responses)
@@ -119,7 +124,7 @@ router.post('/public', async (req, res) => {
                 client_email,
                 client_name,
                 client_phone || null,
-                0, // Assuming free or payment handled elsewhere for now
+                bookingAmount,
                 form_responses ? JSON.stringify(form_responses) : null
             ]
         );

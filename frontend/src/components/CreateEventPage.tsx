@@ -117,21 +117,21 @@ const CreateEventPage: React.FC = () => {
     );
 
     const [paymentData, setPaymentData] = useState({
-        acceptPayment: false,
-        paymentGateways: [] as string[],
-        prices: [] as any[],
-        cancellation: {
+        acceptPayment: existingCalendar?.payment_enabled || false,
+        paymentGateways: existingCalendar?.payment_gateway ? [existingCalendar.payment_gateway] : [] as string[],
+        prices: existingCalendar?.prices || [] as any[],
+        cancellation: existingCalendar?.cancellation_policy || {
             enabled: false,
             window: '24',
             unit: 'hours',
-            refundType: 'full', // full, partial, none
+            refundType: 'full',
             refundPercentage: '50'
         },
-        reschedule: {
+        reschedule: existingCalendar?.reschedule_policy || {
             enabled: false,
             window: '24',
             unit: 'hours',
-            type: 'free', // free, paid
+            type: 'free',
             fee: ''
         }
     });
@@ -178,7 +178,7 @@ const CreateEventPage: React.FC = () => {
     const removePrice = (id: number) => {
         setPaymentData(prev => ({
             ...prev,
-            prices: prev.prices.filter(p => p.id !== id)
+            prices: prev.prices.filter((p: any) => p.id !== id)
         }));
     };
 
@@ -386,7 +386,8 @@ const CreateEventPage: React.FC = () => {
                 description: eventData.description,
                 slug: normalizedSlug,
                 is_active: true,
-                form_data: formData
+                form_data: formData,
+                payment_data: paymentData
             };
 
             const url = isEditMode 
@@ -943,7 +944,7 @@ const CreateEventPage: React.FC = () => {
 
                     {paymentData.prices.length > 0 && (
                         <div className={styles.pricingList}>
-                            {paymentData.prices.map(price => (
+                            {paymentData.prices.map((price: any) => (
                                 <div key={price.id} className={styles.priceItem}>
                                     <div className={styles.priceDetails}>
                                         <span className={styles.priceAmount}>{price.currency} {price.amount}</span>
