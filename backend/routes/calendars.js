@@ -43,14 +43,14 @@ router.get('/payment-gateways', async (req, res) => {
             [req.user.id]
         );
 
-        const pgMap: Record<string, string> = {
+        const pgMap = {
             razorpay: 'Razorpay',
             cashfree: 'Cashfree',
         };
 
         const connected = result.rows
-            .filter((r: { provider: string }) => pgMap[r.provider])
-            .map((r: { provider: string }) => ({ value: r.provider, label: pgMap[r.provider] }));
+            .filter((r) => pgMap[r.provider])
+            .map((r) => ({ value: r.provider, label: pgMap[r.provider] }));
 
         res.json([offline, ...connected]);
     } catch (error) {
