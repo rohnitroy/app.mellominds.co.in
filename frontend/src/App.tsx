@@ -181,11 +181,115 @@ const NotificationsPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   );
 };
 
+// ===== ADD CLIENT MODAL =====
+const defaultClientForm = {
+  name: '', email: '', phone: '', age: '', occupation: '',
+  gender: 'Male', maritalStatus: 'Single',
+  emergencyName: '', emergencyPhone: '', emergencyRelation: '',
+};
+
+const AddClientModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const toast = useToast();
+  const [form, setForm] = useState({ ...defaultClientForm });
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim()) { toast.error('Name and email are required.'); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/clients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        toast.success('Client added successfully!');
+        onClose();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to add client.');
+      }
+    } catch {
+      toast.error('An error occurred.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const f = (field: keyof typeof form) => ({
+    value: form[field],
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm(prev => ({ ...prev, [field]: e.target.value })),
+  });
+
+  const iStyle: React.CSSProperties = {
+    width: '100%', padding: '10px 12px', borderRadius: '8px',
+    border: '1px solid #e0e0e0', fontFamily: 'Urbanist', fontSize: '14px',
+    color: '#333', outline: 'none', boxSizing: 'border-box',
+  };
+  const lStyle: React.CSSProperties = {
+    display: 'block', fontFamily: 'Urbanist', fontWeight: 500,
+    fontSize: '13px', color: '#555', marginBottom: '6px',
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+      onClick={() => !saving && onClose()}>
+      <div style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}>
+        <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '22px', margin: '0 0 4px 0' }}>Add New Client</h2>
+        <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>Fill in the client's details below</p>
+        <form onSubmit={handleSubmit}>
+          <p style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#2D7579', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Basic Info</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div><label style={lStyle}>Full Name *</label><input style={iStyle} type="text" required placeholder="Jane Doe" {...f('name')} /></div>
+            <div><label style={lStyle}>Email *</label><input style={iStyle} type="email" required placeholder="jane@example.com" {...f('email')} /></div>
+            <div><label style={lStyle}>Phone</label><input style={iStyle} type="tel" placeholder="+91 98765 43210" {...f('phone')} /></div>
+            <div><label style={lStyle}>Age</label><input style={iStyle} type="text" placeholder="28" {...f('age')} /></div>
+            <div><label style={lStyle}>Occupation</label><input style={iStyle} type="text" placeholder="Software Engineer" {...f('occupation')} /></div>
+            <div><label style={lStyle}>Gender</label>
+              <select style={iStyle} {...f('gender')}>
+                <option value="Male">Male</option><option value="Female">Female</option>
+                <option value="Other">Other</option><option value="Prefer not to say">Prefer not to say</option>
+              </select>
+            </div>
+            <div><label style={lStyle}>Marital Status</label>
+              <select style={iStyle} {...f('maritalStatus')}>
+                <option value="Single">Single</option><option value="Married">Married</option>
+                <option value="Divorced">Divorced</option><option value="Widowed">Widowed</option>
+              </select>
+            </div>
+          </div>
+          <p style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#2D7579', margin: '8px 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Emergency Contact</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '28px' }}>
+            <div><label style={lStyle}>Name</label><input style={iStyle} type="text" placeholder="John Doe" {...f('emergencyName')} /></div>
+            <div><label style={lStyle}>Phone</label><input style={iStyle} type="tel" placeholder="+91 98765 43210" {...f('emergencyPhone')} /></div>
+            <div><label style={lStyle}>Relation</label><input style={iStyle} type="text" placeholder="Spouse" {...f('emergencyRelation')} /></div>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <button type="button" onClick={onClose} disabled={saving}
+              style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#333', cursor: 'pointer' }}>
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#082421', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? 'Adding...' : 'Add Client'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const DashboardLayout: React.FC = () => {
   const [showSendLinkModal, setShowSendLinkModal] = useState<boolean>(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [showCreateBookingModal, setShowCreateBookingModal] = useState<boolean>(false);
+  const [showAddClientModal, setShowAddClientModal] = useState<boolean>(false);
   const { logout, user } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
@@ -310,6 +414,7 @@ const DashboardLayout: React.FC = () => {
         <QuickActionMenu
           onCreateBooking={() => setShowCreateBookingModal(true)}
           onSendBookingLink={() => setShowSendLinkModal(true)}
+          onAddClient={() => setShowAddClientModal(true)}
         />
         <NotificationBell
           showNotificationsPage={showNotificationsPage}
@@ -369,6 +474,9 @@ const DashboardLayout: React.FC = () => {
             <CreateBooking onBack={() => setShowCreateBookingModal(false)} />
           </div>
         </div>
+      )}
+      {showAddClientModal && (
+        <AddClientModal onClose={() => setShowAddClientModal(false)} />
       )}
     </div>
   );
