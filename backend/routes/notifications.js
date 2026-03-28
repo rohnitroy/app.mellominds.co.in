@@ -38,20 +38,6 @@ router.get('/unread-count', async (req, res) => {
     }
 });
 
-// PUT /api/notifications/:id/read - mark single notification as read
-router.put('/:id/read', async (req, res) => {
-    try {
-        await pool.query(
-            `UPDATE Notifications SET is_read = true WHERE id = $1 AND user_id = $2`,
-            [req.params.id, req.user.id]
-        );
-        res.json({ success: true });
-    } catch (error) {
-        console.error('Error marking notification read:', error);
-        res.status(500).json({ error: 'Failed to update notification' });
-    }
-});
-
 // PUT /api/notifications/read-all - mark all as read
 router.put('/read-all', async (req, res) => {
     try {
@@ -63,6 +49,20 @@ router.put('/read-all', async (req, res) => {
     } catch (error) {
         console.error('Error marking all notifications read:', error);
         res.status(500).json({ error: 'Failed to update notifications' });
+    }
+});
+
+// PUT /api/notifications/:id/read - mark single notification as read
+router.put('/:id/read', async (req, res) => {
+    try {
+        await pool.query(
+            `UPDATE Notifications SET is_read = true WHERE id = $1 AND user_id = $2`,
+            [req.params.id, req.user.id]
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error marking notification read:', error);
+        res.status(500).json({ error: 'Failed to update notification' });
     }
 });
 
