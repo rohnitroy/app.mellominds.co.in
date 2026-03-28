@@ -7,6 +7,7 @@ import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
 import { useToast } from './context/ToastContext';
+import { exportToCSV } from './utils/exportCSV';
 
 interface Client {
   id: number;
@@ -44,6 +45,7 @@ const AllClients: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRows, setSelectedRows] = useState<Client[]>([]);
 
   // Add client modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -195,7 +197,16 @@ const AllClients: React.FC = () => {
             className={styles.searchInput}
           />
         </div>
-        <button className={styles.exportBtn}><img src="/Upload.svg" alt="" />Export to CSV</button>
+        <button className={styles.exportBtn} onClick={() => {
+          const toExport = selectedRows.length > 0 ? selectedRows : filteredClients;
+          exportToCSV(toExport, 'clients', {
+            name: 'Name', email: 'Email', phone: 'Phone',
+            sessions: 'Sessions', revenue: 'Revenue', lastSession: 'Last Session'
+          });
+        }}>
+          <img src="/Upload.svg" alt="" />
+          {selectedRows.length > 0 ? `Export ${selectedRows.length} Selected` : 'Export to CSV'}
+        </button>
       </div>
 
       {loading ? (
@@ -206,6 +217,8 @@ const AllClients: React.FC = () => {
           columns={columns}
           pageSize={10}
           emptyMessage="No clients found"
+          enableSelection
+          onSelectionChange={setSelectedRows}
         />
       )}
 

@@ -5,11 +5,13 @@ import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
+import { exportToCSV } from './utils/exportCSV';
 
 const Appointments: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('Upcoming');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   const tabs = ['Upcoming', 'All Bookings', 'Completed', 'Pending Session Notes', 'Cancelled', 'No Show'];
 
@@ -210,8 +212,17 @@ const Appointments: React.FC = () => {
           <Search size="small" primaryColor="#6E6E6E" />
           <input type="text" placeholder="Search users by name, or phone no" />
         </div>
-        <button className={styles.exportBtn}>
-          <img src="/Upload.svg" alt="" />Export to CSV
+        <button className={styles.exportBtn} onClick={() => {
+          const toExport = selectedRows.length > 0 ? selectedRows : filteredAppointments;
+          exportToCSV(toExport, 'bookings', {
+            start_time: 'Session Time', title: 'Session Name',
+            client_name: 'Client Name', client_email: 'Email',
+            client_phone: 'Phone', status: 'Status',
+            payment_status: 'Payment Status', payment_amount: 'Amount'
+          });
+        }}>
+          <img src="/Upload.svg" alt="" />
+          {selectedRows.length > 0 ? `Export ${selectedRows.length} Selected` : 'Export to CSV'}
         </button>
       </div>
 
@@ -223,6 +234,8 @@ const Appointments: React.FC = () => {
           columns={columns}
           pageSize={10}
           emptyMessage="No bookings found"
+          enableSelection
+          onSelectionChange={setSelectedRows}
         />
       )}
     </div>

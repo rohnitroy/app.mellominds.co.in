@@ -4,11 +4,13 @@ import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
+import { exportToCSV } from './utils/exportCSV';
 
 const PaymentsInvoice: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('All Payments');
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
   const tabs = ['All Payments', 'All Cancellations', 'Pending Payments'];
 
@@ -130,8 +132,16 @@ const PaymentsInvoice: React.FC = () => {
           </svg>
           <input type="text" placeholder="Search users by name, or phone no" />
         </div>
-        <button className={styles.exportBtn}>
-          <img src="/Upload.svg" alt="" />Export to CSV
+        <button className={styles.exportBtn} onClick={() => {
+          const toExport = selectedRows.length > 0 ? selectedRows : filteredPayments;
+          exportToCSV(toExport, 'payments', {
+            client_name: 'Client Name', client_phone: 'Phone',
+            title: 'Session Type', start_time: 'Session Time',
+            payment_amount: 'Amount', payment_status: 'Payment Status'
+          });
+        }}>
+          <img src="/Upload.svg" alt="" />
+          {selectedRows.length > 0 ? `Export ${selectedRows.length} Selected` : 'Export to CSV'}
         </button>
       </div>
 
@@ -143,6 +153,8 @@ const PaymentsInvoice: React.FC = () => {
           columns={columns}
           pageSize={10}
           emptyMessage="No payment records found"
+          enableSelection
+          onSelectionChange={setSelectedRows}
         />
       )}
     </div>

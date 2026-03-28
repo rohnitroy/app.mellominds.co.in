@@ -261,6 +261,7 @@ router.get('/clients', async (req, res) => {
                 c.name, 
                 c.email, 
                 c.phone,
+                c.manually_added,
                 COUNT(a.id) as sessions,
                 COALESCE(SUM(a.payment_amount), 0) as total_revenue,
                 MAX(a.start_time) as last_session,
@@ -294,7 +295,8 @@ router.get('/clients', async (req, res) => {
             maritalStatus: row.maritalStatus || 'Single',
             emergencyName: row.emergencyName || '-',
             emergencyPhone: row.emergencyPhone || '-',
-            emergencyRelation: row.emergencyRelation || '-'
+            emergencyRelation: row.emergencyRelation || '-',
+            manually_added: row.manually_added || false
         }));
 
         res.json(clients);

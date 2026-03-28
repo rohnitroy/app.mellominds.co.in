@@ -29,8 +29,8 @@ router.post('/', async (req, res) => {
 
         const result = await pool.query(
             `INSERT INTO Clients 
-                (therapist_id, name, email, phone, age, occupation, gender, marital_status, emergency_name, emergency_phone, emergency_relation)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                (therapist_id, name, email, phone, age, occupation, gender, marital_status, emergency_name, emergency_phone, emergency_relation, manually_added)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
              ON CONFLICT (therapist_id, email) DO NOTHING
              RETURNING *`,
             [
@@ -67,7 +67,8 @@ router.post('/', async (req, res) => {
             maritalStatus: row.marital_status || 'Single',
             emergencyName: row.emergency_name || '',
             emergencyPhone: row.emergency_phone || '',
-            emergencyRelation: row.emergency_relation || ''
+            emergencyRelation: row.emergency_relation || '',
+            manually_added: true
         });
 
     } catch (error) {
@@ -143,3 +144,31 @@ router.put('/:id', async (req, res) => {
 });
 
 export default router;
+
+// DELETE /api/clients/:id - Delete a client (only manually added clients)
+router.delete('/:id', async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const clientId = parseInt(req.params.id);
+
+        // Only allow deletion of manually added clients
+        const check = await pool.query(
+            'SELECT manually_added FROM Clients WHERE id = $1 AND therapist_id = $2',
+            [clientId, userId]
+        );
+
+        if (check.rows.length === 0) {
+            return res.status(404).json({ error: 'Client not found' });
+        }
+
+        if (!check.rows[0].manually_added) {
+            return res.status(403).json({ error: 'Only manually added clients can be deleted' });
+        }
+
+        await pool.query('DELETE FROM Clients WHERE id = $1 AND therapist_id = $2', [clientId, userId]);
+        res.json({ message: 'Client deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting client:', error);
+        res.status(500).json({ error: 'Failed to delete client' });
+    }
+});

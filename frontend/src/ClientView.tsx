@@ -21,6 +21,7 @@ interface Client {
   emergencyName?: string;
   emergencyPhone?: string;
   emergencyRelation?: string;
+  manually_added?: boolean;
 }
 
 interface ClientViewProps {
@@ -38,6 +39,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const [showActionMenu, setShowActionMenu] = useState<boolean>(false);
   const actionMenuRef = React.useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [deleting, setDeleting] = useState<boolean>(false);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -252,6 +255,28 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     }
   };
 
+  const handleDeleteClient = async () => {
+    setDeleting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clients/${client.id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (response.ok) {
+        toast.success('Client deleted successfully');
+        setShowDeleteModal(false);
+        onBack();
+      } else {
+        const err = await response.json();
+        toast.error(err.error || 'Failed to delete client');
+      }
+    } catch {
+      toast.error('Error deleting client');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const tabs: string[] = ['Overview', 'Session Notes', 'Activity Suggestion'];
 
   const formatDateTime = (isoString: string) => {
@@ -304,6 +329,9 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                   <div className={styles.actionMenuDropdown}>
                     <div className={styles.actionMenuItem} onClick={() => { handleEditClient(); setShowActionMenu(false); }}>Edit</div>
                     <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); toast.info('Transfer feature coming soon'); }}>Transfer</div>
+                    {client.manually_added && (
+                      <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); setShowDeleteModal(true); }} style={{ color: '#e53935' }}>Delete</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -669,6 +697,37 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
             </div>
 
             <button className={styles.modalSubmitBtn} onClick={handleActivitySubmit}>Add Activity</button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Client Confirmation Modal */}
+      {showDeleteModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          onClick={() => !deleting && setShowDeleteModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '32px 28px', width: '100%', maxWidth: '400px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#fdecea', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e53935" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                </svg>
+              </div>
+              <h3 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '18px', color: '#1a1a1a', margin: 0 }}>Delete Client?</h3>
+            </div>
+            <p style={{ fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#6E6E6E', marginBottom: '24px', lineHeight: 1.6 }}>
+              Are you sure you want to delete <strong>{client.name}</strong>? This will remove their profile. Their booking history will be preserved.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowDeleteModal(false)} disabled={deleting}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#333', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleDeleteClient} disabled={deleting}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#e53935', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.7 : 1 }}>
+                {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
           </div>
         </div>
       )}
