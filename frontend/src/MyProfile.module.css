@@ -35,7 +35,7 @@
 
 .profileHeader p {
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 18px;
   color: #6E6E6E;
   margin: 0;
@@ -48,7 +48,7 @@
   border-radius: 8px;
   padding: 12px 24px;
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 18px;
   line-height: 100%;
   letter-spacing: 0%;
@@ -166,7 +166,7 @@
   background: #f8f9fa;
   font-family: 'Urbanist', sans-serif;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   color: #6E6E6E;
   display: flex;
   align-items: center;

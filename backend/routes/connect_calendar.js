@@ -7,7 +7,7 @@ const router = express.Router();
 const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    'http://localhost:3000/api/connect-calendar/callback'
+    `${process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`}/api/connect-calendar/callback`
 );
 
 // Middleware to ensure authentication
@@ -98,6 +98,25 @@ router.get('/status', async (req, res) => {
     } catch (error) {
         console.error('Error checking status:', error);
         res.status(500).json({ error: 'Failed to check status' });
+    }
+});
+
+// DELETE /api/connect-calendar/disconnect - Remove Google Calendar connection
+router.delete('/disconnect', async (req, res) => {
+    try {
+        const result = await pool.query(
+            "DELETE FROM UserIntegrations WHERE user_id = $1 AND provider = 'google' RETURNING id",
+            [req.user.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'No Google Calendar connection found' });
+        }
+
+        res.json({ message: 'Google Calendar disconnected successfully' });
+    } catch (error) {
+        console.error('Error disconnecting calendar:', error);
+        res.status(500).json({ error: 'Failed to disconnect' });
     }
 });
 

@@ -19,7 +19,7 @@
 
 .settingsHeader p {
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 18px;
   color: #6E6E6E;
   margin: 0;
@@ -33,7 +33,7 @@
 
 .settingsSection h2 {
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 20px;
   color: #2D7579;
   margin: 0 0 24px 0;
@@ -83,7 +83,7 @@
 
 .cardContent p {
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 16px;
   color: #6E6E6E;
   margin: 0 0 16px 0;
@@ -96,7 +96,7 @@
   border-radius: 8px;
   padding: 8px 16px;
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 16px;
   color: #6E6E6E;
   cursor: pointer;
@@ -128,7 +128,7 @@
   background: #F9E141;
   color: #2D7579;
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   font-style: italic;
   font-size: 14px;
   line-height: 100%;
@@ -145,7 +145,7 @@
   background: linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%);
   color: white;
   font-family: 'Urbanist', sans-serif;
-  font-weight: 600;
+  font-weight: 500;
   font-style: italic;
   font-size: 13px;
   line-height: 100%;
@@ -164,4 +164,26 @@
   align-items: center;
   justify-content: center;
   margin-left: 16px;
+}
+
+.disconnectBtn {
+  background: none;
+  border: 1px solid #e53935;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #e53935;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.disconnectBtn:hover {
+  background: #fdecea;
+}
+
+.disconnectBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

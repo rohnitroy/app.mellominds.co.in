@@ -376,6 +376,7 @@ const DashboardLayout: React.FC = () => {
 
 const DashboardHome: React.FC = () => {
   const { user } = useAuth();
+  const toast = useToast();
   const [dateFilter, setDateFilter] = useState<string>('all_time');
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
   const [showCustomDatePicker, setShowCustomDatePicker] = useState<boolean>(false);
@@ -383,6 +384,18 @@ const DashboardHome: React.FC = () => {
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const navigate = useNavigate();
   const dateDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Handle Google Calendar OAuth redirect result
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('calendar_connected') === 'true') {
+      toast.success('Google Calendar connected successfully!');
+      navigate('/dashboard', { replace: true });
+    } else if (params.get('calendar_error')) {
+      toast.error('Failed to connect Google Calendar. Please try again.');
+      navigate('/dashboard', { replace: true });
+    }
+  }, []);
 
   // Click outside to close dropdown
   useEffect(() => {

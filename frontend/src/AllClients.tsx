@@ -6,6 +6,7 @@ import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
+import { useToast } from './context/ToastContext';
 
 interface Client {
   id: number;
@@ -15,30 +16,92 @@ interface Client {
   sessions: string;
   revenue: string;
   lastSession?: string;
+  age?: string;
+  occupation?: string;
+  gender?: string;
+  maritalStatus?: string;
+  emergencyName?: string;
+  emergencyPhone?: string;
+  emergencyRelation?: string;
 }
 
+const defaultForm = {
+  name: '',
+  email: '',
+  phone: '',
+  age: '',
+  occupation: '',
+  gender: 'Male',
+  maritalStatus: 'Single',
+  emergencyName: '',
+  emergencyPhone: '',
+  emergencyRelation: '',
+};
+
 const AllClients: React.FC = () => {
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchClients = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/bookings/clients`, { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          setClients(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch clients:', error);
-      } finally {
-        setLoading(false);
+  // Add client modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ ...defaultForm });
+  const [saving, setSaving] = useState(false);
+
+  const fetchClients = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/bookings/clients`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data);
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch clients:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchClients();
   }, []);
+
+  const handleAddClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.name.trim() || !addForm.email.trim()) {
+      toast.error('Name and email are required.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/clients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(addForm),
+      });
+
+      if (response.ok) {
+        const newClient = await response.json();
+        setClients(prev => [newClient, ...prev]);
+        setShowAddModal(false);
+        setAddForm({ ...defaultForm });
+        toast.success('Client added successfully!');
+        // Open the new client's view immediately
+        setSelectedClient(newClient);
+      } else {
+        const err = await response.json();
+        toast.error(err.error || 'Failed to add client.');
+      }
+    } catch (error) {
+      console.error('Error adding client:', error);
+      toast.error('An error occurred while adding the client.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const filteredClients = useMemo(() => clients.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,7 +158,15 @@ const AllClients: React.FC = () => {
   ], []);
 
   if (selectedClient) {
-    return <ClientView client={selectedClient} onBack={() => setSelectedClient(null)} />;
+    return (
+      <ClientView
+        client={selectedClient}
+        onBack={() => {
+          setSelectedClient(null);
+          fetchClients(); // refresh list in case client was edited
+        }}
+      />
+    );
   }
 
   return (
@@ -105,6 +176,12 @@ const AllClients: React.FC = () => {
           <h1>All Clients</h1>
           <p>View Client Details, Sessions and more...</p>
         </div>
+        <button
+          className={styles.addClientBtn}
+          onClick={() => setShowAddModal(true)}
+        >
+          + Add Client
+        </button>
       </div>
 
       <div className={styles.pageActions}>
@@ -131,8 +208,121 @@ const AllClients: React.FC = () => {
           emptyMessage="No clients found"
         />
       )}
+
+      {/* Add Client Modal */}
+      {showAddModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+            zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+          }}
+          onClick={() => !saving && setShowAddModal(false)}
+        >
+          <div
+            style={{
+              background: '#fff', borderRadius: '16px', padding: '32px',
+              width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '22px', margin: '0 0 4px 0' }}>Add New Client</h2>
+            <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>Fill in the client's details below</p>
+
+            <form onSubmit={handleAddClient}>
+              {/* Basic Info */}
+              <p style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#2D7579', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Basic Info</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label style={labelStyle}>Full Name *</label>
+                  <input style={inputStyle} type="text" required value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} placeholder="Jane Doe" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Email *</label>
+                  <input style={inputStyle} type="email" required value={addForm.email} onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))} placeholder="jane@example.com" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Phone</label>
+                  <input style={inputStyle} type="tel" value={addForm.phone} onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Age</label>
+                  <input style={inputStyle} type="text" value={addForm.age} onChange={e => setAddForm(f => ({ ...f, age: e.target.value }))} placeholder="28" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Occupation</label>
+                  <input style={inputStyle} type="text" value={addForm.occupation} onChange={e => setAddForm(f => ({ ...f, occupation: e.target.value }))} placeholder="Software Engineer" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Gender</label>
+                  <select style={inputStyle} value={addForm.gender} onChange={e => setAddForm(f => ({ ...f, gender: e.target.value }))}>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Marital Status</label>
+                  <select style={inputStyle} value={addForm.maritalStatus} onChange={e => setAddForm(f => ({ ...f, maritalStatus: e.target.value }))}>
+                    <option value="Single">Single</option>
+                    <option value="Married">Married</option>
+                    <option value="Divorced">Divorced</option>
+                    <option value="Widowed">Widowed</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Emergency Contact */}
+              <p style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#2D7579', margin: '8px 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Emergency Contact</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '28px' }}>
+                <div>
+                  <label style={labelStyle}>Name</label>
+                  <input style={inputStyle} type="text" value={addForm.emergencyName} onChange={e => setAddForm(f => ({ ...f, emergencyName: e.target.value }))} placeholder="John Doe" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Phone</label>
+                  <input style={inputStyle} type="tel" value={addForm.emergencyPhone} onChange={e => setAddForm(f => ({ ...f, emergencyPhone: e.target.value }))} placeholder="+91 98765 43210" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Relation</label>
+                  <input style={inputStyle} type="text" value={addForm.emergencyRelation} onChange={e => setAddForm(f => ({ ...f, emergencyRelation: e.target.value }))} placeholder="Spouse" />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); }}
+                  disabled={saving}
+                  style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#333', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#082421', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+                >
+                  {saving ? 'Adding...' : 'Add Client'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontFamily: 'Urbanist', fontWeight: 500,
+  fontSize: '13px', color: '#555', marginBottom: '6px'
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px', borderRadius: '8px',
+  border: '1px solid #e0e0e0', fontFamily: 'Urbanist', fontSize: '14px',
+  color: '#333', outline: 'none', boxSizing: 'border-box', background: '#fff'
 };
 
 export default AllClients;

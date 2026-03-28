@@ -25,14 +25,40 @@ const CreateEventPage: React.FC = () => {
     const [isSlugEdited, setIsSlugEdited] = useState(isEditMode);
     const [showAddLocationModal, setShowAddLocationModal] = useState(false);
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
-    const descriptionRef = React.useRef<HTMLDivElement>(null);
+    const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
 
-    // Set initial description HTML for edit mode
-    useEffect(() => {
-        if (descriptionRef.current && existingCalendar?.description) {
-            descriptionRef.current.innerHTML = existingCalendar.description;
+    const applyFormat = (format: 'bold' | 'italic' | 'bullet' | 'link') => {
+        const el = descriptionRef.current;
+        if (!el) return;
+        const start = el.selectionStart;
+        const end = el.selectionEnd;
+        const selected = el.value.substring(start, end);
+        let before = el.value.substring(0, start);
+        let after = el.value.substring(end);
+        let insert = '';
+
+        if (format === 'bold') {
+            insert = `**${selected || 'bold text'}**`;
+        } else if (format === 'italic') {
+            insert = `_${selected || 'italic text'}_`;
+        } else if (format === 'bullet') {
+            insert = `\n- ${selected || 'item'}`;
+        } else if (format === 'link') {
+            const url = prompt('Enter URL:');
+            if (!url) return;
+            insert = `[${selected || 'link text'}](${url})`;
         }
-    }, []);
+
+        const newValue = before + insert + after;
+        setEventData(prev => ({ ...prev, description: newValue }));
+
+        // Restore focus and cursor position after state update
+        setTimeout(() => {
+            el.focus();
+            const newCursor = before.length + insert.length;
+            el.setSelectionRange(newCursor, newCursor);
+        }, 0);
+    };
 
     const [eventData, setEventData] = useState({
         name: existingCalendar?.title || '',
@@ -111,6 +137,18 @@ const CreateEventPage: React.FC = () => {
     });
 
     const [isGatewayDropdownOpen, setIsGatewayDropdownOpen] = useState(false);
+    const gatewayDropdownRef = React.useRef<HTMLDivElement>(null);
+
+    // Close gateway dropdown on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (gatewayDropdownRef.current && !gatewayDropdownRef.current.contains(e.target as Node)) {
+                setIsGatewayDropdownOpen(false);
+            }
+        };
+        if (isGatewayDropdownOpen) document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [isGatewayDropdownOpen]);
     const [showPriceInput, setShowPriceInput] = useState(false);
     const [newPrice, setNewPrice] = useState({
         amount: '',
@@ -396,27 +434,23 @@ const CreateEventPage: React.FC = () => {
                     <label className={styles.label}>Description</label>
                     <div className={styles.editor}>
                         <div className={styles.editorToolbar}>
-                            <button className={styles.editorBtn} onClick={() => document.execCommand('bold', false, '')} title="Bold" type="button">B</button>
-                            <button className={styles.editorBtn} onClick={() => document.execCommand('italic', false, '')} title="Italic" type="button">I</button>
-                            <button className={styles.editorBtn} onClick={() => document.execCommand('insertUnorderedList', false, '')} title="Bullet List" type="button">≡</button>
-                            <button className={styles.editorBtn} onClick={() => { const url = prompt('Enter URL:'); if (url) document.execCommand('createLink', false, url); }} title="Link" type="button">
+                            <button className={styles.editorBtn} onClick={() => applyFormat('bold')} title="Bold" type="button"><strong>B</strong></button>
+                            <button className={styles.editorBtn} onClick={() => applyFormat('italic')} title="Italic" type="button"><em>I</em></button>
+                            <button className={styles.editorBtn} onClick={() => applyFormat('bullet')} title="Bullet List" type="button">≡</button>
+                            <button className={styles.editorBtn} onClick={() => applyFormat('link')} title="Link" type="button">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                                 </svg>
                             </button>
                         </div>
-                        <div
+                        <textarea
                             ref={descriptionRef}
-                            className={`${styles.input} ${styles.editorContent}`}
-                            style={{ border: 'none', resize: 'none', width: '100%', minHeight: '120px', overflowY: 'auto' }}
-                            contentEditable
-                            onInput={(e) => {
-                                const html = e.currentTarget.innerHTML;
-                                setEventData(prev => ({ ...prev, description: html }));
-                            }}
-                            suppressContentEditableWarning={true}
-                        >
-                        </div>
+                            className={styles.editorContent}
+                            placeholder="Describe your event..."
+                            value={eventData.description}
+                            onChange={(e) => setEventData(prev => ({ ...prev, description: e.target.value }))}
+                            rows={5}
+                        />
                     </div>
                 </div>
 
@@ -887,62 +921,17 @@ const CreateEventPage: React.FC = () => {
 
             <div style={{ marginTop: '24px' }}>
                 <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a', marginBottom: '8px', fontFamily: '"Urbanist", sans-serif' }}>Payment Gateways</h3>
-                <div className={styles.multiSelectContainer}>
-                    <div
-                        className={styles.multiSelectTrigger}
-                        onClick={() => setIsGatewayDropdownOpen(!isGatewayDropdownOpen)}
-                    >
-                        <div className={styles.tagsContainer}>
-                            {paymentData.paymentGateways.length > 0 ? (
-                                paymentData.paymentGateways.map(gateway => (
-                                    <span key={gateway} className={styles.gatewayTag} onClick={(e) => e.stopPropagation()}>
-                                        {gateway === 'razorpay' ? 'Razorpay' : gateway === 'cashfree' ? 'Cashfree' : 'UPI/Cash'}
-                                        <button
-                                            className={styles.tagRemoveBtn}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleGatewayChange(gateway);
-                                            }}
-                                        >
-                                            ✕
-                                        </button>
-                                    </span>
-                                ))
-                            ) : (
-                                <span style={{ color: '#aaa' }}>Select payment gateways...</span>
-                            )}
-                        </div>
-                        <span className={styles.chevronDown}>⌄</span>
-                    </div>
-                    {isGatewayDropdownOpen && (
-                        <div className={styles.multiSelectDropdown}>
-                            <label className={styles.checkboxOption}>
-                                <input
-                                    type="checkbox"
-                                    checked={paymentData.paymentGateways.includes('razorpay')}
-                                    onChange={() => handleGatewayChange('razorpay')}
-                                />
-                                Razorpay
-                            </label>
-                            <label className={styles.checkboxOption}>
-                                <input
-                                    type="checkbox"
-                                    checked={paymentData.paymentGateways.includes('cashfree')}
-                                    onChange={() => handleGatewayChange('cashfree')}
-                                />
-                                Cashfree
-                            </label>
-                            <label className={styles.checkboxOption}>
-                                <input
-                                    type="checkbox"
-                                    checked={paymentData.paymentGateways.includes('upi')}
-                                    onChange={() => handleGatewayChange('upi')}
-                                />
-                                UPI/Cash
-                            </label>
-                        </div>
-                    )}
-                </div>
+                <select
+                    className={styles.selectInput}
+                    style={{ width: '100%' }}
+                    value={paymentData.paymentGateways[0] || ''}
+                    onChange={(e) => setPaymentData(prev => ({ ...prev, paymentGateways: e.target.value ? [e.target.value] : [] }))}
+                >
+                    <option value="">Select a payment gateway...</option>
+                    <option value="razorpay">Razorpay</option>
+                    <option value="cashfree">Cashfree</option>
+                    <option value="upi">UPI/Cash</option>
+                </select>
             </div>
 
             <div style={{ marginTop: '24px' }}>

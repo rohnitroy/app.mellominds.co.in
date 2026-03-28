@@ -29,8 +29,9 @@ const CreateCalendarModal: React.FC<CreateCalendarModalProps> = ({ isOpen, onClo
                         <div className={styles.card} onClick={() => onSelectType('one_on_one')}>
                             <div className={styles.cardContent}>
                                 <div className={styles.iconWrapper}>
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="#000" />
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#082421" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="8" r="4"/>
+                                        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
                                     </svg>
                                 </div>
                                 <div className={styles.cardText}>
@@ -44,9 +45,10 @@ const CreateCalendarModal: React.FC<CreateCalendarModalProps> = ({ isOpen, onClo
                         <div className={styles.card} onClick={() => onSelectType('group')}>
                             <div className={styles.cardContent}>
                                 <div className={styles.iconWrapper}>
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M16 11C16 8.79 14.21 7 12 7C9.79 7 8 8.79 8 11C8 13.21 9.79 15 12 15C14.21 15 16 13.21 16 11ZM8 11V10.99H8.01V11H8Z" fill="#000" />
-                                        <path d="M1 18V20H23V18C23 15.34 17.67 14 15 14H9C6.33 14 1 15.34 1 18Z" fill="#000" />
+                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#082421" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="9" cy="7" r="3"/>
+                                        <circle cx="15" cy="7" r="3"/>
+                                        <path d="M3 21v-1a6 6 0 0 1 6-6h6a6 6 0 0 1 6 6v1"/>
                                     </svg>
                                 </div>
                                 <div className={styles.cardText}>

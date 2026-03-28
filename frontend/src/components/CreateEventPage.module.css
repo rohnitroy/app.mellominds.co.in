@@ -190,8 +190,19 @@
 }
 
 .editorContent {
+    display: block;
+    width: 100%;
     padding: 12px;
     min-height: 120px;
+    border: none;
+    outline: none;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 14px;
+    color: #333;
+    background: transparent;
+    box-sizing: border-box;
+    line-height: 1.6;
 }
 
 .row {
@@ -812,16 +823,15 @@
 
 .multiSelectDropdown {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 4px);
     left: 0;
     right: 0;
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
-    margin-top: 4px;
-    box-shadow: none;
-    z-index: 10;
-    padding: 8px 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    z-index: 100;
+    padding: 4px 0;
 }
 
 .checkboxOption {

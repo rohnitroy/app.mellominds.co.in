@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './MySettings.module.css';
 import MyProfile from './MyProfile';
-import { Calendar, Wallet, Document, User, Paper, Filter, People, ArrowRight } from 'react-iconly';
+import { Wallet, Document, Paper, Filter, People } from 'react-iconly';
 import { useLocation } from 'react-router-dom';
 import API_BASE_URL from './config/api';
 
@@ -16,6 +16,7 @@ const MySettings: React.FC = () => {
       setActiveSection('My Profile');
     }
   }, [location.pathname]);
+
   const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
