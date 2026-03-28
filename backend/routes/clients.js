@@ -393,6 +393,19 @@ router.delete('/:id', async (req, res) => {
         if (check.rows.length === 0) return res.status(404).json({ error: 'Client not found' });
         if (!check.rows[0].manually_added) return res.status(403).json({ error: 'Only manually added clients can be deleted' });
 
+        // Block deletion if client was involved in any transfer (as sender or receiver)
+        const transferCheck = await pool.query(
+            `SELECT id FROM ClientTransfers
+             WHERE client_id = $1 AND status IN ('pending', 'approved')`,
+            [clientId]
+        );
+        if (transferCheck.rows.length > 0) {
+            return res.status(403).json({
+                error: 'transferred_client',
+                message: 'This client has been involved in a transfer and cannot be deleted. Please contact support at support@mellominds.co.in.'
+            });
+        }
+
         await pool.query('DELETE FROM Clients WHERE id = $1 AND therapist_id = $2', [clientId, userId]);
         res.json({ message: 'Client deleted successfully' });
     } catch (error) {

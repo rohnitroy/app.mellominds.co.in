@@ -89,7 +89,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
 
   const [activities, setActivities] = useState<any[]>([]);
   const [activityForm, setActivityForm] = useState({ name: '', description: '', visible_to_client: false });
-  const [transferInfo, setTransferInfo] = useState<{ transferred: boolean; from_therapist_name?: string; from_therapist_email?: string; created_at?: string } | null>(null);
+  const [transferInfo, setTransferInfo] = useState<{ transferred: boolean; from_therapist_email?: string; created_at?: string } | null>(null);
+  const [isTransferredClient, setIsTransferredClient] = useState(false);
 
   const fetchActivities = async () => {
     try {
@@ -103,9 +104,21 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/clients/${client.id}/transfer-info`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : { transferred: false })
-      .then(data => setTransferInfo(data))
+      .then(data => {
+        setTransferInfo(data);
+        if (data.transferred) setIsTransferredClient(true);
+      })
       .catch(() => setTransferInfo({ transferred: false }));
-  }, [client.id]);
+
+    // Also check if this client was transferred out by current therapist
+    fetch(`${API_BASE_URL}/api/clients/transfers/outgoing`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any[]) => {
+        const match = data.find(t => t.client_email === client.email && t.status === 'approved');
+        if (match) setIsTransferredClient(true);
+      })
+      .catch(() => {});
+  }, [client.id, client.email]);
 
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
   const [noteContent, setNoteContent] = useState<string>('');
@@ -285,7 +298,12 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
         onBack();
       } else {
         const err = await response.json();
-        toast.error(err.error || 'Failed to delete client');
+        if (err.error === 'transferred_client') {
+          setShowDeleteModal(false);
+          toast.error('Transferred clients cannot be deleted. Please contact support@mellominds.co.in');
+        } else {
+          toast.error(err.error || 'Failed to delete client');
+        }
       }
     } catch {
       toast.error('Error deleting client');
@@ -400,8 +418,14 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                   <div className={styles.actionMenuDropdown}>
                     <div className={styles.actionMenuItem} onClick={() => { handleEditClient(); setShowActionMenu(false); }}>Edit</div>
                     <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); setShowTransferModal(true); }}>Transfer</div>
-                    {client.manually_added && (
+                    {client.manually_added && !isTransferredClient && (
                       <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); setShowDeleteModal(true); }} style={{ color: '#e53935' }}>Delete</div>
+                    )}
+                    {isTransferredClient && (
+                      <div className={styles.actionMenuItem} style={{ color: '#9CA3AF', fontSize: '12px', cursor: 'default' }}
+                        onClick={() => { setShowActionMenu(false); toast.info('Transferred clients cannot be deleted. Contact support@mellominds.co.in'); }}>
+                        Cannot Delete (Transferred)
+                      </div>
                     )}
                   </div>
                 )}
