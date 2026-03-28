@@ -824,6 +824,11 @@ const PageTitle: React.FC = () => {
       || Object.keys(titles).find(path => location.pathname.startsWith(path + '/'));
 
     document.title = match ? `${titles[match]} - MelloMinds` : 'MelloMinds';
+
+    // Fire GA4 page view on route change
+    if (typeof (window as any).gtag === 'function') {
+      (window as any).gtag('event', 'page_view', { page_path: location.pathname });
+    }
   }, [location.pathname]);
 
   return null;
