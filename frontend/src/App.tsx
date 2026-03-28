@@ -13,6 +13,8 @@ import CalendarPage from './components/CalendarPage';
 import LoginPage from './components/LoginPage';
 import SignUpPage from './components/SignUpPage';
 import PublicBookingPage from './components/PublicBookingPage';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsOfService from './components/TermsOfService';
 import CreateEventPage from './components/CreateEventPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
@@ -868,6 +870,12 @@ const AppContent: React.FC = () => {
 
           {/* Public Booking Route */}
           <Route path="/book/:userId/:slug" element={<PublicBookingPage />} />
+
+          {/* Privacy Policy */}
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+
+          {/* Terms of Service */}
+          <Route path="/terms-of-service" element={<TermsOfService />} />
 
           {/* Catch all redirect to dashboard */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
