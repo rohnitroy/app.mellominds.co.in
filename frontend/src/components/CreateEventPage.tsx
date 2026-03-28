@@ -421,11 +421,11 @@ const CreateEventPage: React.FC = () => {
         <>
             <div className={styles.card}>
                 <div className={styles.formGroup}>
-                    <label className={styles.label}>Event Name</label>
+                    <label className={styles.label}>Calendar Name</label>
                     <input
                         type="text"
                         className={styles.input}
-                        placeholder="Enter event name"
+                        placeholder="Enter calendar name"
                         value={eventData.name}
                         onChange={handleNameChange}
                     />
@@ -499,10 +499,7 @@ const CreateEventPage: React.FC = () => {
                         <div key={index} className={styles.locationChip} style={{ marginBottom: '8px' }}>
                             {loc.type === 'google_meet' && (
                                 <>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M23.25 8.625L18 12.375V9C18 7.34315 16.6569 6 15 6H3C1.34315 6 0 7.34315 0 9V17C0 18.6569 1.34315 20 3 20H15C16.6569 20 18 18.6569 18 17V13.625L23.25 17.375C23.6642 17.6511 24 17.3547 24 16.8571V9.14286C24 8.64531 23.6642 8.3489 23.25 8.625Z" fill="#00796B" />
-                                        <rect x="5" y="10" width="8" height="6" rx="1" fill="#fff" />
-                                    </svg>
+                                    <img src="/google-meet-logo.svg" alt="Google Meet" width="20" height="20" />
                                     Google Meet
                                 </>
                             )}
@@ -1240,8 +1237,8 @@ const CreateEventPage: React.FC = () => {
                         </svg>
                     </button>
                     <div className={styles.titleSection}>
-                        <h1>{isEditMode ? 'Edit Event' : 'Create Event'}</h1>
-                        <p>{isEditMode ? 'Update your calendar settings' : 'Configure your new event'}</p>
+                        <h1>{isEditMode ? 'Edit Calendar' : 'Create Calendar'}</h1>
+                        <p>{isEditMode ? 'Update your calendar settings' : 'Configure your new calendar'}</p>
                     </div>
                 </div>
                 <div className={styles.headerActions}>

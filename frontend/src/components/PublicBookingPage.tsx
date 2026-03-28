@@ -125,9 +125,11 @@ const PublicBookingPage: React.FC = () => {
             const payload = {
                 calendar_id: calendar.id,
                 start_time: selectedSlot,
-                ...formData,
-                client_phone: formData.whatsapp_number, // Map whatsapp to phone for now
-                form_responses: formResponses // Send the JSON answer dump
+                client_name: formData.client_name,
+                client_email: formData.client_email,
+                client_phone: formData.whatsapp_number,
+                location_type: formData.location, // 'google_meet' or 'in_person'
+                form_responses: formResponses
             };
 
             const response = await fetch(`${API_BASE_URL}/api/bookings/public`, {

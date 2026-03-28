@@ -77,10 +77,7 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({ isOpen, onClose, on
                                 }}
                                 style={{ cursor: 'pointer' }}
                             >
-                                <svg className={styles.optionIcon} viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M23.25 8.625L18 12.375V9C18 7.34315 16.6569 6 15 6H3C1.34315 6 0 7.34315 0 9V17C0 18.6569 1.34315 20 3 20H15C16.6569 20 18 18.6569 18 17V13.625L23.25 17.375C23.6642 17.6511 24 17.3547 24 16.8571V9.14286C24 8.64531 23.6642 8.3489 23.25 8.625Z" fill="#00796B" />
-                                    <rect x="5" y="10" width="8" height="6" rx="1" fill="#fff" />
-                                </svg>
+                                <img src="/google-meet-logo.svg" alt="Google Meet" className={styles.optionIcon} style={{ width: '24px', height: '24px' }} />
                                 <div className={styles.optionText}>
                                     <h4>Google Meet</h4>
                                     <p>Web conference using Google meet</p>

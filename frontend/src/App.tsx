@@ -707,7 +707,7 @@ const DashboardHome: React.FC = () => {
       header: 'Mode',
       enableSorting: false,
       cell: ({ row }) => (
-        <span className="session-mode">{row.original.meet_link ? 'Google Meet' : 'In-person'}</span>
+        <span className="session-mode">{row.original.meet_link ? 'Google Meet' : (row.original.location_type === 'in_person' ? 'In-person' : 'Google Meet')}</span>
       ),
     },
   ], []);

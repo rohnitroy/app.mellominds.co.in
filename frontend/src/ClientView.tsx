@@ -281,7 +281,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
       id: 'mode',
       header: 'Mode',
       enableSorting: false,
-      cell: ({ row }) => row.original.meet_link ? 'Google Meet' : 'In-person',
+      cell: ({ row }) => row.original.meet_link ? 'Google Meet' : (row.original.location_type === 'in_person' ? 'In-person' : 'Google Meet'),
     },
   ], []);
 
@@ -448,7 +448,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                       <div className={styles.sessionHeader}>
                         <span className={styles.sessionTime}>{formatDateTime(app.start_time)}</span>
                         <div className={styles.sessionTags}>
-                          <span className={styles.sessionMode}>{app.meet_link ? 'Google Meet' : 'In-person'}</span>
+                          <span className={styles.sessionMode}>{app.meet_link ? 'Google Meet' : (app.location_type === 'in_person' ? 'In-person' : 'Google Meet')}</span>
                           <span className={styles.sessionType}>{app.title}</span>
                           <span style={{
                             fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '12px',

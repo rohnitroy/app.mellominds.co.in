@@ -121,7 +121,7 @@ const Appointments: React.FC = () => {
       id: 'mode',
       header: 'Mode',
       enableSorting: false,
-      cell: ({ row }) => row.original.meet_link ? 'Google Meet' : 'In-person',
+      cell: ({ row }) => row.original.meet_link ? 'Google Meet' : (row.original.location_type === 'in_person' ? 'In-person' : 'Google Meet'),
     },
     {
       accessorKey: 'status',
