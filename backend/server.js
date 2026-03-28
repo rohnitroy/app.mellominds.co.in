@@ -62,7 +62,6 @@ app.use('/auth', authRoutes);
 app.use('/api/v1/users', usersRoutes);
 app.use('/api/calendars', calendarRoutes);
 app.use('/api/connect-calendar', connectCalendarRoutes);
-app.use('/api/connect-calendar', connectCalendarRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/notes', notesRoutes);

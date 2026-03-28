@@ -20,10 +20,10 @@ const CreateCalendarModal: React.FC<CreateCalendarModalProps> = ({ isOpen, onClo
                     </svg>
                 </button>
 
-                <h2 className={styles.title}>Choose Resource Type</h2>
+                <h2 className={styles.title}>Choose Calendar Type</h2>
 
                 <div className={styles.section}>
-                    <h3 className={styles.sectionTitle}>Appointments</h3>
+                    <h3 className={styles.sectionTitle}>Bookings</h3>
                     <div className={styles.grid}>
                         {/* One on One */}
                         <div className={styles.card} onClick={() => onSelectType('one_on_one')}>
@@ -52,28 +52,6 @@ const CreateCalendarModal: React.FC<CreateCalendarModalProps> = ({ isOpen, onClo
                                 <div className={styles.cardText}>
                                     <h4 className={styles.cardTitle}>Group</h4>
                                     <p className={styles.cardDescription}>Accept multiple registrations for the same session.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className={styles.section}>
-                    <h3 className={styles.sectionTitle}>Events</h3>
-                    <div className={styles.grid}>
-                        {/* Webinar */}
-                        <div className={styles.card} onClick={() => onSelectType('webinar')}>
-                            <div className={styles.cardContent}>
-                                <div className={styles.iconWrapper}>
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <rect x="2" y="3" width="20" height="14" rx="2" stroke="#000" strokeWidth="2" />
-                                        <path d="M8 21H16" stroke="#000" strokeWidth="2" strokeLinecap="round" />
-                                        <path d="M12 17V21" stroke="#000" strokeWidth="2" strokeLinecap="round" />
-                                    </svg>
-                                </div>
-                                <div className={styles.cardText}>
-                                    <h4 className={styles.cardTitle}>Webinar</h4>
-                                    <p className={styles.cardDescription}>Host recurring or one-time webinars online.</p>
                                 </div>
                             </div>
                         </div>
