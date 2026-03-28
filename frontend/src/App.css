@@ -227,16 +227,20 @@ body {
   cursor: pointer;
   padding: 8px;
   border-radius: 6px;
-  transition: background 0.2s;
+  color: #082421;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
 }
 
 .logout-btn:hover {
-  background: rgba(255, 0, 0, 0.1);
+  background: rgba(255, 0, 0, 0.08);
+  color: #e53935;
 }
 
-.logout-btn img {
-  width: 20px;
-  height: 20px;
+.logout-btn svg {
+  display: block;
 }
 
 /* ===== DASHBOARD CONTENT ===== */
