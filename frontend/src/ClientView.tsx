@@ -41,6 +41,14 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
+  const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
+  const [transferEmail, setTransferEmail] = useState('');
+  const [transferOptions, setTransferOptions] = useState({
+    appointments: false,
+    notes: false,
+    activities: false,
+  });
+  const [transferring, setTransferring] = useState(false);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -279,6 +287,31 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
 
   const tabs: string[] = ['Overview', 'Session Notes', 'Activity Suggestion'];
 
+  const handleTransferClient = async () => {
+    if (!transferEmail.trim()) { toast.warning('Please enter the therapist email.'); return; }
+    setTransferring(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/clients/${client.id}/transfer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ target_email: transferEmail.trim(), transfer_options: transferOptions }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message);
+        setShowTransferModal(false);
+        onBack();
+      } else {
+        toast.error(data.error || 'Transfer failed');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setTransferring(false);
+    }
+  };
+
   const formatDateTime = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleString('en-US', {
@@ -328,7 +361,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 {showActionMenu && (
                   <div className={styles.actionMenuDropdown}>
                     <div className={styles.actionMenuItem} onClick={() => { handleEditClient(); setShowActionMenu(false); }}>Edit</div>
-                    <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); toast.info('Transfer feature coming soon'); }}>Transfer</div>
+                    <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); setShowTransferModal(true); }}>Transfer</div>
                     {client.manually_added && (
                       <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); setShowDeleteModal(true); }} style={{ color: '#e53935' }}>Delete</div>
                     )}
@@ -726,6 +759,74 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
               <button onClick={handleDeleteClient} disabled={deleting}
                 style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#e53935', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.7 : 1 }}>
                 {deleting ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      )}
+
+      {/* Transfer Client Modal */}
+      {showTransferModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          onClick={() => !transferring && setShowTransferModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '32px 28px', width: '100%', maxWidth: '460px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
+            onClick={e => e.stopPropagation()}>
+
+            <h3 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '18px', color: '#1a1a1a', margin: '0 0 6px 0' }}>Transfer Client</h3>
+            <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>
+              Transfer <strong>{client.name}</strong> to another therapist using their registered email.
+            </p>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#333', display: 'block', marginBottom: '6px' }}>
+                Therapist Email *
+              </label>
+              <input
+                type="email"
+                placeholder="therapist@example.com"
+                value={transferEmail}
+                onChange={e => setTransferEmail(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e0e0e0', fontFamily: 'Urbanist', fontSize: '14px', boxSizing: 'border-box' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#333', display: 'block', marginBottom: '12px' }}>
+                What to transfer?
+              </label>
+              <p style={{ fontFamily: 'Urbanist', fontSize: '12px', color: '#9CA3AF', margin: '0 0 12px 0' }}>
+                Client profile is always transferred. Select additional data below.
+              </p>
+
+              {[
+                { key: 'appointments', label: 'Future Appointments', desc: 'Upcoming sessions (past stays with you)' },
+                { key: 'notes', label: 'Session Notes', desc: 'Notes from transferred appointments only' },
+                { key: 'activities', label: 'Activity Suggestions', desc: 'All activity suggestions for this client' },
+              ].map(opt => (
+                <label key={opt.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={transferOptions[opt.key as keyof typeof transferOptions]}
+                    onChange={e => setTransferOptions(prev => ({ ...prev, [opt.key]: e.target.checked }))}
+                    style={{ marginTop: '3px', accentColor: '#082421', width: '16px', height: '16px', flexShrink: 0 }}
+                  />
+                  <div>
+                    <div style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>{opt.label}</div>
+                    <div style={{ fontFamily: 'Urbanist', fontSize: '12px', color: '#9CA3AF' }}>{opt.desc}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowTransferModal(false)} disabled={transferring}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#333', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleTransferClient} disabled={transferring}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#082421', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: transferring ? 'not-allowed' : 'pointer', opacity: transferring ? 0.7 : 1 }}>
+                {transferring ? 'Transferring...' : 'Transfer Client'}
               </button>
             </div>
           </div>
