@@ -16,6 +16,7 @@ interface NotificationContextType {
     notifications: Notification[];
     unreadCount: number;
     fetchNotifications: () => Promise<void>;
+    refresh: () => Promise<void>;
     markAsRead: (id: number) => Promise<void>;
     markAllAsRead: () => Promise<void>;
 }
@@ -70,7 +71,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }, [isAuthenticated, fetchNotifications]);
 
     return (
-        <NotificationContext.Provider value={{ notifications, unreadCount, fetchNotifications, markAsRead, markAllAsRead }}>
+        <NotificationContext.Provider value={{ notifications, unreadCount, fetchNotifications, refresh: fetchNotifications, markAsRead, markAllAsRead }}>
             {children}
         </NotificationContext.Provider>
     );

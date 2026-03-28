@@ -120,7 +120,27 @@ const NotificationBell: React.FC<{
 
 // ===== NOTIFICATIONS FULL PAGE =====
 const NotificationsPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const { notifications, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, markAsRead, markAllAsRead, refresh } = useNotifications();
+  const toast = useToast();
+
+  const handleTransferAction = async (transferId: number, action: 'approve' | 'reject', notifId: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/clients/transfers/${transferId}/${action}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(action === 'approve' ? 'Transfer approved!' : 'Transfer rejected.');
+        markAsRead(notifId);
+        refresh();
+      } else {
+        toast.error(data.error || 'Action failed');
+      }
+    } catch {
+      toast.error('Network error');
+    }
+  };
 
   const formatTime = (iso: string) => {
     const d = new Date(iso);
@@ -166,10 +186,27 @@ const NotificationsPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <h3 style={{ fontFamily: 'Urbanist', fontWeight: '600', fontSize: '18px', color: '#6E6E6E', marginBottom: '16px', marginLeft: '5px' }}>{group}</h3>
             {items.map(n => (
               <div key={n.id} className="notification-card" style={{ background: n.is_read ? 'white' : '#f0faf9' }}
-                onClick={() => { if (!n.is_read) markAsRead(n.id); }}>
+                onClick={() => { if (!n.is_read && n.type !== 'transfer_request') markAsRead(n.id); }}>
                 <div className="notification-card-content">
                   <h4 style={{ fontFamily: 'Urbanist', fontWeight: '700', fontSize: '20px', color: '#082421', margin: '0 0 6px 0' }}>{n.title}</h4>
-                  <p style={{ fontFamily: 'Urbanist', fontWeight: '500', fontSize: '14px', color: '#6E6E6E', margin: '0' }}>{n.description}</p>
+                  <p style={{ fontFamily: 'Urbanist', fontWeight: '500', fontSize: '14px', color: '#6E6E6E', margin: '0 0 10px 0' }}>{n.description}</p>
+                  {n.type === 'transfer_request' && !n.is_read && (
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                      <button
+                        onClick={e => { e.stopPropagation(); if (n.related_id) handleTransferAction(n.related_id, 'approve', n.id); }}
+                        style={{ padding: '7px 18px', borderRadius: '7px', border: 'none', background: '#082421', color: '#fff', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                        Approve
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); if (n.related_id) handleTransferAction(n.related_id, 'reject', n.id); }}
+                        style={{ padding: '7px 18px', borderRadius: '7px', border: '1px solid #e53935', background: '#fff', color: '#e53935', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                  {n.type === 'transfer_request' && n.is_read && (
+                    <span style={{ fontSize: '12px', color: '#9CA3AF', fontFamily: 'Urbanist' }}>Actioned</span>
+                  )}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px', flexShrink: 0, marginLeft: '16px' }}>
                   <span style={{ fontFamily: 'Urbanist', fontSize: '13px', color: '#6E6E6E', whiteSpace: 'nowrap' }}>{formatTime(n.created_at)}</span>

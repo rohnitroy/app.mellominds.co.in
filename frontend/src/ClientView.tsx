@@ -44,7 +44,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const [showTransferModal, setShowTransferModal] = useState<boolean>(false);
   const [transferEmail, setTransferEmail] = useState('');
   const [transferOptions, setTransferOptions] = useState({
-    appointments: false,
     notes: false,
     activities: false,
     clinical_profile: false,
@@ -90,6 +89,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
 
   const [activities, setActivities] = useState<any[]>([]);
   const [activityForm, setActivityForm] = useState({ name: '', description: '', visible_to_client: false });
+  const [transferInfo, setTransferInfo] = useState<{ transferred: boolean; from_therapist_name?: string; from_therapist_email?: string; created_at?: string } | null>(null);
 
   const fetchActivities = async () => {
     try {
@@ -99,6 +99,13 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   };
 
   useEffect(() => { fetchActivities(); }, [client.id]);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/clients/${client.id}/transfer-info`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : { transferred: false })
+      .then(data => setTransferInfo(data))
+      .catch(() => setTransferInfo({ transferred: false }));
+  }, [client.id]);
 
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
   const [noteContent, setNoteContent] = useState<string>('');
@@ -427,6 +434,24 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
 
           <div className={styles.infoSection}>
             <h3>Demographics:</h3>
+            {transferInfo?.transferred && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                background: '#e8f4fd', border: '1px solid #90caf9',
+                borderRadius: '8px', padding: '6px 12px', marginBottom: '12px',
+                fontSize: '12px', fontFamily: 'Urbanist', fontWeight: 600, color: '#1565c0'
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+                </svg>
+                Transferred from {transferInfo.from_therapist_email}
+                {transferInfo.created_at && (
+                  <span style={{ fontWeight: 400, color: '#5c8fc7' }}>
+                    · {new Date(transferInfo.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+            )}
             <div className={styles.demographicsGrid}>
               <div className={styles.demoRow}>
                 <span className={styles.demoLabel}>Age</span>
@@ -839,8 +864,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
               </p>
 
               {[
-                { key: 'appointments', label: 'Future Appointments', desc: 'Upcoming sessions (past stays with you)', disabled: false },
-                { key: 'notes', label: 'Session Notes', desc: 'Notes from transferred appointments only', disabled: false },
+                { key: 'notes', label: 'Session Notes', desc: 'All session notes for this client', disabled: false },
                 { key: 'activities', label: 'Activity Suggestions', desc: 'All activity suggestions for this client', disabled: false },
                 { key: 'clinical_profile', label: 'Clinical Profile', desc: 'Coming soon — not available yet', disabled: true },
               ].map(opt => (
@@ -870,7 +894,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
               </button>
               <button onClick={handleTransferClient} disabled={transferring}
                 style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#082421', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: transferring ? 'not-allowed' : 'pointer', opacity: transferring ? 0.7 : 1 }}>
-                {transferring ? 'Transferring...' : 'Transfer Client'}
+                {transferring ? 'Sending Request...' : 'Send Transfer Request'}
               </button>
             </div>
           </div>

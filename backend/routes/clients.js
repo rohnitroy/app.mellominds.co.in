@@ -13,7 +13,24 @@ const ensureAuthenticated = (req, res, next) => {
 
 router.use(ensureAuthenticated);
 
-// GET /api/clients/lookup-therapist?email=... - Check if a therapist email exists
+// GET /api/clients/:id/transfer-info - Check if client was transferred from another therapist
+router.get('/:id/transfer-info', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT ct.created_at, u.user_name as from_therapist_name, u.email as from_therapist_email
+             FROM ClientTransfers ct
+             JOIN Users u ON ct.from_therapist_id = u.id
+             WHERE ct.client_id = $1 AND ct.to_therapist_id = $2 AND ct.status = 'approved'
+             ORDER BY ct.created_at DESC LIMIT 1`,
+            [req.params.id, req.user.id]
+        );
+        if (result.rows.length === 0) return res.json({ transferred: false });
+        res.json({ transferred: true, ...result.rows[0] });
+    } catch (err) {
+        console.error('Error fetching transfer info:', err);
+        res.status(500).json({ error: 'Failed to fetch transfer info' });
+    }
+});
 router.get('/lookup-therapist', async (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email is required' });
@@ -164,14 +181,13 @@ router.put('/:id', async (req, res) => {
     }
 });
 
-// POST /api/clients/:id/transfer - Transfer client to another therapist by email
+// POST /api/clients/:id/transfer - Initiate a transfer request to another therapist
 router.post('/:id/transfer', async (req, res) => {
     const dbClient = await pool.connect();
     try {
         const fromTherapistId = req.user.id;
         const clientId = parseInt(req.params.id);
         const { target_email, transfer_options } = req.body;
-        // transfer_options: { profile: bool, appointments: bool, notes: bool, activities: bool }
 
         if (!target_email) {
             return res.status(400).json({ error: 'Target therapist email is required' });
@@ -186,7 +202,20 @@ router.post('/:id/transfer', async (req, res) => {
             return res.status(404).json({ error: 'Client not found' });
         }
 
-        // 2. Find target therapist by email (must be a registered user)
+        // 2. Block if client has upcoming active bookings
+        const upcomingRes = await dbClient.query(
+            `SELECT COUNT(*) FROM Appointments
+             WHERE therapist_id = $1 AND client_email = $2
+             AND start_time > NOW() AND status NOT IN ('cancelled', 'completed')`,
+            [fromTherapistId, clientRes.rows[0].email]
+        );
+        if (parseInt(upcomingRes.rows[0].count) > 0) {
+            return res.status(400).json({
+                error: 'Cannot transfer client with upcoming active bookings. Please cancel or complete all future sessions first.'
+            });
+        }
+
+        // 3. Find target therapist
         const targetRes = await dbClient.query(
             'SELECT id, user_name, email FROM Users WHERE LOWER(email) = LOWER($1)',
             [target_email.trim()]
@@ -196,100 +225,234 @@ router.post('/:id/transfer', async (req, res) => {
         }
 
         const toTherapistId = targetRes.rows[0].id;
-
         if (toTherapistId === fromTherapistId) {
             return res.status(400).json({ error: 'Cannot transfer to yourself' });
         }
 
+        // 4. Check no pending transfer already exists
+        const existingTransfer = await dbClient.query(
+            `SELECT id FROM ClientTransfers WHERE client_id = $1 AND from_therapist_id = $2 AND status = 'pending'`,
+            [clientId, fromTherapistId]
+        );
+        if (existingTransfer.rows.length > 0) {
+            return res.status(409).json({ error: 'A pending transfer request already exists for this client' });
+        }
+
+        const fromRes = await dbClient.query('SELECT user_name FROM Users WHERE id = $1', [fromTherapistId]);
+        const fromName = fromRes.rows[0]?.user_name || 'A therapist';
+
         const opts = {
-            profile: true, // always transfer profile
-            appointments: transfer_options?.appointments ?? false,
             notes: transfer_options?.notes ?? false,
             activities: transfer_options?.activities ?? false,
         };
 
         await dbClient.query('BEGIN');
 
-        // 3. Transfer client profile — upsert into target therapist
-        const existingClient = await dbClient.query(
-            'SELECT id FROM Clients WHERE therapist_id = $1 AND email = $2',
-            [toTherapistId, clientRes.rows[0].email]
+        // 5. Create transfer record
+        const transferRes = await dbClient.query(
+            `INSERT INTO ClientTransfers (client_id, from_therapist_id, to_therapist_id, status, transfer_options)
+             VALUES ($1, $2, $3, 'pending', $4) RETURNING id`,
+            [clientId, fromTherapistId, toTherapistId, JSON.stringify(opts)]
+        );
+        const transferId = transferRes.rows[0].id;
+
+        // 6. Notify Therapist B
+        const notifRes = await dbClient.query(
+            `INSERT INTO Notifications (user_id, type, title, description, related_id)
+             VALUES ($1, 'transfer_request', $2, $3, $4) RETURNING id`,
+            [
+                toTherapistId,
+                'Client Transfer Request',
+                `${fromName} wants to transfer client "${clientRes.rows[0].name}" to you. Please review and approve or reject.`,
+                transferId
+            ]
         );
 
-        let newClientId;
+        // Save notification_id on transfer record for reference
+        await dbClient.query(
+            'UPDATE ClientTransfers SET notification_id = $1 WHERE id = $2',
+            [notifRes.rows[0].id, transferId]
+        );
+
+        await dbClient.query('COMMIT');
+
+        res.json({ message: `Transfer request sent to ${targetRes.rows[0].user_name || target_email}. Awaiting their approval.` });
+
+    } catch (error) {
+        await dbClient.query('ROLLBACK');
+        console.error('Error initiating transfer:', error);
+        res.status(500).json({ error: 'Failed to initiate transfer' });
+    } finally {
+        dbClient.release();
+    }
+});
+
+// POST /api/clients/transfers/:transferId/approve - Therapist B approves
+router.post('/transfers/:transferId/approve', async (req, res) => {
+    const dbClient = await pool.connect();
+    try {
+        const toTherapistId = req.user.id;
+        const transferId = parseInt(req.params.transferId);
+
+        const transferRes = await dbClient.query(
+            `SELECT ct.*, c.* FROM ClientTransfers ct
+             JOIN Clients c ON ct.client_id = c.id
+             WHERE ct.id = $1 AND ct.to_therapist_id = $2 AND ct.status = 'pending'`,
+            [transferId, toTherapistId]
+        );
+
+        if (transferRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Transfer request not found or already actioned' });
+        }
+
+        const transfer = transferRes.rows[0];
+        const opts = transfer.transfer_options || {};
+
+        await dbClient.query('BEGIN');
+
+        // Upsert client into Therapist B's list
+        const existingClient = await dbClient.query(
+            'SELECT id FROM Clients WHERE therapist_id = $1 AND email = $2',
+            [toTherapistId, transfer.email]
+        );
+
         if (existingClient.rows.length > 0) {
-            // Update existing record
-            newClientId = existingClient.rows[0].id;
             await dbClient.query(
                 `UPDATE Clients SET name=$1, phone=$2, age=$3, occupation=$4, gender=$5,
                  marital_status=$6, emergency_name=$7, emergency_phone=$8, emergency_relation=$9,
-                 updated_at=CURRENT_TIMESTAMP
-                 WHERE id=$10`,
-                [
-                    clientRes.rows[0].name, clientRes.rows[0].phone, clientRes.rows[0].age,
-                    clientRes.rows[0].occupation, clientRes.rows[0].gender, clientRes.rows[0].marital_status,
-                    clientRes.rows[0].emergency_name, clientRes.rows[0].emergency_phone,
-                    clientRes.rows[0].emergency_relation, newClientId
-                ]
+                 updated_at=CURRENT_TIMESTAMP WHERE id=$10`,
+                [transfer.name, transfer.phone, transfer.age, transfer.occupation, transfer.gender,
+                 transfer.marital_status, transfer.emergency_name, transfer.emergency_phone,
+                 transfer.emergency_relation, existingClient.rows[0].id]
             );
         } else {
-            const insertRes = await dbClient.query(
+            await dbClient.query(
                 `INSERT INTO Clients (therapist_id, name, email, phone, age, occupation, gender,
                  marital_status, emergency_name, emergency_phone, emergency_relation, manually_added)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true) RETURNING id`,
-                [
-                    toTherapistId, clientRes.rows[0].name, clientRes.rows[0].email,
-                    clientRes.rows[0].phone, clientRes.rows[0].age, clientRes.rows[0].occupation,
-                    clientRes.rows[0].gender, clientRes.rows[0].marital_status,
-                    clientRes.rows[0].emergency_name, clientRes.rows[0].emergency_phone,
-                    clientRes.rows[0].emergency_relation
-                ]
-            );
-            newClientId = insertRes.rows[0].id;
-        }
-
-        // 4. Transfer appointments (future only — past stays with original therapist)
-        if (opts.appointments) {
-            await dbClient.query(
-                `UPDATE Appointments SET therapist_id = $1
-                 WHERE therapist_id = $2 AND client_email = $3 AND start_time > NOW() AND status != 'cancelled'`,
-                [toTherapistId, fromTherapistId, clientRes.rows[0].email]
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)`,
+                [toTherapistId, transfer.name, transfer.email, transfer.phone, transfer.age,
+                 transfer.occupation, transfer.gender, transfer.marital_status,
+                 transfer.emergency_name, transfer.emergency_phone, transfer.emergency_relation]
             );
         }
 
-        // 5. Transfer session notes (only for transferred appointments)
-        if (opts.notes && opts.appointments) {
+        // Transfer notes if opted
+        if (opts.notes) {
             await dbClient.query(
                 `UPDATE SessionNotes SET therapist_id = $1
                  WHERE therapist_id = $2 AND appointment_id IN (
-                     SELECT id FROM Appointments WHERE therapist_id = $1 AND client_email = $3
+                     SELECT id FROM Appointments WHERE therapist_id = $2 AND client_email = $3
                  )`,
-                [toTherapistId, fromTherapistId, clientRes.rows[0].email]
+                [toTherapistId, transfer.from_therapist_id, transfer.email]
             );
         }
 
-        // 6. Transfer activities
+        // Transfer activities if opted
         if (opts.activities) {
             await dbClient.query(
                 `UPDATE ClientActivities SET therapist_id = $1
                  WHERE therapist_id = $2 AND client_id = $3`,
-                [toTherapistId, fromTherapistId, clientId]
+                [toTherapistId, transfer.from_therapist_id, transfer.client_id]
             );
         }
 
-        await dbClient.query('COMMIT');
+        // Mark transfer as approved
+        await dbClient.query(
+            `UPDATE ClientTransfers SET status = 'approved', updated_at = NOW() WHERE id = $1`,
+            [transferId]
+        );
 
-        res.json({
-            message: `Client successfully transferred to ${targetRes.rows[0].user_name || target_email}`,
-            transferred_to: targetRes.rows[0].user_name || target_email
-        });
+        // Notify Therapist A
+        await dbClient.query(
+            `INSERT INTO Notifications (user_id, type, title, description, related_id)
+             VALUES ($1, 'transfer_approved', $2, $3, $4)`,
+            [
+                transfer.from_therapist_id,
+                'Transfer Approved',
+                `Your transfer request for client "${transfer.name}" has been approved.`,
+                transferId
+            ]
+        );
+
+        await dbClient.query('COMMIT');
+        res.json({ message: 'Transfer approved successfully' });
 
     } catch (error) {
         await dbClient.query('ROLLBACK');
-        console.error('Error transferring client:', error);
-        res.status(500).json({ error: 'Failed to transfer client' });
+        console.error('Error approving transfer:', error);
+        res.status(500).json({ error: 'Failed to approve transfer' });
     } finally {
         dbClient.release();
+    }
+});
+
+// POST /api/clients/transfers/:transferId/reject - Therapist B rejects
+router.post('/transfers/:transferId/reject', async (req, res) => {
+    try {
+        const toTherapistId = req.user.id;
+        const transferId = parseInt(req.params.transferId);
+
+        const transferRes = await pool.query(
+            `SELECT ct.*, c.name as client_name FROM ClientTransfers ct
+             JOIN Clients c ON ct.client_id = c.id
+             WHERE ct.id = $1 AND ct.to_therapist_id = $2 AND ct.status = 'pending'`,
+            [transferId, toTherapistId]
+        );
+
+        if (transferRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Transfer request not found or already actioned' });
+        }
+
+        const transfer = transferRes.rows[0];
+
+        await pool.query(
+            `UPDATE ClientTransfers SET status = 'rejected', updated_at = NOW() WHERE id = $1`,
+            [transferId]
+        );
+
+        // Notify Therapist A
+        await pool.query(
+            `INSERT INTO Notifications (user_id, type, title, description, related_id)
+             VALUES ($1, 'transfer_rejected', $2, $3, $4)`,
+            [
+                transfer.from_therapist_id,
+                'Transfer Rejected',
+                `Your transfer request for client "${transfer.client_name}" was declined.`,
+                transferId
+            ]
+        );
+
+        res.json({ message: 'Transfer rejected' });
+    } catch (error) {
+        console.error('Error rejecting transfer:', error);
+        res.status(500).json({ error: 'Failed to reject transfer' });
+    }
+});
+
+// GET /api/clients/transfers/outgoing - Therapist A's sent transfers
+router.get('/transfers/outgoing', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT 
+                ct.id, ct.status, ct.created_at, ct.updated_at,
+                c.name as client_name, c.email as client_email, c.phone as client_phone,
+                u.email as to_therapist_email,
+                COUNT(a.id) as sessions,
+                COALESCE(SUM(CASE WHEN a.payment_status = 'Paid' THEN a.payment_amount ELSE 0 END), 0) as revenue,
+                MAX(a.start_time) as last_session
+             FROM ClientTransfers ct
+             JOIN Clients c ON ct.client_id = c.id
+             JOIN Users u ON ct.to_therapist_id = u.id
+             LEFT JOIN Appointments a ON a.client_email = c.email AND a.therapist_id = ct.from_therapist_id
+             WHERE ct.from_therapist_id = $1
+             GROUP BY ct.id, c.name, c.email, c.phone, u.email
+             ORDER BY ct.created_at DESC`,
+            [req.user.id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching outgoing transfers:', error);
+        res.status(500).json({ error: 'Failed to fetch transfers' });
     }
 });
 

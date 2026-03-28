@@ -8,7 +8,6 @@ import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
 import { useToast } from './context/ToastContext';
 import { exportToCSV } from './utils/exportCSV';
-
 interface Client {
   id: number;
   name: string;
@@ -41,11 +40,17 @@ const defaultForm = {
 
 const AllClients: React.FC = () => {
   const toast = useToast();
+  const [activeTab, setActiveTab] = useState<'all' | 'transferred'>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<Client[]>([]);
+
+  // Transferred clients state
+  const [transfers, setTransfers] = useState<any[]>([]);
+  const [transfersLoading, setTransfersLoading] = useState(false);
+  const [transferSearch, setTransferSearch] = useState('');
 
   // Add client modal state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -69,6 +74,20 @@ const AllClients: React.FC = () => {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  const fetchTransfers = async () => {
+    setTransfersLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/clients/transfers/outgoing`, { credentials: 'include' });
+      if (res.ok) setTransfers(await res.json());
+    } catch { /* silent */ } finally {
+      setTransfersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'transferred') fetchTransfers();
+  }, [activeTab]);
 
   const handleAddClient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +129,13 @@ const AllClients: React.FC = () => {
     c.phone.includes(searchTerm) ||
     c.email.toLowerCase().includes(searchTerm.toLowerCase())
   ), [clients, searchTerm]);
+
+  const filteredTransfers = useMemo(() => transfers.filter(t =>
+    t.client_name?.toLowerCase().includes(transferSearch.toLowerCase()) ||
+    t.client_email?.toLowerCase().includes(transferSearch.toLowerCase()) ||
+    t.client_phone?.includes(transferSearch) ||
+    t.to_therapist_email?.toLowerCase().includes(transferSearch.toLowerCase())
+  ), [transfers, transferSearch]);
 
   const columns: ColumnDef<Client, any>[] = useMemo(() => [
     {
@@ -159,6 +185,68 @@ const AllClients: React.FC = () => {
     },
   ], []);
 
+  const transferColumns: ColumnDef<any, any>[] = useMemo(() => [
+    {
+      accessorKey: 'client_name',
+      header: 'Client Name',
+      cell: ({ row }) => (
+        <div>
+          <div className={styles.clientName}>{row.original.client_name}</div>
+        </div>
+      ),
+    },
+    {
+      id: 'contact',
+      header: 'Contact Info',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div>
+          <div className={styles.phoneNumber}>{row.original.client_phone || '—'}</div>
+          <div className={styles.emailAddress}>{row.original.client_email}</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'sessions',
+      header: 'No. of Sessions',
+      cell: ({ getValue }) => <span className={styles.sessionCount}>{getValue() || '0'}</span>,
+    },
+    {
+      accessorKey: 'last_session',
+      header: 'Last Session Booked',
+      cell: ({ getValue }) => {
+        const v = getValue();
+        return <span className={styles.sessionCount}>{v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>;
+      },
+    },
+    {
+      accessorKey: 'revenue',
+      header: 'Revenue',
+      cell: ({ getValue }) => <span className={styles.revenueAmount}>₹{parseFloat(getValue() || 0).toLocaleString()}</span>,
+    },
+    {
+      accessorKey: 'to_therapist_email',
+      header: 'Transferred To',
+      cell: ({ getValue }) => <span className={styles.emailAddress}>{getValue()}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ getValue }) => {
+        const s = getValue() as string;
+        return (
+          <span style={{
+            padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+            background: s === 'approved' ? '#e8f5e9' : s === 'rejected' ? '#fdecea' : '#fff8e1',
+            color: s === 'approved' ? '#2e7d32' : s === 'rejected' ? '#c62828' : '#f57f17'
+          }}>
+            {s.charAt(0).toUpperCase() + s.slice(1)}
+          </span>
+        );
+      },
+    },
+  ], []);
+
   if (selectedClient) {
     return (
       <ClientView
@@ -178,48 +266,84 @@ const AllClients: React.FC = () => {
           <h1>All Clients</h1>
           <p>View Client Details, Sessions and more...</p>
         </div>
-        <button
-          className={styles.addClientBtn}
-          onClick={() => setShowAddModal(true)}
-        >
-          + Add Client
-        </button>
+        <button className={styles.addClientBtn} onClick={() => setShowAddModal(true)}>+ Add Client</button>
       </div>
 
-      <div className={styles.pageActions}>
-        <div className={styles.searchContainer}>
-          <Search size="medium" primaryColor="#6E6E6E" />
-          <input
-            type="text"
-            placeholder="Search users by name, phone no or email id..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={styles.searchInput}
-          />
-        </div>
-        <button className={styles.exportBtn} onClick={() => {
-          const toExport = selectedRows.length > 0 ? selectedRows : filteredClients;
-          exportToCSV(toExport, 'clients', {
-            name: 'Name', email: 'Email', phone: 'Phone',
-            sessions: 'Sessions', revenue: 'Revenue', lastSession: 'Last Session'
-          });
-        }}>
-          <img src="/Upload.svg" alt="" />
-          {selectedRows.length > 0 ? `Export ${selectedRows.length} Selected` : 'Export to CSV'}
-        </button>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '1px solid #e0e0e0' }}>
+        {(['all', 'transferred'] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+            padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer',
+            fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px',
+            color: activeTab === tab ? '#082421' : '#9CA3AF',
+            borderBottom: activeTab === tab ? '2px solid #082421' : '2px solid transparent',
+            marginBottom: '-1px'
+          }}>
+            {tab === 'all' ? 'All Clients' : 'Transferred'}
+          </button>
+        ))}
       </div>
 
-      {loading ? (
-        <Loader />
+      {activeTab === 'transferred' ? (
+        transfersLoading ? <Loader /> : (
+          <div>
+            <div className={styles.pageActions}>
+              <div className={styles.searchContainer}>
+                <Search size="medium" primaryColor="#6E6E6E" />
+                <input
+                  type="text"
+                  placeholder="Search by client name, email, phone or transferred to..."
+                  value={transferSearch}
+                  onChange={e => setTransferSearch(e.target.value)}
+                  className={styles.searchInput}
+                />
+              </div>
+            </div>
+            <DataTable
+              data={filteredTransfers}
+              columns={transferColumns}
+              pageSize={10}
+              emptyMessage="No transfers found"
+            />
+          </div>
+        )
       ) : (
-        <DataTable
-          data={filteredClients}
-          columns={columns}
-          pageSize={10}
-          emptyMessage="No clients found"
-          enableSelection
-          onSelectionChange={setSelectedRows}
-        />
+        <>
+        <div className={styles.pageActions}>
+          <div className={styles.searchContainer}>
+            <Search size="medium" primaryColor="#6E6E6E" />
+            <input
+              type="text"
+              placeholder="Search users by name, phone no or email id..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={styles.searchInput}
+            />
+          </div>
+          <button className={styles.exportBtn} onClick={() => {
+            const toExport = selectedRows.length > 0 ? selectedRows : filteredClients;
+            exportToCSV(toExport, 'clients', {
+              name: 'Name', email: 'Email', phone: 'Phone',
+              sessions: 'Sessions', revenue: 'Revenue', lastSession: 'Last Session'
+            });
+          }}>
+            <img src="/Upload.svg" alt="" />
+            {selectedRows.length > 0 ? `Export ${selectedRows.length} Selected` : 'Export to CSV'}
+          </button>
+        </div>
+        {loading ? (
+          <Loader />
+        ) : (
+          <DataTable
+            data={filteredClients}
+            columns={columns}
+            pageSize={10}
+            emptyMessage="No clients found"
+            enableSelection
+            onSelectionChange={setSelectedRows}
+          />
+      )}
+      </>
       )}
 
       {/* Add Client Modal */}
