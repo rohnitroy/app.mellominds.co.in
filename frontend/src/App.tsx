@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Outlet, Navigate, useOutletContext } from 'react-router-dom';
 import './App.css';
 import AllClients from './AllClients';
@@ -724,6 +725,7 @@ const App: React.FC = () => {
       <ToastProvider>
         <NotificationProvider>
           <AppContent />
+          <Analytics />
         </NotificationProvider>
       </ToastProvider>
     </AuthProvider>

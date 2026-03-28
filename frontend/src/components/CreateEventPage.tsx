@@ -21,7 +21,8 @@ const CreateEventPage: React.FC = () => {
     const initialType = existingCalendar?.type || location.state?.type || 'one_on_one';
 
     const [activeTab, setActiveTab] = useState('basic');
-    const [isSlugEdited, setIsSlugEdited] = useState(false);
+    // In edit mode, slug is already set so allow editing immediately
+    const [isSlugEdited, setIsSlugEdited] = useState(isEditMode);
     const [showAddLocationModal, setShowAddLocationModal] = useState(false);
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
     const descriptionRef = React.useRef<HTMLDivElement>(null);
@@ -36,8 +37,9 @@ const CreateEventPage: React.FC = () => {
     const [eventData, setEventData] = useState({
         name: existingCalendar?.title || '',
         description: existingCalendar?.description || '',
-        url: existingCalendar?.slug || '',
-        color: '#3787F8', // Default blue
+        // Strip leading slash — the UI renders "/" prefix separately
+        url: existingCalendar?.slug ? existingCalendar.slug.replace(/^\//, '') : '',
+        color: '#3787F8',
         locations: [{ type: 'google_meet' }] as any[],
         duration: existingCalendar?.duration?.replace(' m', '') || '60',
         owner: user?.user_name || 'Therapist',
@@ -293,21 +295,21 @@ const CreateEventPage: React.FC = () => {
 
     // Derive the public booking URL for this calendar
     const getBookingUrl = () => {
-        if (!user) return '';
-        const slug = eventData.url.startsWith('/') ? eventData.url.slice(1) : eventData.url;
+        if (!user || !eventData.url.trim()) return '';
+        const slug = eventData.url.replace(/^\//, '');
         return `${window.location.origin}/book/${user.id}/${slug}`;
     };
 
     const handleCopyLink = () => {
         const url = getBookingUrl();
-        if (!url) { toast.error('Save the calendar first to get a link.'); return; }
+        if (!url) { toast.error('Enter a slug / save the calendar first to get a link.'); return; }
         navigator.clipboard.writeText(url);
         toast.success('Booking link copied!');
     };
 
     const handlePreview = () => {
         const url = getBookingUrl();
-        if (!url) { toast.error('Save the calendar first to preview.'); return; }
+        if (!url) { toast.error('Enter a slug / save the calendar first to preview.'); return; }
         window.open(url, '_blank');
     };
 
@@ -332,16 +334,21 @@ const CreateEventPage: React.FC = () => {
 
         try {
             // Build the payload
+            const rawSlug = eventData.url.trim();
+            const normalizedSlug = rawSlug
+                ? (rawSlug.startsWith('/') ? rawSlug : `/${rawSlug}`)
+                : `/${eventData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')}-${Date.now()}`;
+
             const payload = {
                 title: eventData.name,
                 duration: scheduleData.durationUnit === 'Hours'
                     ? `${parseInt(scheduleData.duration) * 60} m`
-                    : `${scheduleData.duration} m`, // normalize to "60 m" format
-                type: initialType, // Use the type from existing calendar or initial type
+                    : `${scheduleData.duration} m`,
+                type: initialType,
                 description: eventData.description,
-                slug: eventData.url,
+                slug: normalizedSlug,
                 is_active: true,
-                form_data: formData // Inject the dynamic form builder responses
+                form_data: formData
             };
 
             const url = isEditMode 
@@ -403,7 +410,10 @@ const CreateEventPage: React.FC = () => {
                             className={`${styles.input} ${styles.editorContent}`}
                             style={{ border: 'none', resize: 'none', width: '100%', minHeight: '120px', overflowY: 'auto' }}
                             contentEditable
-                            onInput={(e) => setEventData({ ...eventData, description: e.currentTarget.innerHTML })}
+                            onInput={(e) => {
+                                const html = e.currentTarget.innerHTML;
+                                setEventData(prev => ({ ...prev, description: html }));
+                            }}
                             suppressContentEditableWarning={true}
                         >
                         </div>
@@ -420,18 +430,21 @@ const CreateEventPage: React.FC = () => {
                                 style={{ border: 'none', outline: 'none', flex: 1, background: 'transparent' }}
                                 value={eventData.url}
                                 readOnly={!isSlugEdited}
+                                placeholder="your-event-slug"
                                 onChange={e => {
+                                    // sanitize: lowercase, only alphanumeric and hyphens
+                                    const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
                                     setIsSlugEdited(true);
-                                    setEventData({ ...eventData, url: e.target.value });
+                                    setEventData(prev => ({ ...prev, url: sanitized }));
                                 }}
                             />
                             <button
                                 className={styles.actionBtn}
                                 style={{ padding: '4px 8px', fontSize: '12px', border: '1px solid #ccc' }}
-                                onClick={() => setIsSlugEdited(true)}
+                                onClick={() => setIsSlugEdited((v: boolean) => !v)}
                                 type="button"
                             >
-                                Edit
+                                {isSlugEdited ? 'Lock' : 'Edit'}
                             </button>
                         </div>
                     </div>
