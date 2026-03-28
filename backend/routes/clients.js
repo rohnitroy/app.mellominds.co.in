@@ -13,7 +13,28 @@ const ensureAuthenticated = (req, res, next) => {
 
 router.use(ensureAuthenticated);
 
-// POST /api/clients - Create a new client manually
+// GET /api/clients/lookup-therapist?email=... - Check if a therapist email exists
+router.get('/lookup-therapist', async (req, res) => {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    try {
+        const result = await pool.query(
+            'SELECT id, user_name FROM Users WHERE LOWER(email) = LOWER($1)',
+            [email.trim()]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ exists: false, error: 'No therapist found with this email' });
+        }
+
+        // Don't expose the ID — just confirm existence and return display name
+        res.json({ exists: true, name: result.rows[0].user_name });
+    } catch (err) {
+        console.error('Lookup error:', err);
+        res.status(500).json({ error: 'Lookup failed' });
+    }
+});
 router.post('/', async (req, res) => {
     try {
         const userId = req.user.id;
@@ -271,8 +292,6 @@ router.post('/:id/transfer', async (req, res) => {
         dbClient.release();
     }
 });
-
-export default router;
 
 // DELETE /api/clients/:id - Delete a client (only manually added clients)
 router.delete('/:id', async (req, res) => {

@@ -47,8 +47,10 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     appointments: false,
     notes: false,
     activities: false,
+    clinical_profile: false,
   });
   const [transferring, setTransferring] = useState(false);
+  const [emailLookup, setEmailLookup] = useState<{ status: 'idle' | 'checking' | 'found' | 'notfound'; name?: string }>({ status: 'idle' });
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -285,10 +287,39 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     }
   };
 
+  const handleTransferEmailChange = (email: string) => {
+    setTransferEmail(email);
+    if (!email.trim() || !email.includes('@')) {
+      setEmailLookup({ status: 'idle' });
+    } else {
+      setEmailLookup({ status: 'checking' });
+    }
+  };
+
+  useEffect(() => {
+    if (!transferEmail.trim() || !transferEmail.includes('@')) return;
+    setEmailLookup({ status: 'checking' });
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/clients/lookup-therapist?email=${encodeURIComponent(transferEmail)}`, { credentials: 'include' });
+        const data = await res.json();
+        if (res.ok && data.exists) {
+          setEmailLookup({ status: 'found', name: data.name });
+        } else {
+          setEmailLookup({ status: 'notfound' });
+        }
+      } catch {
+        setEmailLookup({ status: 'notfound' });
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [transferEmail]);
+
   const tabs: string[] = ['Overview', 'Session Notes', 'Activity Suggestion'];
 
   const handleTransferClient = async () => {
     if (!transferEmail.trim()) { toast.warning('Please enter the therapist email.'); return; }
+    if (emailLookup.status !== 'found') { toast.warning('Please enter a valid registered therapist email.'); return; }
     setTransferring(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/clients/${client.id}/transfer`, {
@@ -764,12 +795,11 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
           </div>
         </div>
       )}
-      )}
 
       {/* Transfer Client Modal */}
       {showTransferModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
-          onClick={() => !transferring && setShowTransferModal(false)}>
+          onClick={() => { if (!transferring) { setShowTransferModal(false); setTransferEmail(''); setEmailLookup({ status: 'idle' }); } }}>
           <div style={{ background: '#fff', borderRadius: '16px', padding: '32px 28px', width: '100%', maxWidth: '460px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}
             onClick={e => e.stopPropagation()}>
 
@@ -786,9 +816,18 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 type="email"
                 placeholder="therapist@example.com"
                 value={transferEmail}
-                onChange={e => setTransferEmail(e.target.value)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e0e0e0', fontFamily: 'Urbanist', fontSize: '14px', boxSizing: 'border-box' }}
+                onChange={e => handleTransferEmailChange(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: `1px solid ${emailLookup.status === 'found' ? '#4caf50' : emailLookup.status === 'notfound' ? '#e53935' : '#e0e0e0'}`, fontFamily: 'Urbanist', fontSize: '14px', boxSizing: 'border-box' }}
               />
+              {emailLookup.status === 'checking' && (
+                <p style={{ fontSize: '12px', color: '#9CA3AF', margin: '4px 0 0', fontFamily: 'Urbanist' }}>Checking...</p>
+              )}
+              {emailLookup.status === 'found' && (
+                <p style={{ fontSize: '12px', color: '#4caf50', margin: '4px 0 0', fontFamily: 'Urbanist' }}>✓ Found: {emailLookup.name}</p>
+              )}
+              {emailLookup.status === 'notfound' && (
+                <p style={{ fontSize: '12px', color: '#e53935', margin: '4px 0 0', fontFamily: 'Urbanist' }}>✗ No therapist found with this email</p>
+              )}
             </div>
 
             <div style={{ marginBottom: '24px' }}>
@@ -800,19 +839,24 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
               </p>
 
               {[
-                { key: 'appointments', label: 'Future Appointments', desc: 'Upcoming sessions (past stays with you)' },
-                { key: 'notes', label: 'Session Notes', desc: 'Notes from transferred appointments only' },
-                { key: 'activities', label: 'Activity Suggestions', desc: 'All activity suggestions for this client' },
+                { key: 'appointments', label: 'Future Appointments', desc: 'Upcoming sessions (past stays with you)', disabled: false },
+                { key: 'notes', label: 'Session Notes', desc: 'Notes from transferred appointments only', disabled: false },
+                { key: 'activities', label: 'Activity Suggestions', desc: 'All activity suggestions for this client', disabled: false },
+                { key: 'clinical_profile', label: 'Clinical Profile', desc: 'Coming soon — not available yet', disabled: true },
               ].map(opt => (
-                <label key={opt.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', cursor: 'pointer' }}>
+                <label key={opt.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', cursor: opt.disabled ? 'not-allowed' : 'pointer', opacity: opt.disabled ? 0.45 : 1 }}>
                   <input
                     type="checkbox"
+                    disabled={opt.disabled}
                     checked={transferOptions[opt.key as keyof typeof transferOptions]}
                     onChange={e => setTransferOptions(prev => ({ ...prev, [opt.key]: e.target.checked }))}
                     style={{ marginTop: '3px', accentColor: '#082421', width: '16px', height: '16px', flexShrink: 0 }}
                   />
                   <div>
-                    <div style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>{opt.label}</div>
+                    <div style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#1a1a1a' }}>
+                      {opt.label}
+                      {opt.disabled && <span style={{ marginLeft: '8px', fontSize: '11px', background: '#f1f3f4', color: '#9CA3AF', padding: '2px 6px', borderRadius: '4px' }}>Coming soon</span>}
+                    </div>
                     <div style={{ fontFamily: 'Urbanist', fontSize: '12px', color: '#9CA3AF' }}>{opt.desc}</div>
                   </div>
                 </label>
@@ -820,7 +864,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowTransferModal(false)} disabled={transferring}
+              <button onClick={() => { setShowTransferModal(false); setTransferEmail(''); setEmailLookup({ status: 'idle' }); }} disabled={transferring}
                 style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#333', cursor: 'pointer' }}>
                 Cancel
               </button>
