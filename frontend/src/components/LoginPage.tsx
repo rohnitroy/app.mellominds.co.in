@@ -10,6 +10,10 @@ const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showForgotModal, setShowForgotModal] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [tempPassword, setTempPassword] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -57,7 +61,34 @@ const LoginPage: React.FC = () => {
     window.location.href = `${apiUrl}/auth/google`
   }
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!forgotEmail.trim()) return
+    setForgotLoading(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      })
+      const data = await res.json()
+      if (res.ok && data.tempPassword) {
+        setTempPassword(data.tempPassword)
+      } else if (res.ok) {
+        toast.info('If this email is registered, a temporary password has been generated.')
+        setShowForgotModal(false)
+      } else {
+        toast.error(data.error || 'Failed to reset password')
+      }
+    } catch {
+      toast.error('Network error. Please try again.')
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
   return (
+    <>
     <div className="login-container">
       <div className="left-section">
         <div className="hero-content">
@@ -137,7 +168,9 @@ const LoginPage: React.FC = () => {
             </div>
 
             <div className="forgot-password">
-              <a href="#forgot">Forgot Your Password?</a>
+              <button type="button" className="forgot-link" onClick={() => setShowForgotModal(true)}>
+                Forgot Your Password?
+              </button>
             </div>
 
             <button type="submit" className="login-button">
@@ -146,7 +179,7 @@ const LoginPage: React.FC = () => {
           </form>
 
           <div className="divider">
-            <span>Or Login With</span>
+            <span>Or Login/Signup With</span>
           </div>
 
           <button type="button" className="google-button" onClick={handleGoogleLogin}>
@@ -156,7 +189,7 @@ const LoginPage: React.FC = () => {
               <path d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#FBBC05"/>
               <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 6.293C4.672 4.166 6.656 3.58 9 3.58z" fill="#EA4335"/>
             </svg>
-            Login with Google
+            Login/Signup with Google
           </button>
 
           <p className="signup-text">
@@ -167,6 +200,36 @@ const LoginPage: React.FC = () => {
         </div>
       </div>
     </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          onClick={() => setShowForgotModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '400px', textAlign: 'center' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: '#f4fffe', border: '1px solid #2D7579', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2D7579" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </div>
+            <h3 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px', margin: '0 0 8px 0', color: '#082421' }}>Forgot Your Password?</h3>
+            <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 20px 0', lineHeight: 1.6 }}>
+              Please contact our support team and we'll help you reset your password.
+            </p>
+            <a href="mailto:mellomindsventure@gmail.com"
+              style={{ display: 'inline-block', background: '#082421', color: '#fff', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', padding: '12px 24px', borderRadius: '8px', textDecoration: 'none', marginBottom: '12px' }}>
+              mellomindsventure@gmail.com
+            </a>
+            <br />
+            <button onClick={() => setShowForgotModal(false)}
+              style={{ background: 'none', border: 'none', fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', cursor: 'pointer', marginTop: '8px' }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+  </>
   )
 }
 

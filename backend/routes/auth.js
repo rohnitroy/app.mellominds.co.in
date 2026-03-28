@@ -184,6 +184,38 @@ router.post('/complete-profile', async (req, res) => {
   }
 });
 
+// POST /auth/forgot-password - Generate a temporary password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const result = await pool.query('SELECT id, auth_provider FROM Users WHERE email = $1', [email]);
+    if (result.rows.length === 0) {
+      // Don't reveal if email exists or not
+      return res.json({ message: 'If this email is registered, a temporary password has been generated.' });
+    }
+
+    const user = result.rows[0];
+    if (user.auth_provider === 'google') {
+      return res.status(400).json({ error: 'This account uses Google login. Please sign in with Google.' });
+    }
+
+    // Generate a random 10-char temp password
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let tempPassword = '';
+    for (let i = 0; i < 10; i++) tempPassword += chars[Math.floor(Math.random() * chars.length)];
+
+    const hashed = await bcrypt.hash(tempPassword, 10);
+    await pool.query('UPDATE Users SET password = $1 WHERE id = $2', [hashed, user.id]);
+
+    res.json({ tempPassword });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
 // Logout
 router.post('/logout', (req, res) => {
   req.logout((err) => {
