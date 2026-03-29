@@ -6,6 +6,8 @@ import AllClients from './AllClients';
 import Appointments from './Appointments';
 import PaymentsInvoice from './PaymentsInvoice';
 import MySettings from './MySettings';
+import MyProfile from './MyProfile';
+import ClientNotesTemplate from './components/ClientNotesTemplate';
 import CreateBooking from './components/CreateBooking';
 import SendBookingLinkModal from './components/SendBookingLinkModal';
 import UpgradePlanModal from './components/UpgradePlanModal';
@@ -863,6 +865,7 @@ const PageTitle: React.FC = () => {
       '/payment-invoice': 'Payments & Invoice',
       '/settings': 'My Settings',
       '/settings/my-profile': 'My Profile',
+      '/settings/client-notes-template': 'Client Notes Template',
       '/notifications': 'Notifications',
       '/login': 'Login',
       '/signup': 'Sign Up',
@@ -905,7 +908,8 @@ const AppContent: React.FC = () => {
               <Route path="my-calendar/edit" element={<CreateEventPage />} />
               <Route path="payment-invoice" element={<PaymentsInvoice />} />
               <Route path="settings" element={<MySettings />} />
-              <Route path="settings/my-profile" element={<MySettings />} />
+              <Route path="settings/my-profile" element={<MyProfile onBack={() => window.history.back()} />} />
+              <Route path="settings/client-notes-template" element={<ClientNotesTemplate onBack={() => window.history.back()} />} />
               <Route path="notifications" element={<NotificationsPage onBack={() => {}} />} />
             </Route>
           </Route>

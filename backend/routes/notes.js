@@ -1,20 +1,59 @@
-
 import express from 'express';
 import pool from '../config/database.js';
 
 const router = express.Router();
 
 const ensureAuthenticated = (req, res, next) => {
-    if (req.isAuthenticated()) {
-        return next();
-    }
+    if (req.isAuthenticated()) return next();
     res.status(401).json({ error: 'Not authenticated' });
 };
 
 router.use(ensureAuthenticated);
 
+// ─── Static routes first ──────────────────────────────────────────────────────
+
+// GET /api/notes/template/me - Get therapist's note template
+router.get('/template/me', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT fields FROM NoteTemplates WHERE therapist_id = $1',
+            [req.user.id]
+        );
+        if (result.rows.length === 0) {
+            return res.json({ fields: [
+                { id: 1, label: 'Session Summary', type: 'textarea', key: 'session_summary', required: false },
+                { id: 2, label: 'Client Mood', type: 'select', key: 'client_mood', required: false, options: ['Happy', 'Neutral', 'Anxious', 'Sad', 'Angry'] },
+                { id: 3, label: 'Homework / Action Items', type: 'textarea', key: 'homework', required: false },
+            ]});
+        }
+        res.json({ fields: result.rows[0].fields });
+    } catch (error) {
+        console.error('Error fetching note template:', error);
+        res.status(500).json({ error: 'Failed to fetch template' });
+    }
+});
+
+// POST /api/notes/template/me - Save therapist's note template
+router.post('/template/me', async (req, res) => {
+    try {
+        const { fields } = req.body;
+        if (!Array.isArray(fields)) return res.status(400).json({ error: 'fields must be an array' });
+
+        await pool.query(
+            `INSERT INTO NoteTemplates (therapist_id, fields, updated_at)
+             VALUES ($1, $2, NOW())
+             ON CONFLICT (therapist_id)
+             DO UPDATE SET fields = $2, updated_at = NOW()`,
+            [req.user.id, JSON.stringify(fields)]
+        );
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error saving note template:', error);
+        res.status(500).json({ error: 'Failed to save template' });
+    }
+});
+
 // POST /api/notes - Create a new note
-// Body: { appointment_id, content } where content is ideally JSON but handled as passed
 router.post('/', async (req, res) => {
     const client = await pool.connect();
     try {
@@ -25,14 +64,11 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
-        // Check if appointment exists (optional but good practice)
-        // For now, straight insert.
-
         const result = await client.query(
             `INSERT INTO SessionNotes (appointment_id, therapist_id, note_content)
              VALUES ($1, $2, $3)
              RETURNING *`,
-            [appointment_id, therapist_id, content] // content passed as is, pg handles JSONB conversion if object
+            [appointment_id, therapist_id, content]
         );
 
         res.status(201).json(result.rows[0]);
@@ -44,21 +80,40 @@ router.post('/', async (req, res) => {
     }
 });
 
+// ─── Parameterized routes last ────────────────────────────────────────────────
+
+// PUT /api/notes/:id - Edit an existing note
+router.put('/:id', async (req, res) => {
+    try {
+        const { content } = req.body;
+        const therapist_id = req.user.id;
+
+        if (!content) return res.status(400).json({ error: 'Content is required' });
+
+        const result = await pool.query(
+            `UPDATE SessionNotes SET note_content = $1, updated_at = NOW()
+             WHERE id = $2 AND therapist_id = $3 RETURNING *`,
+            [content, req.params.id, therapist_id]
+        );
+
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Note not found' });
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating note:', error);
+        res.status(500).json({ error: 'Failed to update note' });
+    }
+});
+
 // GET /api/notes/:appointmentId - Get notes for an appointment
-// Filters by therapist_id (current user) so users don't see others' notes
 router.get('/:appointmentId', async (req, res) => {
     const client = await pool.connect();
     try {
-        const { appointmentId } = req.params;
-        const therapist_id = req.user.id;
-
         const result = await client.query(
             `SELECT * FROM SessionNotes 
              WHERE appointment_id = $1 AND therapist_id = $2
              ORDER BY created_at DESC`,
-            [appointmentId, therapist_id]
+            [req.params.appointmentId, req.user.id]
         );
-
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching notes:', error);

@@ -740,6 +740,8 @@
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  padding: 24px;
+  overflow-y: auto;
 }
 
 .modalContent {
@@ -748,8 +750,9 @@
   padding: 32px;
   width: 90%;
   max-width: 500px;
-  max-height: 80vh;
+  max-height: 85vh;
   overflow-y: auto;
+  margin: auto;
 }
 
 .modalContent h2 {

@@ -27,6 +27,7 @@ body {
   flex-direction: column;
   background: #f8f9fa;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* ===== SIDEBAR ===== */
@@ -248,6 +249,7 @@ body {
   flex: 1;
   padding: 32px;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .dashboard-header {

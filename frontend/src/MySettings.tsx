@@ -1,21 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import styles from './MySettings.module.css';
-import MyProfile from './MyProfile';
 import { Wallet, Document, Paper, Filter, People } from 'react-iconly';
-import { useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from './config/api';
 
 const MySettings: React.FC = () => {
-  const location = useLocation();
-  const [activeSection, setActiveSection] = useState<string>(
-    location.pathname === '/settings/my-profile' ? 'My Profile' : (location.state?.activeSection || '')
-  );
-
-  useEffect(() => {
-    if (location.pathname === '/settings/my-profile') {
-      setActiveSection('My Profile');
-    }
-  }, [location.pathname]);
+  const navigate = useNavigate();
 
   const [googleConnected, setGoogleConnected] = useState(false);
   const [cashfreeConnected, setCashfreeConnected] = useState(false);
@@ -46,10 +36,6 @@ const MySettings: React.FC = () => {
       .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
       .catch(() => {});
   }, []);
-
-  if (activeSection === 'My Profile') {
-    return <MyProfile onBack={() => setActiveSection('')} />;
-  }
 
   const handleCashfreeConnect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +83,7 @@ const MySettings: React.FC = () => {
         <div className={styles.settingsSection}>
           <h2>Profile & Customization</h2>
 
-          <div className={styles.settingCard} onClick={() => setActiveSection('My Profile')}>
+          <div className={styles.settingCard} onClick={() => navigate('/settings/my-profile')} style={{ cursor: 'pointer' }}>
             <div className={styles.cardContent}>
               <h3>
                 <Document set="bulk" size="medium" primaryColor="#082421" />
@@ -144,12 +130,11 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard}>
+          <div className={styles.settingCard} onClick={() => navigate('/settings/client-notes-template')} style={{ cursor: 'pointer' }}>
             <div className={styles.cardContent}>
               <h3>
                 <Document set="bulk" size="medium" primaryColor="#082421" />
                 Client Notes
-                <div className={styles.comingSoonTag}>Coming soon</div>
               </h3>
               <p>customize client notes form...</p>
             </div>

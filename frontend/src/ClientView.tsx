@@ -93,6 +93,12 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const [activityForm, setActivityForm] = useState({ name: '', description: '', visible_to_client: false });
   const [transferInfo, setTransferInfo] = useState<{ transferred: boolean; from_therapist_email?: string; created_at?: string } | null>(null);
   const [isTransferredClient, setIsTransferredClient] = useState(false);
+  const [transferCutoffDate, setTransferCutoffDate] = useState<Date | null>(null); // Therapist A: date after which data is hidden
+
+  // Note template state
+  const [noteTemplate, setNoteTemplate] = useState<any[]>([]);
+  const [noteFormData, setNoteFormData] = useState<Record<string, any>>({});
+  const [editingNote, setEditingNote] = useState<any | null>(null);
 
   const fetchActivities = async () => {
     try {
@@ -102,6 +108,21 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   };
 
   useEffect(() => { fetchActivities(); }, [client.id]);
+
+  // Fetch note template
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/notes/template/me`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : { fields: [] })
+      .then(data => {
+        const fields = data.fields || [];
+        setNoteTemplate(fields);
+        // Init form data
+        const init: Record<string, any> = {};
+        fields.forEach((f: any) => { init[f.key] = f.type === 'checkbox' ? [] : ''; });
+        setNoteFormData(init);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/clients/${client.id}/transfer-info`, { credentials: 'include' })
@@ -117,7 +138,10 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
       .then(r => r.ok ? r.json() : [])
       .then((data: any[]) => {
         const match = data.find(t => t.client_email === client.email && t.status === 'approved');
-        if (match) setIsTransferredClient(true);
+        if (match) {
+          setIsTransferredClient(true);
+          setTransferCutoffDate(new Date(match.updated_at)); // approved_at = updated_at
+        }
       })
       .catch(() => {});
   }, [client.id, client.email]);
@@ -162,12 +186,23 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
         const data = await response.json();
 
         // Apply date filter client-side
-        const filtered = selectedDate === 'all' ? data : data.filter((app: any) => {
+        // If Therapist A (transferred out), only show data up to transfer cutoff date
+        const cutoff = transferCutoffDate;
+        let filtered = selectedDate === 'all' ? data : data.filter((app: any) => {
           const d = new Date(app.start_time);
           const [mon, yr] = selectedDate.split(' ');
           const monthIndex = new Date(`${mon} 1, 2000`).getMonth();
           return d.getMonth() === monthIndex && d.getFullYear() === parseInt(yr);
         });
+
+        if (cutoff) {
+          filtered = filtered.filter((app: any) => new Date(app.start_time) <= cutoff);
+          // Also filter notes within each appointment to only show notes before cutoff
+          filtered = filtered.map((app: any) => ({
+            ...app,
+            notes: (app.notes || []).filter((n: any) => new Date(n.created_at) <= cutoff)
+          }));
+        }
 
         setAppointments(filtered);
 
@@ -205,35 +240,68 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   }, [client.email, refreshTrigger, selectedDate]);
 
   const handleNoteSubmit = async () => {
-    if (!selectedAppointmentId || !noteContent) {
-      toast.warning('Please select a booking and enter note content.');
+    if (!selectedAppointmentId) {
+      toast.warning('Please select a booking.');
       return;
     }
 
+    // Validate required fields
+    for (const field of noteTemplate) {
+      if (field.required) {
+        const val = noteFormData[field.key];
+        if (!val || (Array.isArray(val) && val.length === 0)) {
+          toast.warning(`"${field.label}" is required.`);
+          return;
+        }
+      }
+    }
+
+    const content = noteTemplate.length > 0 ? noteFormData : { text: noteContent };
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/notes`, {
-        method: 'POST',
+      const isEdit = !!editingNote;
+      const url = isEdit ? `${API_BASE_URL}/api/notes/${editingNote.id}` : `${API_BASE_URL}/api/notes`;
+      const method = isEdit ? 'PUT' : 'POST';
+      const body = isEdit
+        ? JSON.stringify({ content })
+        : JSON.stringify({ appointment_id: selectedAppointmentId, content });
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          appointment_id: selectedAppointmentId,
-          content: { text: noteContent }
-        }),
+        body,
         credentials: 'include'
       });
 
       if (response.ok) {
-        toast.success('Note added successfully!');
+        toast.success(isEdit ? 'Note updated!' : 'Note added successfully!');
         setShowAddNotesModal(false);
         setNoteContent('');
         setSelectedAppointmentId('');
+        setEditingNote(null);
+        // Reset form
+        const init: Record<string, any> = {};
+        noteTemplate.forEach((f: any) => { init[f.key] = f.type === 'checkbox' ? [] : ''; });
+        setNoteFormData(init);
         setRefreshTrigger(prev => prev + 1);
       } else {
-        toast.error('Failed to add note.');
+        toast.error('Failed to save note.');
       }
     } catch (error) {
-      console.error('Error adding note:', error);
-      toast.error('Error adding note.');
+      console.error('Error saving note:', error);
+      toast.error('Error saving note.');
     }
+  };
+
+  const handleEditNote = (note: any, appointmentId: string) => {
+    setEditingNote(note);
+    setSelectedAppointmentId(appointmentId);
+    if (noteTemplate.length > 0 && note.content && typeof note.content === 'object' && !note.content.text) {
+      setNoteFormData(note.content);
+    } else {
+      setNoteContent(typeof note.content === 'object' ? note.content?.text || '' : note.content || '');
+    }
+    setShowAddNotesModal(true);
   };
 
   const handleEditClient = () => {
@@ -405,6 +473,17 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     <div className={styles.clientView}>
       <div className={styles.clientLayout}>
         <div className={styles.leftPanel}>
+          {/* Read-only banner for Therapist A after transfer */}
+          {isTransferredClient && transferCutoffDate && (
+            <div style={{ background: '#fff8e1', border: '1px solid #ffe082', borderRadius: '10px', padding: '10px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: 'Urbanist', fontSize: '13px', color: '#795548' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f57f17" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <span>
+                <strong>Read-only.</strong> This client was transferred on {transferCutoffDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. You can only view data up to that date.
+              </span>
+            </div>
+          )}
           <div className={styles.clientTitleSection}>
             <button className={styles.backButton} onClick={onBack}>
               <ArrowLeft size="medium" primaryColor="#000000" />
@@ -413,7 +492,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
               <h1>{editData.name}</h1>
               <p>Client ID: {client.id}</p>
             </div>
-            {isEditing ? null : (
+            {/* Hide action menu entirely for Therapist A after transfer */}
+            {isEditing ? null : !( isTransferredClient && transferCutoffDate) && (
               <div className={styles.actionMenuWrapper} ref={actionMenuRef}>
                 <button className={styles.actionMenuBtn} onClick={() => setShowActionMenu(!showActionMenu)}>···</button>
                 {showActionMenu && (
@@ -571,12 +651,14 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 <div className={styles.appointmentsSection}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <h3 style={{ margin: 0 }}>Bookings</h3>
-                    <button
-                      onClick={() => setShowCreateBookingModal(true)}
-                      style={{ padding: '7px 16px', background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
-                    >
-                      + Create Booking
-                    </button>
+                    {!(isTransferredClient && transferCutoffDate) && (
+                      <button
+                        onClick={() => setShowCreateBookingModal(true)}
+                        style={{ padding: '7px 16px', background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                      >
+                        + Create Booking
+                      </button>
+                    )}
                   </div>
                   <DataTable
                     data={appointments}
@@ -613,12 +695,35 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                         {app.notes && app.notes.length > 0 ? (
                           app.notes.map((note: any, idx: number) => (
                             <div key={idx} style={{ marginBottom: '8px', padding: '10px 12px', background: '#f8fffe', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-                              <div style={{ fontSize: '11px', color: '#9CA3AF', marginBottom: '4px', fontFamily: 'Urbanist' }}>
-                                {new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <div style={{ fontSize: '11px', color: '#9CA3AF', fontFamily: 'Urbanist' }}>
+                                  {new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </div>
+                                <button
+                                  onClick={() => handleEditNote(note, app.id.toString())}
+                                  style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '3px 10px', fontSize: '12px', fontFamily: 'Urbanist', fontWeight: 600, color: '#082421', cursor: 'pointer', display: (isTransferredClient && transferCutoffDate) ? 'none' : 'block' }}>
+                                  Edit
+                                </button>
                               </div>
-                              <div style={{ fontSize: '14px', fontFamily: 'Urbanist', fontWeight: 500, color: '#1a1a1a' }}>
-                                {typeof note.content === 'object' ? note.content?.text : note.content}
-                              </div>
+                              {/* Render structured note or plain text */}
+                              {noteTemplate.length > 0 && note.content && typeof note.content === 'object' && !note.content.text ? (
+                                noteTemplate.map((field: any) => {
+                                  const val = note.content[field.key];
+                                  if (!val || (Array.isArray(val) && val.length === 0)) return null;
+                                  return (
+                                    <div key={field.key} style={{ marginBottom: '6px' }}>
+                                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#6E6E6E', fontFamily: 'Urbanist', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{field.label}</div>
+                                      <div style={{ fontSize: '14px', fontFamily: 'Urbanist', color: '#1a1a1a' }}>
+                                        {Array.isArray(val) ? val.join(', ') : val}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              ) : (
+                                <div style={{ fontSize: '14px', fontFamily: 'Urbanist', fontWeight: 500, color: '#1a1a1a' }}>
+                                  {typeof note.content === 'object' ? note.content?.text : note.content}
+                                </div>
+                              )}
                             </div>
                           ))
                         ) : (
@@ -630,7 +735,9 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                 </div>
 
                 <div className={styles.addNotesSection}>
-                  <button className={styles.addNotesButton} onClick={() => setShowAddNotesModal(true)}>+ Add Note</button>
+                  {!(isTransferredClient && transferCutoffDate) && (
+                    <button className={styles.addNotesButton} onClick={() => setShowAddNotesModal(true)}>+ Add Note</button>
+                  )}
                 </div>
               </>
             )}
@@ -643,42 +750,68 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                     <div className={styles.dateIcon}>
                       <Calendar size="small" primaryColor="#6E6E6E" />
                     </div>
-                    <span>{selectedDate}</span>
+                    <span>{selectedDate === 'all' ? 'All Time' : selectedDate}</span>
                     <div className={styles.dropdownArrow}>
                       <ChevronDown size="small" primaryColor="#6E6E6E" />
                     </div>
                     {showDateDropdown && (
-                      <div className={styles.dateDropdown}>
-                        <div className={styles.dropdownHeader}>Custom Dates</div>
-                        <div className={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); setSelectedDate('Nov 2025'); setShowDateDropdown(false); }}>Nov 2025</div>
-                        <div className={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); setSelectedDate('Oct 2025'); setShowDateDropdown(false); }}>Oct 2025</div>
-                        <div className={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); setSelectedDate('Sep 2025'); setShowDateDropdown(false); }}>Sep 2025</div>
-                        <div className={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); setSelectedDate('Aug 2025'); setShowDateDropdown(false); }}>Aug 2025</div>
-                        <div className={styles.dropdownItem} onClick={(e) => { e.stopPropagation(); setSelectedDate('Jul 2025'); setShowDateDropdown(false); }}>Jul 2025</div>
+                      <div className={styles.dateDropdown} onClick={e => e.stopPropagation()}>
+                        <div className={styles.dropdownItem} onClick={() => { setSelectedDate('all'); setShowDateDropdown(false); }}>All Time</div>
+                        {(() => {
+                          const now = new Date();
+                          return Array.from({ length: 6 }, (_, i) => {
+                            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                            const label = d.toLocaleString('en-US', { month: 'short' }) + ' ' + d.getFullYear();
+                            return (
+                              <div key={label} className={styles.dropdownItem}
+                                onClick={() => { setSelectedDate(label); setShowDateDropdown(false); }}>
+                                {label}
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     )}
                   </div>
                 </div>
 
                 <div className={styles.activityList}>
-                  {activities.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px' }}>No activities added yet.</div>
-                  ) : (
-                    activities.map((act) => (
+                  {(() => {
+                    const filtered = selectedDate === 'all' ? activities : activities.filter((act: any) => {
+                      const d = new Date(act.created_at);
+                      const [mon, yr] = selectedDate.split(' ');
+                      const monthIndex = new Date(`${mon} 1, 2000`).getMonth();
+                      return d.getMonth() === monthIndex && d.getFullYear() === parseInt(yr);
+                    });
+                    // Therapist A: only show activities up to transfer cutoff
+                    const cutoffFiltered = transferCutoffDate
+                      ? filtered.filter((act: any) => new Date(act.created_at) <= transferCutoffDate)
+                      : filtered;
+                    if (cutoffFiltered.length === 0) return (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px' }}>
+                        {activities.length === 0 ? 'No activities added yet.' : 'No activities for this period.'}
+                      </div>
+                    );
+                    return cutoffFiltered.map((act: any) => (
                       <div className={styles.activityItem} key={act.id}>
                         <div className={styles.activityInfo}>
                           <div className={styles.activityName}>{act.name}</div>
                           <div className={styles.activityDescription}>{act.description || '—'}</div>
+                          <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', fontFamily: 'Urbanist' }}>
+                            {new Date(act.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
                         </div>
                         <button className={styles.deleteBtn} onClick={() => handleDeleteActivity(act.id)}>
                           <Delete size="small" primaryColor="#dc3545" />
                         </button>
                       </div>
-                    ))
-                  )}
+                    ));
+                  })()}
                 </div>
 
-                <button className={styles.addActivitiesBtn} onClick={() => setShowAddActivitiesModal(true)}>+ Add Activities</button>
+                {!(isTransferredClient && transferCutoffDate) && (
+                  <button className={styles.addActivitiesBtn} onClick={() => setShowAddActivitiesModal(true)}>+ Add Activities</button>
+                )}
               </div>
             )}
           </div>
@@ -758,39 +891,106 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
         <div className={styles.modalOverlay} onClick={() => setShowAddNotesModal(false)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <h2 style={{ margin: 0 }}>+ Add Notes</h2>
-              <button onClick={() => setShowAddNotesModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+              <h2 style={{ margin: 0 }}>{editingNote ? 'Edit Note' : '+ Add Notes'}</h2>
+              <button onClick={() => { setShowAddNotesModal(false); setEditingNote(null); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
             </div>
-            <p>add private notes to a dedicated client booking.</p>
+            <p>{editingNote ? 'Update the note for this session.' : 'Add notes to a dedicated client booking.'}</p>
 
-            <div className={styles.formGroup}>
-              <label>Select Booking</label>
-              <select
-                className={styles.formSelect}
-                value={selectedAppointmentId}
-                onChange={(e) => setSelectedAppointmentId(e.target.value)}
-              >
-                <option value="">Select booking</option>
-                {appointments.map(app => (
-                  <option key={app.id} value={app.id}>
-                    {formatDateTime(app.start_time)} - {app.title}{app.notes?.length > 0 ? ' ✓' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {!editingNote && (
+              <div className={styles.formGroup}>
+                <label>Select Booking</label>
+                <select
+                  className={styles.formSelect}
+                  value={selectedAppointmentId}
+                  onChange={(e) => setSelectedAppointmentId(e.target.value)}
+                >
+                  <option value="">Select booking</option>
+                  {appointments.map(app => (
+                    <option key={app.id} value={app.id}>
+                      {formatDateTime(app.start_time)} - {app.title}{app.notes?.length > 0 ? ' ✓' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-            <div className={styles.formGroup}>
-              <label>Note Content</label>
-              <textarea
-                placeholder="Enter session notes here..."
-                className={styles.formInput}
-                style={{ height: '100px', padding: '8px' }}
-                value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
-              />
-            </div>
+            {/* Custom template fields */}
+            {noteTemplate.length > 0 ? (
+              noteTemplate.map((field: any) => (
+                <div className={styles.formGroup} key={field.key}>
+                  <label>{field.label}{field.required && <span style={{ color: '#e53935' }}> *</span>}</label>
+                  {field.type === 'textarea' && (
+                    <textarea className={styles.formInput} rows={3} style={{ padding: '8px' }}
+                      value={noteFormData[field.key] || ''}
+                      onChange={e => setNoteFormData(p => ({ ...p, [field.key]: e.target.value }))} />
+                  )}
+                  {field.type === 'text' && (
+                    <input type="text" className={styles.formInput}
+                      value={noteFormData[field.key] || ''}
+                      onChange={e => setNoteFormData(p => ({ ...p, [field.key]: e.target.value }))} />
+                  )}
+                  {field.type === 'number' && (
+                    <input type="number" className={styles.formInput}
+                      value={noteFormData[field.key] || ''}
+                      onChange={e => setNoteFormData(p => ({ ...p, [field.key]: e.target.value }))} />
+                  )}
+                  {field.type === 'date' && (
+                    <input type="date" className={styles.formInput}
+                      value={noteFormData[field.key] || ''}
+                      onChange={e => setNoteFormData(p => ({ ...p, [field.key]: e.target.value }))} />
+                  )}
+                  {field.type === 'select' && (
+                    <select className={styles.formSelect}
+                      value={noteFormData[field.key] || ''}
+                      onChange={e => setNoteFormData(p => ({ ...p, [field.key]: e.target.value }))}>
+                      <option value="">Select...</option>
+                      {(field.options || []).map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  )}
+                  {field.type === 'radio' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                      {(field.options || []).map((opt: string) => (
+                        <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' }}>
+                          <input type="radio" name={field.key} value={opt}
+                            checked={noteFormData[field.key] === opt}
+                            onChange={() => setNoteFormData(p => ({ ...p, [field.key]: opt }))} />
+                          {opt}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {field.type === 'checkbox' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px' }}>
+                      {(field.options || []).map((opt: string) => (
+                        <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', cursor: 'pointer' }}>
+                          <input type="checkbox"
+                            checked={(noteFormData[field.key] || []).includes(opt)}
+                            onChange={e => {
+                              const cur = noteFormData[field.key] || [];
+                              setNoteFormData(p => ({ ...p, [field.key]: e.target.checked ? [...cur, opt] : cur.filter((v: string) => v !== opt) }));
+                            }} />
+                          {opt}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              // Fallback: plain text if no template configured
+              <div className={styles.formGroup}>
+                <label>Note Content</label>
+                <textarea
+                  placeholder="Enter session notes here..."
+                  className={styles.formInput}
+                  style={{ height: '100px', padding: '8px' }}
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                />
+              </div>
+            )}
 
-            <button className={styles.modalSubmitBtn} onClick={handleNoteSubmit}>Add Notes</button>
+            <button className={styles.modalSubmitBtn} onClick={handleNoteSubmit}>{editingNote ? 'Update Note' : 'Add Note'}</button>
           </div>
         </div>
       )}
