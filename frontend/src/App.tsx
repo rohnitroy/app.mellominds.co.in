@@ -16,6 +16,7 @@ import LoginPage from './components/LoginPage';
 import SignUpPage from './components/SignUpPage';
 import PublicBookingPage from './components/PublicBookingPage';
 import BookingStatus from './components/BookingStatus';
+import ManageBooking from './components/ManageBooking';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
 import CreateEventPage from './components/CreateEventPage';
@@ -917,6 +918,7 @@ const AppContent: React.FC = () => {
           {/* Public Booking Route */}
           <Route path="/book/:userId/:slug" element={<PublicBookingPage />} />
           <Route path="/booking-status" element={<BookingStatus />} />
+          <Route path="/manage-booking/:token" element={<ManageBooking />} />
 
           {/* Privacy Policy */}
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />

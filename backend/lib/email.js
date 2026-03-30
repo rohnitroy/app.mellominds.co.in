@@ -34,11 +34,12 @@ export async function sendEmail({ to, subject, html, text }) {
 
 // ─── Email Templates ──────────────────────────────────────────────────────────
 
-export function bookingConfirmationEmail({ clientName, therapistName, sessionTitle, startTime, meetLink, locationText }) {
+export function bookingConfirmationEmail({ clientName, therapistName, sessionTitle, startTime, meetLink, locationText, cancelToken, frontendUrl }) {
     const dateStr = new Date(startTime).toLocaleString('en-IN', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
         hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
     });
+    const manageUrl = cancelToken && frontendUrl ? `${frontendUrl}/manage-booking/${cancelToken}` : null;
 
     return {
         subject: `Booking Confirmed — ${sessionTitle}`,
@@ -58,8 +59,11 @@ export function bookingConfirmationEmail({ clientName, therapistName, sessionTit
                 ${meetLink ? `<p style="text-align: center; margin: 24px 0;">
                     <a href="${meetLink}" style="background: #082421; color: #fff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">Join Google Meet</a>
                 </p>` : ''}
-                <p style="color: #888; font-size: 13px; margin-top: 32px;">If you need to reschedule or cancel, please contact your therapist directly.</p>
-                <p style="color: #888; font-size: 13px;">— The MelloMinds Team</p>
+                ${manageUrl ? `<div style="border-top: 1px solid #eee; margin-top: 28px; padding-top: 20px; text-align: center;">
+                    <p style="color: #666; font-size: 13px; margin-bottom: 12px;">Need to make changes?</p>
+                    <a href="${manageUrl}" style="background: #f5f5f5; color: #333; padding: 10px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 13px; border: 1px solid #e0e0e0;">Cancel or Reschedule</a>
+                </div>` : ''}
+                <p style="color: #888; font-size: 13px; margin-top: 32px;">— The MelloMinds Team</p>
             </div>
         </div>`
     };
@@ -111,6 +115,55 @@ export function transferRejectedEmail({ fromTherapistName, clientName }) {
             <div style="background: #fff; border-radius: 0 0 12px 12px; padding: 32px; border: 1px solid #e0e0e0;">
                 <p style="color: #333; font-size: 15px;">Hi <strong>${fromTherapistName}</strong>,</p>
                 <p style="color: #333; font-size: 15px;">Your transfer request for client <strong>${clientName}</strong> was declined by the receiving therapist.</p>
+                <p style="color: #888; font-size: 13px; margin-top: 32px;">— The MelloMinds Team</p>
+            </div>
+        </div>`
+    };
+}
+
+export function cancellationEmail({ clientName, therapistName, sessionTitle, startTime, cancelledBy }) {
+    const dateStr = new Date(startTime).toLocaleString('en-IN', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
+    });
+    return {
+        subject: `Session Cancelled — ${sessionTitle}`,
+        html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px; background: #f9f9f9;">
+            <div style="background: #c62828; border-radius: 12px 12px 0 0; padding: 24px 32px;">
+                <h1 style="color: #fff; margin: 0; font-size: 20px;">Session Cancelled</h1>
+            </div>
+            <div style="background: #fff; border-radius: 0 0 12px 12px; padding: 32px; border: 1px solid #e0e0e0;">
+                <p style="color: #333; font-size: 15px;">Hi <strong>${clientName}</strong>,</p>
+                <p style="color: #333; font-size: 15px;">Your session <strong>${sessionTitle}</strong> with <strong>${therapistName}</strong> scheduled for <strong>${dateStr}</strong> has been cancelled${cancelledBy ? ` by ${cancelledBy}` : ''}.</p>
+                <p style="color: #888; font-size: 13px; margin-top: 32px;">If you'd like to rebook, please use your therapist's booking link.</p>
+                <p style="color: #888; font-size: 13px;">— The MelloMinds Team</p>
+            </div>
+        </div>`
+    };
+}
+
+export function rescheduleConfirmationEmail({ clientName, therapistName, sessionTitle, newStartTime, meetLink }) {
+    const dateStr = new Date(newStartTime).toLocaleString('en-IN', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
+    });
+    return {
+        subject: `Session Rescheduled — ${sessionTitle}`,
+        html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px; background: #f9f9f9;">
+            <div style="background: #1565c0; border-radius: 12px 12px 0 0; padding: 24px 32px;">
+                <h1 style="color: #fff; margin: 0; font-size: 20px;">Session Rescheduled ✓</h1>
+            </div>
+            <div style="background: #fff; border-radius: 0 0 12px 12px; padding: 32px; border: 1px solid #e0e0e0;">
+                <p style="color: #333; font-size: 15px;">Hi <strong>${clientName}</strong>,</p>
+                <p style="color: #333; font-size: 15px;">Your session <strong>${sessionTitle}</strong> with <strong>${therapistName}</strong> has been rescheduled to:</p>
+                <div style="background: #e3f2fd; border-left: 4px solid #1565c0; border-radius: 8px; padding: 16px 20px; margin: 20px 0;">
+                    <p style="margin: 0; color: #082421; font-weight: 600; font-size: 15px;">📅 ${dateStr}</p>
+                </div>
+                ${meetLink ? `<p style="text-align: center; margin: 24px 0;">
+                    <a href="${meetLink}" style="background: #082421; color: #fff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">Join Google Meet</a>
+                </p>` : ''}
                 <p style="color: #888; font-size: 13px; margin-top: 32px;">— The MelloMinds Team</p>
             </div>
         </div>`

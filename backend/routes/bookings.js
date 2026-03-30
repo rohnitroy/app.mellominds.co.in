@@ -2,7 +2,7 @@ import express from 'express';
 import { google } from 'googleapis';
 import pool from '../config/database.js';
 import { createNotification } from '../lib/notifications.js';
-import { sendEmail, bookingConfirmationEmail } from '../lib/email.js';
+import { sendEmail, bookingConfirmationEmail, cancellationEmail, rescheduleConfirmationEmail } from '../lib/email.js';
 
 const router = express.Router();
 
@@ -111,8 +111,8 @@ router.post('/public', async (req, res) => {
 
         const insertRes = await client.query(
             `INSERT INTO Appointments 
-       (therapist_id, calendar_id, title, start_time, end_time, google_event_id, meet_link, client_email, client_name, client_phone, payment_amount, payment_status, form_responses, location_type, cashfree_order_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+       (therapist_id, calendar_id, title, start_time, end_time, google_event_id, meet_link, client_email, client_name, client_phone, payment_amount, payment_status, form_responses, location_type, cashfree_order_id, cancel_token)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, md5(random()::text || clock_timestamp()::text))
        RETURNING *`,
             [
                 userId,
@@ -151,7 +151,9 @@ router.post('/public', async (req, res) => {
             sessionTitle: calendarService.title,
             startTime: startTime.toISOString(),
             meetLink: meetLink,
-            locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet'
+            locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet',
+            cancelToken: insertRes.rows[0].cancel_token,
+            frontendUrl: process.env.FRONTEND_URL
         });
         await sendEmail({ to: client_email, ...emailContent });
 
@@ -167,6 +169,197 @@ router.post('/public', async (req, res) => {
 });
 
 router.use(ensureAuthenticated);
+
+// ─── Public booking management (unauthenticated, token-based) ─────────────────
+
+// GET /api/bookings/manage/:token - Get booking details by cancel token
+router.get('/manage/:token', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT a.id, a.title, a.start_time, a.end_time, a.status, a.meet_link,
+                    a.client_name, a.client_email, a.location_type, a.cancel_token,
+                    c.cancellation_policy, c.reschedule_policy, c.duration,
+                    u.user_name as therapist_name
+             FROM Appointments a
+             JOIN Calendars c ON a.calendar_id = c.id
+             JOIN Users u ON a.therapist_id = u.id
+             WHERE a.cancel_token = $1`,
+            [req.params.token]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Booking not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error fetching booking by token:', err);
+        res.status(500).json({ error: 'Failed to fetch booking' });
+    }
+});
+
+// POST /api/bookings/manage/:token/cancel - Client cancels their booking
+router.post('/manage/:token/cancel', async (req, res) => {
+    const dbClient = await pool.connect();
+    try {
+        const apptRes = await dbClient.query(
+            `SELECT a.*, c.cancellation_policy, c.title as cal_title,
+                    u.user_name as therapist_name, u.email as therapist_email
+             FROM Appointments a
+             JOIN Calendars c ON a.calendar_id = c.id
+             JOIN Users u ON a.therapist_id = u.id
+             WHERE a.cancel_token = $1`,
+            [req.params.token]
+        );
+
+        if (apptRes.rows.length === 0) return res.status(404).json({ error: 'Booking not found' });
+        const appt = apptRes.rows[0];
+
+        if (appt.status === 'cancelled') return res.status(400).json({ error: 'Booking is already cancelled' });
+
+        // Check cancellation window if policy exists
+        const policy = appt.cancellation_policy;
+        if (policy?.enabled && policy?.window) {
+            const windowMs = parseInt(policy.window) * (policy.unit === 'days' ? 86400000 : policy.unit === 'hours' ? 3600000 : 60000);
+            const timeUntilSession = new Date(appt.start_time).getTime() - Date.now();
+            if (timeUntilSession < windowMs) {
+                return res.status(400).json({
+                    error: `Cancellations must be made at least ${policy.window} ${policy.unit} before the session.`
+                });
+            }
+        }
+
+        await dbClient.query(
+            `UPDATE Appointments SET status = 'cancelled' WHERE id = $1`,
+            [appt.id]
+        );
+
+        // Notify therapist
+        await createNotification({
+            userId: appt.therapist_id,
+            type: 'cancellation',
+            title: 'Session Cancelled',
+            description: `${appt.client_name} cancelled their session: ${appt.title}`,
+            relatedId: appt.id
+        });
+
+        // Email client
+        const clientEmail = cancellationEmail({
+            clientName: appt.client_name,
+            therapistName: appt.therapist_name,
+            sessionTitle: appt.title,
+            startTime: appt.start_time,
+            cancelledBy: 'you'
+        });
+        await sendEmail({ to: appt.client_email, ...clientEmail });
+
+        // Email therapist
+        const therapistEmail = cancellationEmail({
+            clientName: appt.client_name,
+            therapistName: appt.therapist_name,
+            sessionTitle: appt.title,
+            startTime: appt.start_time,
+            cancelledBy: appt.client_name
+        });
+        await sendEmail({ to: appt.therapist_email, ...therapistEmail });
+
+        res.json({ message: 'Booking cancelled successfully' });
+    } catch (err) {
+        console.error('Error cancelling booking:', err);
+        res.status(500).json({ error: 'Failed to cancel booking' });
+    } finally {
+        dbClient.release();
+    }
+});
+
+// POST /api/bookings/manage/:token/reschedule - Client reschedules their booking
+router.post('/manage/:token/reschedule', async (req, res) => {
+    const dbClient = await pool.connect();
+    try {
+        const { new_start_time } = req.body;
+        if (!new_start_time) return res.status(400).json({ error: 'new_start_time is required' });
+
+        const apptRes = await dbClient.query(
+            `SELECT a.*, c.reschedule_policy, c.duration,
+                    u.user_name as therapist_name, u.email as therapist_email,
+                    ui.access_token, ui.refresh_token, ui.expiry_date
+             FROM Appointments a
+             JOIN Calendars c ON a.calendar_id = c.id
+             JOIN Users u ON a.therapist_id = u.id
+             LEFT JOIN UserIntegrations ui ON ui.user_id = a.therapist_id AND ui.provider = 'google'
+             WHERE a.cancel_token = $1`,
+            [req.params.token]
+        );
+
+        if (apptRes.rows.length === 0) return res.status(404).json({ error: 'Booking not found' });
+        const appt = apptRes.rows[0];
+
+        if (appt.status === 'cancelled') return res.status(400).json({ error: 'Cannot reschedule a cancelled booking' });
+
+        // Check reschedule window
+        const policy = appt.reschedule_policy;
+        if (policy?.enabled && policy?.window) {
+            const windowMs = parseInt(policy.window) * (policy.unit === 'days' ? 86400000 : policy.unit === 'hours' ? 3600000 : 60000);
+            const timeUntilSession = new Date(appt.start_time).getTime() - Date.now();
+            if (timeUntilSession < windowMs) {
+                return res.status(400).json({
+                    error: `Rescheduling must be done at least ${policy.window} ${policy.unit} before the session.`
+                });
+            }
+        }
+
+        const durationMatch = appt.duration?.match(/(\d+)/);
+        const durationMinutes = durationMatch ? parseInt(durationMatch[0]) : 60;
+        const newStart = new Date(new_start_time);
+        const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
+
+        // Update Google Calendar event if connected
+        let newMeetLink = appt.meet_link;
+        if (appt.access_token && appt.google_event_id) {
+            try {
+                oauth2Client.setCredentials({ access_token: appt.access_token, refresh_token: appt.refresh_token, expiry_date: appt.expiry_date });
+                const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+                await calendar.events.patch({
+                    calendarId: 'primary',
+                    eventId: appt.google_event_id,
+                    resource: { start: { dateTime: newStart.toISOString() }, end: { dateTime: newEnd.toISOString() } }
+                });
+            } catch (gErr) {
+                console.error('Google Calendar update failed:', gErr.message);
+            }
+        }
+
+        await dbClient.query(
+            `UPDATE Appointments SET start_time = $1, end_time = $2 WHERE id = $3`,
+            [newStart, newEnd, appt.id]
+        );
+
+        // Notify therapist
+        await createNotification({
+            userId: appt.therapist_id,
+            type: 'reschedule',
+            title: 'Session Rescheduled',
+            description: `${appt.client_name} rescheduled their session: ${appt.title}`,
+            relatedId: appt.id
+        });
+
+        // Email client
+        const clientEmail = rescheduleConfirmationEmail({
+            clientName: appt.client_name,
+            therapistName: appt.therapist_name,
+            sessionTitle: appt.title,
+            newStartTime: newStart.toISOString(),
+            meetLink: newMeetLink
+        });
+        await sendEmail({ to: appt.client_email, ...clientEmail });
+
+        // Email therapist
+        await sendEmail({ to: appt.therapist_email, ...clientEmail });
+
+        res.json({ message: 'Booking rescheduled successfully', new_start_time: newStart });
+    } catch (err) {
+        console.error('Error rescheduling booking:', err);
+        res.status(500).json({ error: 'Failed to reschedule booking' });
+    } finally {
+        dbClient.release();
+    }
+});
 
 // GET /api/bookings/stats - Get dashboard statistics
 router.get('/stats', async (req, res) => {
@@ -526,7 +719,7 @@ router.patch('/:id/status', async (req, res) => {
         const result = await client.query(
             `UPDATE Appointments SET status = $1
              WHERE id = $2 AND therapist_id = $3
-             RETURNING *`,
+             RETURNING *, (SELECT user_name FROM Users WHERE id = $3) as therapist_name`,
             [status, id, userId]
         );
 
@@ -534,7 +727,21 @@ router.patch('/:id/status', async (req, res) => {
             return res.status(404).json({ error: 'Booking not found' });
         }
 
-        res.json(result.rows[0]);
+        const appt = result.rows[0];
+
+        // Send cancellation email to client when therapist cancels
+        if (status === 'cancelled' && appt.client_email) {
+            const emailContent = cancellationEmail({
+                clientName: appt.client_name || 'Client',
+                therapistName: appt.therapist_name || 'your therapist',
+                sessionTitle: appt.title,
+                startTime: appt.start_time,
+                cancelledBy: 'your therapist'
+            });
+            sendEmail({ to: appt.client_email, ...emailContent }).catch(() => {});
+        }
+
+        res.json(appt);
     } catch (error) {
         console.error('Error updating booking status:', error);
         res.status(500).json({ error: 'Failed to update booking status' });

@@ -7,6 +7,8 @@ import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
 import { exportToCSV } from './utils/exportCSV';
 import CreateBooking from './components/CreateBooking';
+import InlineCalendar from './components/InlineCalendar';
+import TimeSlotList from './components/TimeSlotList';
 
 const Appointments: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('Upcoming');
@@ -14,6 +16,12 @@ const Appointments: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [showCreateBooking, setShowCreateBooking] = useState(false);
+
+  // Reschedule modal state
+  const [rescheduleAppt, setRescheduleAppt] = useState<any | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState(new Date().toISOString().split('T')[0]);
+  const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
+  const [rescheduling, setRescheduling] = useState(false);
 
   const tabs = ['Upcoming', 'All Bookings', 'Completed', 'Pending Session Notes', 'Cancelled', 'No Show'];
 
@@ -58,6 +66,30 @@ const Appointments: React.FC = () => {
       if (res.ok) fetchAppointments();
     } catch (e) {
       console.error('Failed to update payment:', e);
+    }
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleAppt || !rescheduleSlot) return;
+    setRescheduling(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/manage/${rescheduleAppt.cancel_token}/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_start_time: rescheduleSlot }),
+      });
+      if (res.ok) {
+        setRescheduleAppt(null);
+        setRescheduleSlot(null);
+        fetchAppointments();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Failed to reschedule');
+      }
+    } catch {
+      alert('Network error');
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -164,6 +196,10 @@ const Appointments: React.FC = () => {
                   <button style={{ ...btnStyle, background: '#e3f2fd', color: '#1565c0' }}
                     onClick={() => updateStatus(id, 'completed')}>Complete</button>
                 )}
+                {status !== 'completed' && new Date(row.original.start_time) > new Date() && (
+                  <button style={{ ...btnStyle, background: '#f3e5f5', color: '#6a1b9a' }}
+                    onClick={() => { setRescheduleAppt(row.original); setRescheduleDate(new Date().toISOString().split('T')[0]); setRescheduleSlot(null); }}>Reschedule</button>
+                )}
                 <button style={{ ...btnStyle, background: '#fff3e0', color: '#e65100' }}
                   onClick={() => updateStatus(id, 'noshow')}>No Show</button>
                 <button style={{ ...btnStyle, background: '#fdecea', color: '#c62828' }}
@@ -255,6 +291,42 @@ const Appointments: React.FC = () => {
             onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowCreateBooking(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', zIndex: 1 }}>×</button>
             <CreateBooking onBack={() => { setShowCreateBooking(false); fetchAppointments(); }} />
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {rescheduleAppt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 24px', overflowY: 'auto' }}
+          onClick={() => setRescheduleAppt(null)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '760px' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px' }}>Reschedule Session</h2>
+                <p style={{ margin: '4px 0 0', fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E' }}>{rescheduleAppt.title} — {rescheduleAppt.client_name}</p>
+              </div>
+              <button onClick={() => setRescheduleAppt(null)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666' }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <InlineCalendar selectedDate={rescheduleDate} onDateSelect={setRescheduleDate} />
+              <TimeSlotList
+                calendarId={rescheduleAppt.calendar_id}
+                selectedDate={rescheduleDate}
+                selectedSlot={rescheduleSlot}
+                onSlotSelect={setRescheduleSlot}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button onClick={() => setRescheduleAppt(null)}
+                style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleReschedule} disabled={!rescheduleSlot || rescheduling}
+                style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#082421', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: (!rescheduleSlot || rescheduling) ? 'not-allowed' : 'pointer', opacity: (!rescheduleSlot || rescheduling) ? 0.6 : 1 }}>
+                {rescheduling ? 'Rescheduling...' : 'Confirm Reschedule'}
+              </button>
+            </div>
           </div>
         </div>
       )}
