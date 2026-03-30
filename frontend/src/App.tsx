@@ -446,14 +446,20 @@ const DashboardLayout: React.FC = () => {
     </div>
   );
 
-  const renderHeader = (): JSX.Element => (
+  const renderHeader = (): JSX.Element => {
+    const isEnterprise = user?.plan_name === 'enterprise';
+    const planLabel = isEnterprise ? 'Enterprise Plan' : 'Free (Early Access)';
+
+    return (
     <div className="header">
       <div className="plan-info">
         <span>Your Plan:</span>
         <span className="free-tier">
-          Free tier <img src="Danger Circle.svg" alt="Info" style={{ width: '17px', height: '17px', verticalAlign: 'middle' }} />
+          {planLabel} {!isEnterprise && <img src="Danger Circle.svg" alt="Info" style={{ width: '17px', height: '17px', verticalAlign: 'middle' }} />}
         </span>
-        <button className="upgrade-btn" onClick={() => setShowUpgradeModal(true)}>Upgrade now</button>
+        {!isEnterprise && (
+          <button className="upgrade-btn" onClick={() => setShowUpgradeModal(true)}>Explore our plans</button>
+        )}
       </div>
 
       <div className="user-info">
@@ -495,6 +501,7 @@ const DashboardLayout: React.FC = () => {
       </div>
     </div>
   );
+  };
 
   return (
     <div className="dashboard">

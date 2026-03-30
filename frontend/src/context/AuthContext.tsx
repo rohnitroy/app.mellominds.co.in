@@ -17,6 +17,7 @@ interface User {
     city?: string;
     pincode?: string;
     clinic_address?: string;
+    plan_name?: 'free' | 'enterprise';
 }
 
 interface AuthContextType {

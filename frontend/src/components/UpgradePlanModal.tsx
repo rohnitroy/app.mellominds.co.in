@@ -11,7 +11,7 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({ isOpen, onClose }) 
 
   const plans = [
     {
-      name: 'Free',
+      name: 'Free (Early Access)',
       price: '₹0',
       period: 'forever',
       description: 'Perfect for getting started',
@@ -29,49 +29,34 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({ isOpen, onClose }) 
       ],
       buttonText: 'Current Plan',
       buttonDisabled: true,
-      popular: false
+      popular: false,
+      customPrice: null
     },
     {
-      name: 'Professional',
-      price: '₹999',
-      period: 'per month',
-      description: 'For growing practices',
+      name: 'Enterprise Plan',
+      price: null,
+      period: null,
+      description: 'Fully customized SaaS solution for your organization',
       features: [
-        { text: 'Unlimited calendars', included: true },
-        { text: 'Unlimited bookings', included: true },
+        { text: 'Everything in Free, plus:', included: true },
+        { text: 'Unlimited calendars & bookings', included: true },
         { text: 'Advanced availability settings', included: true },
         { text: 'Email + SMS notifications', included: true },
         { text: 'Payment gateway integration', included: true },
         { text: 'Client notes & clinical profiles', included: true },
         { text: 'Custom booking forms', included: true },
         { text: 'Automated reminders', included: true },
-        { text: 'Priority support', included: true },
-        { text: 'Remove branding', included: true }
-      ],
-      buttonText: 'Start 14-Day Free Trial',
-      buttonDisabled: false,
-      popular: true
-    },
-    {
-      name: 'Premium',
-      price: '₹1,999',
-      period: 'per month',
-      description: 'For established clinics',
-      features: [
-        { text: 'Everything in Professional', included: true },
         { text: 'Team management', included: true },
         { text: 'Advanced analytics & reports', included: true },
-        { text: 'Custom domain', included: true },
-        { text: 'Webhook integrations', included: true },
-        { text: 'API access', included: true },
+        { text: 'Custom domain & white-label', included: true },
+        { text: 'API access & webhook integrations', included: true },
         { text: 'Video consultation integration', included: true },
-        { text: 'Client portal access', included: true },
-        { text: 'White-label solution', included: true },
         { text: 'Dedicated account manager', included: true }
       ],
-      buttonText: 'Start 14-Day Free Trial',
+      buttonText: 'Contact Sales',
       buttonDisabled: false,
-      popular: false
+      popular: true,
+      customPrice: 'Custom Pricing'
     }
   ];
 
@@ -96,8 +81,14 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({ isOpen, onClose }) 
               <div className={styles.planHeader}>
                 <h3>{plan.name}</h3>
                 <div className={styles.priceSection}>
-                  <span className={styles.price}>{plan.price}</span>
-                  <span className={styles.period}>/{plan.period}</span>
+                  {plan.customPrice ? (
+                    <span className={styles.price}>{plan.customPrice}</span>
+                  ) : (
+                    <>
+                      <span className={styles.price}>{plan.price}</span>
+                      <span className={styles.period}>/{plan.period}</span>
+                    </>
+                  )}
                 </div>
                 <p className={styles.description}>{plan.description}</p>
               </div>
@@ -121,12 +112,6 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({ isOpen, onClose }) 
               </button>
             </div>
           ))}
-        </div>
-
-        <div className={styles.enterpriseSection}>
-          <h3>Need more? Try Enterprise</h3>
-          <p>Custom integrations, multi-location support, advanced security, and dedicated support</p>
-          <button className={styles.contactButton}>Contact Sales</button>
         </div>
       </div>
     </div>
