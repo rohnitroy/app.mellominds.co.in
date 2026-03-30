@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../config/database.js';
+import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail } from '../lib/email.js';
 
 const router = express.Router();
 
@@ -137,6 +138,17 @@ router.post('/transfers/:transferId/approve', async (req, res) => {
         );
 
         await dbClient.query('COMMIT');
+
+        // Send email to Therapist A
+        const fromTherapistRes = await pool.query('SELECT user_name, email FROM Users WHERE id = $1', [transfer.from_therapist_id]);
+        if (fromTherapistRes.rows.length > 0) {
+            const emailContent = transferApprovedEmail({
+                fromTherapistName: fromTherapistRes.rows[0].user_name,
+                clientName: transfer.name
+            });
+            await sendEmail({ to: fromTherapistRes.rows[0].email, ...emailContent });
+        }
+
         res.json({ message: 'Transfer approved successfully' });
 
     } catch (error) {
@@ -180,6 +192,18 @@ router.post('/transfers/:transferId/reject', async (req, res) => {
         );
 
         res.json({ message: 'Transfer rejected' });
+
+        // Send email to Therapist A (non-blocking, after response)
+        pool.query('SELECT user_name, email FROM Users WHERE id = $1', [transfer.from_therapist_id])
+            .then(r => {
+                if (r.rows.length > 0) {
+                    const emailContent = transferRejectedEmail({
+                        fromTherapistName: r.rows[0].user_name,
+                        clientName: transfer.client_name
+                    });
+                    sendEmail({ to: r.rows[0].email, ...emailContent });
+                }
+            }).catch(() => {});
     } catch (error) {
         console.error('Error rejecting transfer:', error);
         res.status(500).json({ error: 'Failed to reject transfer' });
@@ -330,6 +354,15 @@ router.post('/:id/transfer', async (req, res) => {
         );
 
         await dbClient.query('COMMIT');
+
+        // Send email to Therapist B
+        const emailContent = transferRequestEmail({
+            toTherapistName: targetRes.rows[0].user_name || target_email,
+            fromTherapistName: fromName,
+            clientName: clientRes.rows[0].name
+        });
+        await sendEmail({ to: targetRes.rows[0].email, ...emailContent });
+
         res.json({ message: `Transfer request sent to ${targetRes.rows[0].user_name || target_email}. Awaiting their approval.` });
 
     } catch (error) {

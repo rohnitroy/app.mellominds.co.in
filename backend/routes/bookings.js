@@ -2,6 +2,7 @@ import express from 'express';
 import { google } from 'googleapis';
 import pool from '../config/database.js';
 import { createNotification } from '../lib/notifications.js';
+import { sendEmail, bookingConfirmationEmail } from '../lib/email.js';
 
 const router = express.Router();
 
@@ -142,6 +143,17 @@ router.post('/public', async (req, res) => {
             description: `You have received a new booking from ${client_name}`,
             relatedId: insertRes.rows[0].id
         });
+
+        // Send confirmation email to client
+        const emailContent = bookingConfirmationEmail({
+            clientName: client_name,
+            therapistName: calendarService.therapist_name || 'your therapist',
+            sessionTitle: calendarService.title,
+            startTime: startTime.toISOString(),
+            meetLink: meetLink,
+            locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet'
+        });
+        await sendEmail({ to: client_email, ...emailContent });
 
         res.status(201).json(insertRes.rows[0]);
 
