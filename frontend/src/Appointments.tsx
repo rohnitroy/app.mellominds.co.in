@@ -58,9 +58,15 @@ const Appointments: React.FC = () => {
         credentials: 'include',
         body: JSON.stringify({ status }),
       });
-      if (res.ok) fetchAppointments();
+      if (res.ok) {
+        fetchAppointments();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Failed to update booking status.');
+      }
     } catch (e) {
       console.error('Failed to update status:', e);
+      alert('Network error. Please try again.');
     }
   };
 

@@ -168,8 +168,6 @@ router.post('/public', async (req, res) => {
     }
 });
 
-router.use(ensureAuthenticated);
-
 // ─── Public booking management (unauthenticated, token-based) ─────────────────
 
 // GET /api/bookings/manage/:token - Get booking details by cancel token
@@ -199,10 +197,14 @@ router.post('/manage/:token/cancel', async (req, res) => {
     const dbClient = await pool.connect();
     try {
         const apptRes = await dbClient.query(
-            `SELECT a.*, c.cancellation_policy, c.title as cal_title,
+            `SELECT a.id, a.title, a.start_time, a.end_time, a.status,
+                    a.client_name, a.client_email, a.therapist_id, a.calendar_id,
+                    a.google_event_id, a.meet_link, a.cancel_token,
+                    c.title as cal_title,
+                    COALESCE(c.cancellation_policy, NULL) as cancellation_policy,
                     u.user_name as therapist_name, u.email as therapist_email
              FROM Appointments a
-             JOIN Calendars c ON a.calendar_id = c.id
+             LEFT JOIN Calendars c ON a.calendar_id = c.id
              JOIN Users u ON a.therapist_id = u.id
              WHERE a.cancel_token = $1`,
             [req.params.token]
@@ -239,30 +241,34 @@ router.post('/manage/:token/cancel', async (req, res) => {
             relatedId: appt.id
         });
 
-        // Email client
-        const clientEmail = cancellationEmail({
-            clientName: appt.client_name,
-            therapistName: appt.therapist_name,
-            sessionTitle: appt.title,
-            startTime: appt.start_time,
-            cancelledBy: 'you'
-        });
-        await sendEmail({ to: appt.client_email, ...clientEmail });
+        // Email client (non-fatal)
+        sendEmail({
+            to: appt.client_email,
+            ...cancellationEmail({
+                clientName: appt.client_name,
+                therapistName: appt.therapist_name,
+                sessionTitle: appt.title,
+                startTime: appt.start_time,
+                cancelledBy: 'you'
+            })
+        }).catch(err => console.error('Client cancellation email failed:', err.message));
 
-        // Email therapist
-        const therapistEmail = cancellationEmail({
-            clientName: appt.client_name,
-            therapistName: appt.therapist_name,
-            sessionTitle: appt.title,
-            startTime: appt.start_time,
-            cancelledBy: appt.client_name
-        });
-        await sendEmail({ to: appt.therapist_email, ...therapistEmail });
+        // Email therapist (non-fatal)
+        sendEmail({
+            to: appt.therapist_email,
+            ...cancellationEmail({
+                clientName: appt.client_name,
+                therapistName: appt.therapist_name,
+                sessionTitle: appt.title,
+                startTime: appt.start_time,
+                cancelledBy: appt.client_name
+            })
+        }).catch(err => console.error('Therapist cancellation email failed:', err.message));
 
         res.json({ message: 'Booking cancelled successfully' });
     } catch (err) {
-        console.error('Error cancelling booking:', err);
-        res.status(500).json({ error: 'Failed to cancel booking' });
+        console.error('Error cancelling booking:', err.message, err.stack);
+        res.status(500).json({ error: 'Failed to cancel booking', detail: err.message });
     } finally {
         dbClient.release();
     }
@@ -276,11 +282,15 @@ router.post('/manage/:token/reschedule', async (req, res) => {
         if (!new_start_time) return res.status(400).json({ error: 'new_start_time is required' });
 
         const apptRes = await dbClient.query(
-            `SELECT a.*, c.reschedule_policy, c.duration,
+            `SELECT a.id, a.title, a.start_time, a.end_time, a.status,
+                    a.client_name, a.client_email, a.therapist_id, a.calendar_id,
+                    a.google_event_id, a.meet_link, a.cancel_token,
+                    COALESCE(c.reschedule_policy, NULL) as reschedule_policy,
+                    c.duration,
                     u.user_name as therapist_name, u.email as therapist_email,
                     ui.access_token, ui.refresh_token, ui.expiry_date
              FROM Appointments a
-             JOIN Calendars c ON a.calendar_id = c.id
+             LEFT JOIN Calendars c ON a.calendar_id = c.id
              JOIN Users u ON a.therapist_id = u.id
              LEFT JOIN UserIntegrations ui ON ui.user_id = a.therapist_id AND ui.provider = 'google'
              WHERE a.cancel_token = $1`,
@@ -360,6 +370,8 @@ router.post('/manage/:token/reschedule', async (req, res) => {
         dbClient.release();
     }
 });
+
+router.use(ensureAuthenticated);
 
 // GET /api/bookings/stats - Get dashboard statistics
 router.get('/stats', async (req, res) => {
@@ -878,14 +890,15 @@ router.patch('/:id/status', async (req, res) => {
         }
 
         const result = await client.query(
-            `UPDATE Appointments SET status = $1,
-             payment_status = CASE 
-               WHEN $1 = 'cancelled' AND payment_status = 'Pending' THEN 'Cancelled'
-               ELSE payment_status
-             END
+            `UPDATE Appointments SET
+               status = $1,
+               payment_status = CASE
+                 WHEN $4 AND payment_status = 'Pending' THEN 'Cancelled'
+                 ELSE payment_status
+               END
              WHERE id = $2 AND therapist_id = $3
-             RETURNING *, (SELECT user_name FROM Users WHERE id = $3) as therapist_name`,
-            [status, id, userId]
+             RETURNING *`,
+            [status, id, userId, status === 'cancelled']
         );
 
         if (result.rows.length === 0) {
@@ -893,6 +906,13 @@ router.patch('/:id/status', async (req, res) => {
         }
 
         const appt = result.rows[0];
+
+        // Fetch therapist name separately to avoid $1 type ambiguity in subquery
+        const therapistRes = await client.query(
+            `SELECT user_name as therapist_name FROM Users WHERE id = $1`,
+            [userId]
+        );
+        appt.therapist_name = therapistRes.rows[0]?.therapist_name || '';
 
         // When cancelled: delete Google Calendar event to free the slot
         if (status === 'cancelled' && appt.google_event_id) {
