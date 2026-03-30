@@ -78,6 +78,22 @@ const PaymentsInvoice: React.FC = () => {
     fontSize: '13px', color: '#082421', cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
   };
 
+  const handleRefund = async (bookingId: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/payment`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ payment_status: 'Refunded' }),
+      });
+      if (res.ok) {
+        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, payment_status: 'Refunded' } : b));
+      }
+    } catch (e) {
+      console.error('Failed to process refund:', e);
+    }
+  };
+
   const handleDownloadReceipt = (booking: any) => {
     const html = buildReceiptHTML(booking);
     const win = window.open('', '_blank');
@@ -281,6 +297,7 @@ const PaymentsInvoice: React.FC = () => {
       {activeMenuId !== null && menuPos && (() => {
         const booking = bookings.find(b => b.id === activeMenuId);
         if (!booking) return null;
+        const canRefund = booking.payment_status === 'Paid' && booking.status === 'cancelled';
         return createPortal(
           <div ref={menuRef} style={{
             position: 'absolute', top: menuPos.top, right: menuPos.right,
@@ -291,9 +308,14 @@ const PaymentsInvoice: React.FC = () => {
             <button onClick={() => { setReceiptBooking(booking); setActiveMenuId(null); setMenuPos(null); }} style={menuItemStyle}>
               View Receipt
             </button>
-            <button onClick={() => { handleDownloadReceipt(booking); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, borderBottom: 'none' }}>
+            <button onClick={() => { handleDownloadReceipt(booking); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, borderBottom: canRefund ? '1px solid #f5f5f5' : 'none' }}>
               Download Receipt
             </button>
+            {canRefund && (
+              <button onClick={() => { handleRefund(booking.id); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, color: '#c62828', borderBottom: 'none' }}>
+                Mark as Refunded
+              </button>
+            )}
           </div>,
           document.body
         );

@@ -6,6 +6,7 @@ import AvailabilityModal from './AvailabilityModal';
 import CreateCalendarModal from './CreateCalendarModal';
 import CustomDropdown from './CustomDropdown';
 import CreateBooking from './CreateBooking';
+import ConfirmModal from './ConfirmModal';
 import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
 import Loader from './Loader';
@@ -80,6 +81,7 @@ const CalendarPage: React.FC = () => {
   // Menu State
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   // Click outside to close menu
   useEffect(() => {
@@ -221,10 +223,6 @@ const CalendarPage: React.FC = () => {
   };
 
   const handleDeleteCalendar = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this calendar? This action cannot be undone.')) {
-      return;
-    }
-
     try {
       const response = await fetch(`${API_BASE_URL}/api/calendars/${id}`, {
         method: 'DELETE',
@@ -232,6 +230,7 @@ const CalendarPage: React.FC = () => {
       });
 
       if (response.ok) {
+        setDeleteConfirmId(null);
         fetchCalendars();
       } else {
         const err = await response.json();
@@ -317,7 +316,7 @@ const CalendarPage: React.FC = () => {
                             Edit Details
                           </button>
                           <button
-                            onClick={() => { handleDeleteCalendar(resource.id); setActiveMenuId(null); }}
+                            onClick={() => { setDeleteConfirmId(resource.id); setActiveMenuId(null); }}
                             className="calendar-dropdown-item delete-item"
                           >
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '8px' }}>
@@ -502,6 +501,16 @@ const CalendarPage: React.FC = () => {
         isOpen={showResourceTypeModal}
         onClose={() => setShowResourceTypeModal(false)}
         onSelectType={handleTypeSelect}
+      />
+      <ConfirmModal
+        isOpen={deleteConfirmId !== null}
+        title="Delete Calendar"
+        message="Are you sure you want to delete this calendar? All associated data will be lost. This cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Keep Calendar"
+        danger
+        onConfirm={() => { if (deleteConfirmId) handleDeleteCalendar(deleteConfirmId); }}
+        onCancel={() => setDeleteConfirmId(null)}
       />
     </div>
   );

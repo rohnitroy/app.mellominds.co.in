@@ -3,6 +3,7 @@ import styles from './MySettings.module.css';
 import { Wallet, Document, Paper, Filter, People } from 'react-iconly';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from './config/api';
+import ConfirmModal from './components/ConfirmModal';
 
 const MySettings: React.FC = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ const MySettings: React.FC = () => {
   const [showCashfreeForm, setShowCashfreeForm] = useState(false);
   const [cashfreeForm, setCashfreeForm] = useState({ app_id: '', secret_key: '', environment: 'sandbox' });
   const [cashfreeLoading, setCashfreeLoading] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   useEffect(() => {
     const checkGoogleStatus = async () => {
@@ -64,13 +66,14 @@ const MySettings: React.FC = () => {
   };
 
   const handleCashfreeDisconnect = async () => {
-    if (!window.confirm('Disconnect Cashfree? Payments will stop working for your calendars.')) return;
     await fetch(`${API_BASE_URL}/api/cashfree/disconnect`, { method: 'DELETE', credentials: 'include' });
     setCashfreeConnected(false);
     setShowCashfreeForm(false);
+    setShowDisconnectConfirm(false);
   };
 
   return (
+    <>
     <div className={styles.settingsPage}>
       <div className={styles.settingsHeader}>
         <div>
@@ -208,7 +211,7 @@ const MySettings: React.FC = () => {
               {cashfreeConnected ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
                   <div className={styles.connectedTag}>✓ Connected ({cashfreeEnv})</div>
-                  <button className={styles.connectBtn} style={{ background: 'none', color: '#dc3545', border: '1px solid #dc3545' }} onClick={handleCashfreeDisconnect}>Disconnect</button>
+                  <button className={styles.connectBtn} style={{ background: 'none', color: '#dc3545', border: '1px solid #dc3545' }} onClick={() => setShowDisconnectConfirm(true)}>Disconnect</button>
                 </div>
               ) : showCashfreeForm ? (
                 <form onSubmit={handleCashfreeConnect} style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -251,6 +254,18 @@ const MySettings: React.FC = () => {
         </div>
       </div>
     </div>
+
+    <ConfirmModal
+      isOpen={showDisconnectConfirm}
+      title="Disconnect Cashfree"
+      message="Disconnect Cashfree? Payments will stop working for your calendars that use it."
+      confirmLabel="Disconnect"
+      cancelLabel="Keep Connected"
+      danger
+      onConfirm={handleCashfreeDisconnect}
+      onCancel={() => setShowDisconnectConfirm(false)}
+    />
+    </>
   );
 };
 

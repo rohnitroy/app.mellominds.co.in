@@ -4,6 +4,7 @@ import API_BASE_URL from '../config/api';
 import Loader from './Loader';
 import InlineCalendar from './InlineCalendar';
 import TimeSlotList from './TimeSlotList';
+import ConfirmModal from './ConfirmModal';
 
 const ManageBooking: React.FC = () => {
     const { token } = useParams<{ token: string }>();
@@ -13,6 +14,7 @@ const ManageBooking: React.FC = () => {
     const [view, setView] = useState<'main' | 'reschedule' | 'done'>('main');
     const [doneMessage, setDoneMessage] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
     // Reschedule state
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -27,7 +29,6 @@ const ManageBooking: React.FC = () => {
     }, [token]);
 
     const handleCancel = async () => {
-        if (!window.confirm('Are you sure you want to cancel this session?')) return;
         setSubmitting(true);
         try {
             const res = await fetch(`${API_BASE_URL}/api/bookings/manage/${token}/cancel`, { method: 'POST' });
@@ -35,6 +36,7 @@ const ManageBooking: React.FC = () => {
             if (res.ok) {
                 setDoneMessage('Your session has been cancelled. A confirmation email has been sent.');
                 setView('done');
+                setShowCancelConfirm(false);
             } else {
                 alert(data.error || 'Failed to cancel.');
             }
@@ -175,10 +177,10 @@ const ManageBooking: React.FC = () => {
                             Reschedule Session
                         </button>
                         <button
-                            onClick={handleCancel}
+                            onClick={() => setShowCancelConfirm(true)}
                             disabled={submitting}
                             style={{ padding: '14px', background: '#fff', color: '#c62828', border: '1px solid #fca5a5', borderRadius: '10px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '15px', cursor: submitting ? 'not-allowed' : 'pointer' }}>
-                            {submitting ? 'Cancelling...' : 'Cancel Session'}
+                            Cancel Session
                         </button>
                     </div>
                 )}
@@ -187,6 +189,17 @@ const ManageBooking: React.FC = () => {
                     Need help? Contact us at <a href="mailto:mellomindsventure@gmail.com" style={{ color: '#2D7579' }}>mellomindsventure@gmail.com</a>
                 </p>
             </div>
+
+            <ConfirmModal
+                isOpen={showCancelConfirm}
+                title="Cancel Session"
+                message="Are you sure you want to cancel this session? A confirmation email will be sent to you."
+                confirmLabel="Yes, Cancel Session"
+                cancelLabel="Keep Session"
+                danger
+                onConfirm={handleCancel}
+                onCancel={() => setShowCancelConfirm(false)}
+            />
         </div>
     );
 };

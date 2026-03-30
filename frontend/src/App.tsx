@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import ConfirmModal from './components/ConfirmModal';
 import { Analytics } from '@vercel/analytics/react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Outlet, Navigate, useOutletContext } from 'react-router-dom';
 import './App.css';
@@ -676,6 +677,7 @@ const DashboardHome: React.FC = () => {
   const [rescheduleDate, setRescheduleDate] = useState(new Date().toISOString().split('T')[0]);
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState(false);
+  const [cancelConfirmId, setCancelConfirmId] = useState<number | null>(null);
 
   // Close menu on outside click
   useEffect(() => {
@@ -751,12 +753,11 @@ const DashboardHome: React.FC = () => {
   };
 
   const handleCancelBooking = async (id: number) => {
-    if (!window.confirm('Cancel this booking?')) return;
     const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/status`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       credentials: 'include', body: JSON.stringify({ status: 'cancelled' })
     });
-    if (res.ok) { toast.success('Booking cancelled'); refreshBookings(); }
+    if (res.ok) { toast.success('Booking cancelled'); setCancelConfirmId(null); refreshBookings(); }
     else toast.error('Failed to cancel booking');
   };
 
@@ -984,7 +985,7 @@ const DashboardHome: React.FC = () => {
             <button onClick={() => { setRescheduleAppt(booking); setRescheduleDate(new Date().toISOString().split('T')[0]); setRescheduleSlot(null); setActiveMenuId(null); setMenuPos(null); }} style={menuItemStyle}>
               Reschedule Booking
             </button>
-            <button onClick={() => { handleCancelBooking(booking.id); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, color: '#c62828' }}>
+            <button onClick={() => { setCancelConfirmId(booking.id); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, color: '#c62828' }}>
               Cancel Booking
             </button>
             {canMarkPaid && (
@@ -1027,6 +1028,17 @@ const DashboardHome: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={cancelConfirmId !== null}
+        title="Cancel Booking"
+        message="Are you sure you want to cancel this booking?"
+        confirmLabel="Yes, Cancel"
+        cancelLabel="Keep Booking"
+        danger
+        onConfirm={() => { if (cancelConfirmId) handleCancelBooking(cancelConfirmId); }}
+        onCancel={() => setCancelConfirmId(null)}
+      />
     </div>
   );
 };

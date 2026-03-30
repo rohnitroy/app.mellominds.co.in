@@ -11,6 +11,7 @@ import { exportToCSV } from './utils/exportCSV';
 import CreateBooking from './components/CreateBooking';
 import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
+import ConfirmModal from './components/ConfirmModal';
 
 const Appointments: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +29,8 @@ const Appointments: React.FC = () => {
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  // Confirm modal state
+  const [confirmModal, setConfirmModal] = useState<{ id: number; action: string } | null>(null);
 
   const tabs = ['Upcoming', 'All Bookings', 'Completed', 'Pending Session Notes', 'Cancelled', 'No Show'];
 
@@ -352,7 +355,7 @@ const Appointments: React.FC = () => {
                 style={{ ...menuItemStyle, borderBottom: 'none' }}>Add Note</button>
             )}
             {canCancel && (
-              <button onClick={() => { updateStatus(id, 'cancelled'); setActiveMenuId(null); setMenuPos(null); }}
+              <button onClick={() => { setConfirmModal({ id, action: 'cancel' }); setActiveMenuId(null); setMenuPos(null); }}
                 style={{ ...menuItemStyle, color: '#c62828', borderBottom: 'none' }}>Cancel</button>
             )}
           </div>,
@@ -405,6 +408,17 @@ const Appointments: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={!!confirmModal}
+        title="Cancel Booking"
+        message="Are you sure you want to cancel this booking? This action cannot be undone."
+        confirmLabel="Yes, Cancel Booking"
+        cancelLabel="Keep Booking"
+        danger
+        onConfirm={() => { if (confirmModal) { updateStatus(confirmModal.id, 'cancelled'); setConfirmModal(null); } }}
+        onCancel={() => setConfirmModal(null)}
+      />
     </div>
   );
 };
