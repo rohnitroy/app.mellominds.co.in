@@ -23,7 +23,7 @@ const TimeSlotList: React.FC<TimeSlotListProps> = ({ calendarId, selectedDate, o
 
             if (response.ok) {
                 const data = await response.json();
-                setSlots(data);
+                setSlots(data.slots || data || []);
             } else {
                 console.error('Failed to load slots');
             }
@@ -40,18 +40,33 @@ const TimeSlotList: React.FC<TimeSlotListProps> = ({ calendarId, selectedDate, o
         }
     }, [calendarId, selectedDate, fetchSlots]);
 
-    const formatTime = (isoString: string) => {
-        return new Date(isoString).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+    // Slots come back as "9:00AM", "10:30PM" etc.
+    // Convert to ISO datetime for the backend by combining with selectedDate
+    const slotToISO = (slot: string): string => {
+        const match = slot.match(/^(\d+):(\d+)(AM|PM)$/i);
+        if (!match) return '';
+        let h = parseInt(match[1]);
+        const m = parseInt(match[2]);
+        const period = match[3].toUpperCase();
+        if (period === 'PM' && h !== 12) h += 12;
+        if (period === 'AM' && h === 12) h = 0;
+        // Build as IST (UTC+5:30) — same convention as the rest of the system
+        const [y, mo, d] = selectedDate.split('-').map(Number);
+        const istMidnightUTC = Date.UTC(y, mo - 1, d) - 5.5 * 60 * 60 * 1000;
+        const slotUTC = istMidnightUTC + (h * 60 + m) * 60000;
+        return new Date(slotUTC).toISOString();
+    };
+
+    // Display the slot label as-is (already formatted like "9:00AM")
+    const formatHeader = (dateStr: string) => {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
     };
 
     return (
         <div className="time-slot-list">
             <h3 className="slot-header">
-                {new Date(selectedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                <span className="time-format-toggle">
-                    <button className="active">12h</button>
-                    <button>24h</button>
-                </span>
+                {formatHeader(selectedDate)}
             </h3>
 
             <div className="slots-scroll-container">
@@ -64,11 +79,11 @@ const TimeSlotList: React.FC<TimeSlotListProps> = ({ calendarId, selectedDate, o
                 {!loading && slots.map((slot) => (
                     <button
                         key={slot}
-                        className={`time-slot-btn ${selectedSlot === slot ? 'selected' : ''}`}
-                        onClick={() => onSlotSelect(slot)}
+                        className={`time-slot-btn ${selectedSlot === slotToISO(slot) ? 'selected' : ''}`}
+                        onClick={() => onSlotSelect(slotToISO(slot))}
                     >
                         <span className="status-dot available"></span>
-                        {formatTime(slot)}
+                        {slot}
                     </button>
                 ))}
             </div>

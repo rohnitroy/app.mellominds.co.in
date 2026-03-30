@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './CalendarPage.css';
 import AvailabilityModal from './AvailabilityModal';
-import BookingSlotPicker from './BookingSlotPicker';
 import CreateCalendarModal from './CreateCalendarModal';
 import CustomDropdown from './CustomDropdown';
+import CreateBooking from './CreateBooking';
 import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
 import Loader from './Loader';
@@ -36,14 +36,9 @@ const CalendarPage: React.FC = () => {
     slug: ''
   });
 
-  // State for Booking Modal
-  const [showBookingModal, setShowBookingModal] = useState(false);
-  const [selectedCalendar, setSelectedCalendar] = useState<Calendar | null>(null);
-  const [bookingData, setBookingData] = useState({
-    client_name: '',
-    client_email: '',
-    start_time: ''
-  });
+  // State for Create Booking Modal (full CreateBooking component)
+  const [showCreateBookingModal, setShowCreateBookingModal] = useState(false);
+  const [createBookingCalendarId, setCreateBookingCalendarId] = useState<string>('');
 
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
 
@@ -248,10 +243,9 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  const handleBookClick = (calendar: Calendar) => {
-    setSelectedCalendar(calendar);
-    setBookingData({ client_name: '', client_email: '', start_time: '' });
-    setShowBookingModal(true);
+  const handleCreateBookingForCalendar = (calendarId: number) => {
+    setCreateBookingCalendarId(calendarId.toString());
+    setShowCreateBookingModal(true);
   };
 
   const handleCopyLink = (slug: string) => {
@@ -259,36 +253,7 @@ const CalendarPage: React.FC = () => {
     const cleanSlug = slug.startsWith('/') ? slug.slice(1) : slug;
     const link = `${window.location.origin}/book/${user.id}/${cleanSlug}`;
     navigator.clipboard.writeText(link);
-    toast.success('Link copied to clipboard!');
-  };
-
-  const handleBookingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCalendar) return;
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/bookings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          calendar_id: selectedCalendar.id,
-          ...bookingData
-        })
-      });
-
-      if (response.ok) {
-        toast.success('Booking created successfully!');
-        setShowBookingModal(false);
-        // Optionally refresh if needed, or just close
-      } else {
-        const err = await response.json();
-        toast.error(`Booking failed: ${err.error || 'Unknown error'}`);
-      }
-    } catch (error) {
-      console.error('Error creating booking:', error);
-      toast.error('Error creating booking. check console.');
-    }
+    toast.success('Link copied!');
   };
 
   const formatType = (type: string) => {
@@ -334,9 +299,6 @@ const CalendarPage: React.FC = () => {
                       <label htmlFor={`toggle-${resource.id}`} className="switch"></label>
                     </div>
 
-                    <button className="share-btn" title="Open Booking Page" onClick={() => window.open(`${window.location.origin}/book/${user?.id}/${resource.slug}`, '_blank')}>
-                      <img src="/Send.svg" alt="Share" />
-                    </button>
                     <div className="menu-container" ref={menuRef}>
                       <button className="menu-btn" onClick={() => toggleMenu(resource.id)}>
                         <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
@@ -384,23 +346,28 @@ const CalendarPage: React.FC = () => {
                   <p style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{resource.description}</p>
                 </div>
 
-                <div className="card-footer" style={{ borderTop: '1px solid #eee', paddingTop: '15px', marginTop: '15px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div className="card-footer">
+                  {/* Booking link row */}
+                  <div className="card-link-row">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                    <span>{`${window.location.origin}/book/${user?.id}/${resource.slug.replace(/^\//, '')}`}</span>
+                    <button className="card-link-copy-btn" onClick={() => handleCopyLink(resource.slug)} title="Copy link">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                    </button>
+                  </div>
+                  {/* Create Booking button */}
+                  <div className="card-footer-actions">
                     <button
                       className="book-btn"
-                      onClick={() => handleBookClick(resource)}
-                      style={{
-                        backgroundColor: '#082421',
-                        color: 'white',
-                        border: 'none',
-                        padding: '6px 16px',
-                        borderRadius: '20px',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
+                      onClick={() => handleCreateBookingForCalendar(resource.id)}
                     >
-                      Book
+                      + Create Booking
                     </button>
                   </div>
                 </div>
@@ -517,53 +484,16 @@ const CalendarPage: React.FC = () => {
         </div>
       )}
 
-      {showBookingModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2 className="modal-title">Book Appointment</h2>
-              <button className="close-btn" onClick={() => setShowBookingModal(false)}>×</button>
-            </div>
-            <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
-              <strong>Calendar:</strong> {selectedCalendar?.title} ({selectedCalendar?.duration})
-            </div>
-            <form onSubmit={handleBookingSubmit}>
-              <div className="form-group">
-                <label className="form-label">Client Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  required
-                  value={bookingData.client_name}
-                  onChange={e => setBookingData({ ...bookingData, client_name: e.target.value })}
-                  placeholder="Jane Doe"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Client Email</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  required
-                  value={bookingData.client_email}
-                  onChange={e => setBookingData({ ...bookingData, client_email: e.target.value })}
-                  placeholder="client@example.com"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Select Time Slot</label>
-                {selectedCalendar && (
-                  <BookingSlotPicker
-                    calendarId={selectedCalendar.id}
-                    onSlotSelect={(isoString: string) => setBookingData({ ...bookingData, start_time: isoString })}
-                  />
-                )}
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="cancel-btn" onClick={() => setShowBookingModal(false)}>Cancel</button>
-                <button type="submit" className="submit-btn">Book Appointment</button>
-              </div>
-            </form>
+      {showCreateBookingModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          onClick={() => setShowCreateBookingModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '860px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}
+            onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowCreateBookingModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', zIndex: 1 }}>×</button>
+            <CreateBooking
+              prefillCalendarId={createBookingCalendarId}
+              onBack={() => setShowCreateBookingModal(false)}
+            />
           </div>
         </div>
       )}

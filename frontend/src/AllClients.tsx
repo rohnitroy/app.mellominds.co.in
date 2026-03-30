@@ -8,6 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
 import { useToast } from './context/ToastContext';
 import { exportToCSV } from './utils/exportCSV';
+import { useLocation } from 'react-router-dom';
 interface Client {
   id: number;
   name: string;
@@ -40,9 +41,12 @@ const defaultForm = {
 
 const AllClients: React.FC = () => {
   const toast = useToast();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<'all' | 'transferred'>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [initialTab, setInitialTab] = useState<string | undefined>(undefined);
+  const [selectedClientCutoff, setSelectedClientCutoff] = useState<Date | undefined>(undefined);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<Client[]>([]);
@@ -74,6 +78,20 @@ const AllClients: React.FC = () => {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  // Handle navigation from Appointments "Add Note" action
+  useEffect(() => {
+    const state = location.state as { clientEmail?: string; initialTab?: string } | null;
+    if (state?.clientEmail && clients.length > 0) {
+      const match = clients.find(c => c.email === state.clientEmail);
+      if (match) {
+        setInitialTab(state.initialTab);
+        setSelectedClient(match);
+        // Clear state so back navigation doesn't re-trigger
+        window.history.replaceState({}, '');
+      }
+    }
+  }, [clients, location.state]);
 
   const fetchTransfers = async () => {
     setTransfersLoading(true);
@@ -231,7 +249,7 @@ const AllClients: React.FC = () => {
     },
     {
       accessorKey: 'status',
-      header: 'Status',
+      header: 'Transfer Status',
       cell: ({ getValue }) => {
         const s = getValue() as string;
         return (
@@ -245,15 +263,48 @@ const AllClients: React.FC = () => {
         );
       },
     },
+    {
+      id: 'view',
+      header: 'View',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const t = row.original;
+        if (t.status !== 'approved') return <span style={{ color: '#ccc', fontSize: '12px' }}>—</span>;
+        return (
+          <button
+            onClick={() => {
+              const clientObj: Client = {
+                id: t.client_id,
+                name: t.client_name,
+                email: t.client_email,
+                phone: t.client_phone || '',
+                sessions: t.sessions || '0',
+                revenue: `₹${t.revenue || 0}`,
+              };
+              setSelectedClientCutoff(new Date(t.transfer_date || t.updated_at));
+              setInitialTab('Overview');
+              setSelectedClient(clientObj);
+            }}
+            style={{ padding: '5px 14px', background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
+          >
+            View
+          </button>
+        );
+      },
+    },
   ], []);
 
   if (selectedClient) {
     return (
       <ClientView
         client={selectedClient}
+        initialTab={initialTab}
+        propCutoffDate={selectedClientCutoff}
         onBack={() => {
           setSelectedClient(null);
-          fetchClients(); // refresh list in case client was edited
+          setInitialTab(undefined);
+          setSelectedClientCutoff(undefined);
+          fetchClients();
         }}
       />
     );

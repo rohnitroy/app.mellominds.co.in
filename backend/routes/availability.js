@@ -89,9 +89,11 @@ router.get('/slots', async (req, res) => {
         const { user_id: therapistId, duration } = calRes.rows[0];
         const durationMinutes = parseInt((duration || '60').match(/\d+/)[0]) || 60;
 
-        // 2. Determine Day of Week (0=Sun, 6=Sat)
-        const selectedDate = new Date(date + 'T00:00:00');
-        const dayOfWeek = selectedDate.getDay();
+        // 2. Determine Day of Week in IST (0=Sun, 6=Sat)
+        // Parse date as IST to get correct day
+        const [dy, dm, dd] = date.split('-').map(Number);
+        const istDate = new Date(Date.UTC(dy, dm - 1, dd, 0, 0, 0)); // treat as IST midnight
+        const dayOfWeek = istDate.getUTCDay();
 
         // 3. Fetch Platform Availability for that day
         const availRes = await client.query(
@@ -143,9 +145,22 @@ router.get('/slots', async (req, res) => {
         ];
 
         // 6. Generate available slots
-        const formatSlot = (d) => {
-            let h = d.getHours();
-            const m = d.getMinutes();
+        // All times are in IST (Asia/Kolkata, UTC+5:30)
+        const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+        const toISTMidnight = (dateStr) => {
+            // Parse date as IST midnight → get UTC equivalent
+            const [y, m, d] = dateStr.split('-').map(Number);
+            // IST midnight = UTC midnight - 5:30 = UTC (prev day) 18:30
+            return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - IST_OFFSET_MS);
+        };
+
+        const formatSlot = (utcMs) => {
+            // Convert UTC ms to IST time for display
+            const istMs = utcMs + IST_OFFSET_MS;
+            const d = new Date(istMs);
+            let h = d.getUTCHours();
+            const m = d.getUTCMinutes();
             const period = h >= 12 ? 'PM' : 'AM';
             if (h > 12) h -= 12;
             if (h === 0) h = 12;
@@ -153,22 +168,24 @@ router.get('/slots', async (req, res) => {
         };
 
         const availableSlots = [];
+        const istMidnight = toISTMidnight(date);
+        // Don't show slots that have already passed (with 30-min buffer for today)
+        const nowWithBuffer = Date.now() + 30 * 60000;
 
         for (const window of availRes.rows) {
             const [h1, m1] = window.start_time.split(':').map(Number);
             const [h2, m2] = window.end_time.split(':').map(Number);
 
-            let slotStart = new Date(date + 'T00:00:00');
-            slotStart.setHours(h1, m1, 0, 0);
+            // Build slot start/end as UTC timestamps (availability times are in IST)
+            let slotStartMs = istMidnight.getTime() + (h1 * 60 + m1) * 60000;
+            const windowEndMs = istMidnight.getTime() + (h2 * 60 + m2) * 60000;
 
-            const windowEnd = new Date(date + 'T00:00:00');
-            windowEnd.setHours(h2, m2, 0, 0);
-
-            while (slotStart.getTime() + durationMinutes * 60000 <= windowEnd.getTime()) {
-                const slotEnd = new Date(slotStart.getTime() + durationMinutes * 60000);
-                const isBusy = allBusy.some(b => slotStart.getTime() < b.end && slotEnd.getTime() > b.start);
-                if (!isBusy) availableSlots.push(formatSlot(slotStart));
-                slotStart = new Date(slotStart.getTime() + 30 * 60000);
+            while (slotStartMs + durationMinutes * 60000 <= windowEndMs) {
+                const slotEndMs = slotStartMs + durationMinutes * 60000;
+                const isBusy = allBusy.some(b => slotStartMs < b.end && slotEndMs > b.start);
+                const isPast = slotStartMs < nowWithBuffer;
+                if (!isBusy && !isPast) availableSlots.push(formatSlot(slotStartMs));
+                slotStartMs += 30 * 60000;
             }
         }
 

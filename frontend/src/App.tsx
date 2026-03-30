@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Outlet, Navigate, useOutletContext } from 'react-router-dom';
 import './App.css';
@@ -30,6 +31,8 @@ import { Category, TwoUsers, Calendar, Discovery, Wallet, Setting, Paper } from 
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import QuickActionMenu from './components/QuickActionMenu';
+import InlineCalendar from './components/InlineCalendar';
+import TimeSlotList from './components/TimeSlotList';
 import Loader from './components/Loader';
 
 interface NavItem {
@@ -664,6 +667,28 @@ const DashboardHome: React.FC = () => {
   });
   const [recentBookings, setRecentBookings] = useState<any[]>([]);
 
+  // Action menu state
+  const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Reschedule state
+  const [rescheduleAppt, setRescheduleAppt] = useState<any | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState(new Date().toISOString().split('T')[0]);
+  const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
+  const [rescheduling, setRescheduling] = useState(false);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (activeMenuId === null) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setActiveMenuId(null); setMenuPos(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [activeMenuId]);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
@@ -709,6 +734,66 @@ const DashboardHome: React.FC = () => {
 
     fetchDashboardData();
   }, [dateFilter, customStartDate, customEndDate]);
+
+  const refreshBookings = async () => {
+    const res = await fetch(`${API_BASE_URL}/api/bookings?upcoming=true`, { credentials: 'include' });
+    if (res.ok) setRecentBookings(await res.json());
+  };
+
+  const handleSendReminder = async (booking: any) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${booking.id}/reminder`, {
+        method: 'POST', credentials: 'include'
+      });
+      if (res.ok) toast.success('Reminder sent to client!');
+      else toast.error('Failed to send reminder');
+    } catch { toast.error('Network error'); }
+  };
+
+  const handleCancelBooking = async (id: number) => {
+    if (!window.confirm('Cancel this booking?')) return;
+    const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/status`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', body: JSON.stringify({ status: 'cancelled' })
+    });
+    if (res.ok) { toast.success('Booking cancelled'); refreshBookings(); }
+    else toast.error('Failed to cancel booking');
+  };
+
+  const handleMarkPaid = async (id: number) => {
+    const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/payment`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', body: JSON.stringify({ payment_status: 'Paid' })
+    });
+    if (res.ok) { toast.success('Marked as paid!'); refreshBookings(); }
+    else toast.error('Failed to update payment');
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleAppt || !rescheduleSlot) return;
+    setRescheduling(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${rescheduleAppt.id}/reschedule`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', body: JSON.stringify({ new_start_time: rescheduleSlot })
+      });
+      if (res.ok) {
+        toast.success('Booking rescheduled!');
+        setRescheduleAppt(null); setRescheduleSlot(null);
+        refreshBookings();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to reschedule');
+      }
+    } catch { toast.error('Network error'); }
+    finally { setRescheduling(false); }
+  };
+
+  const menuItemStyle: React.CSSProperties = {
+    display: 'block', width: '100%', padding: '10px 16px', border: 'none',
+    background: 'none', textAlign: 'left', fontFamily: 'Urbanist', fontWeight: 500,
+    fontSize: '13px', color: '#082421', cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
+  };
 
   const statsData: StatData[] = [
     { label: 'Revenue', value: stats.revenue },
@@ -764,7 +849,32 @@ const DashboardHome: React.FC = () => {
         <span className="session-mode">{row.original.meet_link ? 'Google Meet' : (row.original.location_type === 'in_person' ? 'In-person' : 'Google Meet')}</span>
       ),
     },
-  ], []);
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const { id, payment_status } = row.original;
+        const isMenuOpen = activeMenuId === id;
+        return (
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isMenuOpen) { setActiveMenuId(null); setMenuPos(null); return; }
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setMenuPos({ top: rect.bottom + window.scrollY + 4, right: window.innerWidth - rect.right });
+                setActiveMenuId(id);
+              }}
+              style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', color: '#333', fontSize: '16px', lineHeight: 1 }}
+            >
+              ···
+            </button>
+          </div>
+        );
+      },
+    },
+  ], [activeMenuId]);
 
   return (
     <div className="dashboard-content">
@@ -855,6 +965,68 @@ const DashboardHome: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Portal action menu */}
+      {activeMenuId !== null && menuPos && (() => {
+        const booking = recentBookings.find(b => b.id === activeMenuId);
+        if (!booking) return null;
+        const canMarkPaid = booking.payment_status === 'Pending';
+        return createPortal(
+          <div ref={menuRef} style={{
+            position: 'absolute', top: menuPos.top, right: menuPos.right,
+            background: '#fff', border: '1px solid #e9ecef', borderRadius: '10px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999,
+            minWidth: '180px', overflow: 'hidden'
+          }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => { handleSendReminder(booking); setActiveMenuId(null); setMenuPos(null); }} style={menuItemStyle}>
+              Send Reminder
+            </button>
+            <button onClick={() => { setRescheduleAppt(booking); setRescheduleDate(new Date().toISOString().split('T')[0]); setRescheduleSlot(null); setActiveMenuId(null); setMenuPos(null); }} style={menuItemStyle}>
+              Reschedule Booking
+            </button>
+            <button onClick={() => { handleCancelBooking(booking.id); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, color: '#c62828' }}>
+              Cancel Booking
+            </button>
+            {canMarkPaid && (
+              <button onClick={() => { handleMarkPaid(booking.id); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, color: '#2e7d32', borderBottom: 'none' }}>
+                Mark as Paid
+              </button>
+            )}
+          </div>,
+          document.body
+        );
+      })()}
+
+      {/* Reschedule lightbox */}
+      {rescheduleAppt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 24px', overflowY: 'auto' }}
+          onClick={() => setRescheduleAppt(null)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '760px' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px' }}>Reschedule Session</h2>
+                <p style={{ margin: '4px 0 0', fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E' }}>{rescheduleAppt.title} — {rescheduleAppt.client_name}</p>
+              </div>
+              <button onClick={() => setRescheduleAppt(null)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666' }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <InlineCalendar selectedDate={rescheduleDate} onDateSelect={setRescheduleDate} />
+              <TimeSlotList calendarId={rescheduleAppt.calendar_id} selectedDate={rescheduleDate} selectedSlot={rescheduleSlot} onSlotSelect={setRescheduleSlot} />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button onClick={() => setRescheduleAppt(null)}
+                style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleReschedule} disabled={!rescheduleSlot || rescheduling}
+                style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#082421', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: (!rescheduleSlot || rescheduling) ? 'not-allowed' : 'pointer', opacity: (!rescheduleSlot || rescheduling) ? 0.6 : 1 }}>
+                {rescheduling ? 'Rescheduling...' : 'Confirm Reschedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

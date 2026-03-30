@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import styles from './Appointments.module.css';
 import { Search } from 'react-iconly';
 import API_BASE_URL from './config/api';
@@ -11,6 +13,7 @@ import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
 
 const Appointments: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>('Upcoming');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +25,9 @@ const Appointments: React.FC = () => {
   const [rescheduleDate, setRescheduleDate] = useState(new Date().toISOString().split('T')[0]);
   const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
 
   const tabs = ['Upcoming', 'All Bookings', 'Completed', 'Pending Session Notes', 'Cancelled', 'No Show'];
 
@@ -69,13 +75,25 @@ const Appointments: React.FC = () => {
     }
   };
 
+  const sendReminder = async (id: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/reminder`, {
+        method: 'POST', credentials: 'include'
+      });
+      if (!res.ok) console.error('Failed to send reminder');
+    } catch (e) {
+      console.error('Failed to send reminder:', e);
+    }
+  };
+
   const handleReschedule = async () => {
     if (!rescheduleAppt || !rescheduleSlot) return;
     setRescheduling(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/bookings/manage/${rescheduleAppt.cancel_token}/reschedule`, {
-        method: 'POST',
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${rescheduleAppt.id}/reschedule`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ new_start_time: rescheduleSlot }),
       });
       if (res.ok) {
@@ -126,6 +144,25 @@ const Appointments: React.FC = () => {
       }
     });
   }, [appointments, activeTab]);
+
+  const menuItemStyle: React.CSSProperties = {
+    display: 'block', width: '100%', padding: '10px 16px', border: 'none',
+    background: 'none', textAlign: 'left', fontFamily: 'Urbanist', fontWeight: 500,
+    fontSize: '13px', color: '#082421', cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
+  };
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (activeMenuId === null) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setActiveMenuId(null);
+        setMenuPos(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [activeMenuId]);
 
   const columns: ColumnDef<any, any>[] = useMemo(() => [
     {
@@ -184,45 +221,29 @@ const Appointments: React.FC = () => {
       enableSorting: false,
       cell: ({ row }) => {
         const { id, status, payment_status } = row.original;
-        const btnStyle: React.CSSProperties = {
-          fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '6px',
-          border: 'none', cursor: 'pointer', marginRight: '4px', marginBottom: '2px'
-        };
+        const isUpcoming = new Date(row.original.start_time) > new Date();
+        // No actions for cancelled or noshow
+        if (status === 'cancelled' || status === 'noshow') return <span style={{ color: '#ccc', fontSize: '12px', fontFamily: 'Urbanist' }}>—</span>;
+        const isMenuOpen = activeMenuId === id;
         return (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px' }}>
-            {status !== 'cancelled' && status !== 'noshow' && (
-              <>
-                {status !== 'completed' && (
-                  <button style={{ ...btnStyle, background: '#e3f2fd', color: '#1565c0' }}
-                    onClick={() => updateStatus(id, 'completed')}>Complete</button>
-                )}
-                {status !== 'completed' && new Date(row.original.start_time) > new Date() && (
-                  <button style={{ ...btnStyle, background: '#f3e5f5', color: '#6a1b9a' }}
-                    onClick={() => { setRescheduleAppt(row.original); setRescheduleDate(new Date().toISOString().split('T')[0]); setRescheduleSlot(null); }}>Reschedule</button>
-                )}
-                <button style={{ ...btnStyle, background: '#fff3e0', color: '#e65100' }}
-                  onClick={() => updateStatus(id, 'noshow')}>No Show</button>
-                <button style={{ ...btnStyle, background: '#fdecea', color: '#c62828' }}
-                  onClick={() => updateStatus(id, 'cancelled')}>Cancel</button>
-              </>
-            )}
-            {status === 'cancelled' || status === 'noshow' ? (
-              <button style={{ ...btnStyle, background: '#e8f5e9', color: '#2e7d32' }}
-                onClick={() => updateStatus(id, 'scheduled')}>Restore</button>
-            ) : null}
-            {payment_status === 'Pending' && (
-              <button style={{ ...btnStyle, background: '#e8f5e9', color: '#2e7d32' }}
-                onClick={() => updatePayment(id, 'Paid')}>Mark Paid</button>
-            )}
-            {payment_status === 'Paid' && (
-              <button style={{ ...btnStyle, background: '#fdecea', color: '#c62828' }}
-                onClick={() => updatePayment(id, 'Refunded')}>Refund</button>
-            )}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isMenuOpen) { setActiveMenuId(null); setMenuPos(null); return; }
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setMenuPos({ top: rect.bottom + window.scrollY + 4, right: window.innerWidth - rect.right });
+                setActiveMenuId(id);
+              }}
+              style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', color: '#333', fontSize: '16px', lineHeight: 1 }}
+            >
+              ···
+            </button>
           </div>
         );
       },
     },
-  ], [appointments]);
+  ], [appointments, activeMenuId]);
 
   return (
     <div className={styles.appointmentsPage}>
@@ -283,7 +304,61 @@ const Appointments: React.FC = () => {
         />
       )}
 
-      {/* Create Booking Lightbox */}
+      {/* Portal dropdown menu for row actions */}
+      {activeMenuId !== null && menuPos && (() => {
+        const row = appointments.find(a => a.id === activeMenuId);
+        if (!row) return null;
+        const { id, status, payment_status } = row;
+        const isUpcoming = new Date(row.start_time) > new Date();
+        const canReschedule = status === 'scheduled' && isUpcoming;
+        const canCancel = status === 'scheduled';
+        const canMarkPaid = payment_status === 'Pending' && status !== 'cancelled' && status !== 'noshow';
+        const canComplete = status === 'scheduled';
+        const canSendReminder = status === 'scheduled' && isUpcoming;
+        const canAddNote = status === 'completed' || (status === 'scheduled' && !isUpcoming);
+
+        return createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: 'absolute', top: menuPos.top, right: menuPos.right,
+              background: '#fff', border: '1px solid #e9ecef', borderRadius: '10px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999,
+              minWidth: '180px', overflow: 'hidden'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {canSendReminder && (
+              <button onClick={() => { sendReminder(id); setActiveMenuId(null); setMenuPos(null); }}
+                style={menuItemStyle}>Send Reminder</button>
+            )}
+            {canReschedule && (
+              <button onClick={() => { setRescheduleAppt(row); setRescheduleDate(new Date().toISOString().split('T')[0]); setRescheduleSlot(null); setActiveMenuId(null); setMenuPos(null); }}
+                style={menuItemStyle}>Reschedule</button>
+            )}
+            {canMarkPaid && (
+              <button onClick={() => { updatePayment(id, 'Paid'); setActiveMenuId(null); setMenuPos(null); }}
+                style={{ ...menuItemStyle, color: '#2e7d32' }}>Mark Paid</button>
+            )}
+            {canComplete && (
+              <button onClick={() => { updateStatus(id, 'completed'); setActiveMenuId(null); setMenuPos(null); }}
+                style={menuItemStyle}>Mark as Complete</button>
+            )}
+            {canAddNote && (
+              <button onClick={() => {
+                setActiveMenuId(null); setMenuPos(null);
+                navigate('/clients', { state: { clientEmail: row.client_email, initialTab: 'Session Notes' } });
+              }}
+                style={{ ...menuItemStyle, borderBottom: 'none' }}>Add Note</button>
+            )}
+            {canCancel && (
+              <button onClick={() => { updateStatus(id, 'cancelled'); setActiveMenuId(null); setMenuPos(null); }}
+                style={{ ...menuItemStyle, color: '#c62828', borderBottom: 'none' }}>Cancel</button>
+            )}
+          </div>,
+          document.body
+        );
+      })()}
       {showCreateBooking && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
           onClick={() => setShowCreateBooking(false)}>

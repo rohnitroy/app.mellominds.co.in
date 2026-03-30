@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
-import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail } from '../lib/email.js';
+import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail, transferCancelledEmail } from '../lib/email.js';
+import { createNotification } from '../lib/notifications.js';
 
 const router = express.Router();
 
@@ -207,6 +208,72 @@ router.post('/transfers/:transferId/reject', async (req, res) => {
     } catch (error) {
         console.error('Error rejecting transfer:', error);
         res.status(500).json({ error: 'Failed to reject transfer' });
+    }
+});
+
+// DELETE /api/clients/transfers/:transferId/cancel - Therapist A cancels a pending transfer they initiated
+router.delete('/transfers/:transferId/cancel', async (req, res) => {
+    try {
+        const fromTherapistId = req.user.id;
+        const transferId = parseInt(req.params.transferId);
+
+        const transferRes = await pool.query(
+            `SELECT ct.*, c.name as client_name, c.email as client_email,
+                    u_from.user_name as from_therapist_name, u_from.email as from_therapist_email,
+                    u_to.user_name as to_therapist_name, u_to.email as to_therapist_email
+             FROM ClientTransfers ct
+             JOIN Clients c ON ct.client_id = c.id
+             JOIN Users u_from ON ct.from_therapist_id = u_from.id
+             JOIN Users u_to ON ct.to_therapist_id = u_to.id
+             WHERE ct.id = $1 AND ct.from_therapist_id = $2 AND ct.status = 'pending'`,
+            [transferId, fromTherapistId]
+        );
+
+        if (transferRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Pending transfer not found or you are not the sender' });
+        }
+
+        const t = transferRes.rows[0];
+
+        await pool.query('DELETE FROM ClientTransfers WHERE id = $1', [transferId]);
+
+        res.json({ message: 'Transfer cancelled successfully' });
+
+        // Notify receiving therapist
+        createNotification({
+            userId: t.to_therapist_id,
+            type: 'transfer_cancelled',
+            title: 'Transfer Cancelled',
+            description: `${t.from_therapist_name} cancelled the transfer request for client "${t.client_name}".`,
+            relatedId: transferId
+        }).catch(() => {});
+
+        // Email receiving therapist
+        sendEmail({
+            to: t.to_therapist_email,
+            ...transferCancelledEmail({
+                recipientName: t.to_therapist_name,
+                fromTherapistName: t.from_therapist_name,
+                clientName: t.client_name
+            })
+        }).catch(() => {});
+
+        // Email client (if they have an email)
+        if (t.client_email) {
+            sendEmail({
+                to: t.client_email,
+                ...transferCancelledEmail({
+                    recipientName: t.client_name,
+                    fromTherapistName: t.from_therapist_name,
+                    clientName: t.client_name,
+                    isClient: true
+                })
+            }).catch(() => {});
+        }
+
+    } catch (error) {
+        console.error('Error cancelling transfer:', error);
+        res.status(500).json({ error: 'Failed to cancel transfer' });
     }
 });
 

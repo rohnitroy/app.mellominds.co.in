@@ -62,21 +62,21 @@
 .calendar-card {
   background-color: white;
   border-radius: 16px;
-  padding: 24px;
+  padding: 20px 24px;
   color: #1a1a1a;
   font-family: 'Urbanist', sans-serif;
   box-shadow: none;
   border: 1px solid #e5e5e5;
-  aspect-ratio: 4/3;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
 .card-title {
@@ -122,8 +122,9 @@
 .card-meta {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .duration {
@@ -150,7 +151,8 @@
 }
 
 .card-description {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  flex: 1;
 }
 
 .card-description p {
@@ -162,10 +164,50 @@
 
 .card-footer {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 16px;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
   border-top: 1px solid #e5e5e5;
+  margin-top: auto;
+}
+
+.card-link-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.card-link-row span {
+  font-size: 11px;
+  color: #555;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Urbanist', sans-serif;
+}
+
+.card-link-copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  flex-shrink: 0;
+  color: #082421;
+  display: flex;
+  align-items: center;
+}
+
+.card-link-copy-btn:hover {
+  color: #2D7579;
+}
+
+.card-footer-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .calendar-slug {
@@ -406,18 +448,19 @@ input[type="checkbox"]:checked+.switch:before {
   background-color: #082421;
   color: white;
   border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: 7px 18px;
+  border-radius: 20px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  font-family: 'Urbanist', sans-serif;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .book-btn:hover {
-  background-color: #0a2b27;
+  background-color: #2D7579;
 }
 
 /* Calendar Dropdown Menu */

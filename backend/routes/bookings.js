@@ -414,9 +414,9 @@ router.get('/stats', async (req, res) => {
         );
         const refund = parseFloat(refundRes.rows[0].total || 0);
 
-        // Pending payments
+        // Pending payments — exclude cancelled bookings
         const pendingPaymentRes = await client.query(
-            `SELECT COUNT(*) FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Pending'${dateFilter}`,
+            `SELECT COUNT(*) FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Pending' AND status != 'cancelled'${dateFilter}`,
             params
         );
         const pendingPayment = parseInt(pendingPaymentRes.rows[0].count);
@@ -462,6 +462,7 @@ router.get('/clients', async (req, res) => {
         const userId = req.user.id;
 
         // Fetch clients from Clients table with aggregated stats from Appointments
+        // Exclude clients that have been transferred out (approved transfer from this therapist)
         const result = await client.query(
             `SELECT 
                 c.id,
@@ -481,7 +482,13 @@ router.get('/clients', async (req, res) => {
                 c.emergency_relation as "emergencyRelation"
             FROM Clients c
             LEFT JOIN Appointments a ON c.email = a.client_email AND c.therapist_id = a.therapist_id
-            WHERE c.therapist_id = $1 
+            WHERE c.therapist_id = $1
+              AND NOT EXISTS (
+                SELECT 1 FROM ClientTransfers ct
+                WHERE ct.client_id = c.id
+                  AND ct.from_therapist_id = $1
+                  AND ct.status = 'approved'
+              )
             GROUP BY c.id`,
             [userId]
         );
@@ -567,13 +574,28 @@ router.post('/', async (req, res) => {
     const client = await pool.connect();
     try {
         const userId = req.user.id;
-        const { calendar_id, start_time, client_email, client_name, payment_amount, location_type } = req.body;
+        const { calendar_id, start_time, client_email, client_name, payment_amount, location_type, payment_status } = req.body;
 
         if (!calendar_id || !start_time) {
             return res.status(400).json({ error: 'Calendar ID and Start Time are required' });
         }
 
         await client.query('BEGIN');
+
+        // Check if client has been transferred out by this therapist
+        if (client_email) {
+            const transferCheck = await client.query(
+                `SELECT ct.id FROM ClientTransfers ct
+                 JOIN Clients c ON ct.client_id = c.id
+                 WHERE c.email = $1
+                   AND ct.from_therapist_id = $2
+                   AND ct.status = 'approved'`,
+                [client_email, userId]
+            );
+            if (transferCheck.rows.length > 0) {
+                return res.status(403).json({ error: 'This client has been transferred and cannot be booked.' });
+            }
+        }
 
         // 1. Fetch Calendar Details
         const calendarRes = await client.query(
@@ -663,7 +685,7 @@ router.post('/', async (req, res) => {
         const insertRes = await client.query(
             `INSERT INTO Appointments 
        (therapist_id, calendar_id, title, start_time, end_time, google_event_id, meet_link, client_email, client_name, client_phone, payment_amount, payment_status, location_type)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Pending', $12)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
             [
                 userId,
@@ -677,6 +699,7 @@ router.post('/', async (req, res) => {
                 client_name,
                 req.body.client_phone || null,
                 payment_amount || 0,
+                payment_status || 'Pending',
                 location_type || 'google_meet'
             ]
         );
@@ -703,6 +726,144 @@ router.post('/', async (req, res) => {
     }
 });
 
+// POST /api/bookings/:id/reminder - Send session reminder email to client
+router.post('/:id/reminder', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+
+        const apptRes = await client.query(
+            `SELECT a.*, u.user_name as therapist_name
+             FROM Appointments a
+             JOIN Users u ON a.therapist_id = u.id
+             WHERE a.id = $1 AND a.therapist_id = $2`,
+            [id, userId]
+        );
+
+        if (apptRes.rows.length === 0) return res.status(404).json({ error: 'Booking not found' });
+        const appt = apptRes.rows[0];
+
+        if (!appt.client_email) return res.status(400).json({ error: 'Client has no email address' });
+
+        const startTime = new Date(appt.start_time);
+        const formatted = startTime.toLocaleString('en-IN', {
+            weekday: 'long', month: 'short', day: 'numeric',
+            year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+            timeZone: 'Asia/Kolkata'
+        });
+
+        await sendEmail({
+            to: appt.client_email,
+            subject: `Reminder: Your session with ${appt.therapist_name} is coming up`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px; color: #1a1a1a;">
+                    <h2 style="color: #082421;">Session Reminder</h2>
+                    <p>Hi ${appt.client_name || 'there'},</p>
+                    <p>This is a friendly reminder about your upcoming session:</p>
+                    <div style="background: #f5f5f5; border-radius: 10px; padding: 16px 20px; margin: 20px 0;">
+                        <p style="margin: 4px 0;"><strong>Session:</strong> ${appt.title}</p>
+                        <p style="margin: 4px 0;"><strong>Date & Time:</strong> ${formatted} IST</p>
+                        <p style="margin: 4px 0;"><strong>Mode:</strong> ${appt.location_type === 'in_person' ? 'In-person' : 'Online (Google Meet)'}</p>
+                        ${appt.meet_link ? `<p style="margin: 4px 0;"><strong>Join Link:</strong> <a href="${appt.meet_link}">${appt.meet_link}</a></p>` : ''}
+                    </div>
+                    <p>Please be on time. If you need to reschedule or cancel, please contact your therapist.</p>
+                    <p style="color: #666; font-size: 13px; margin-top: 32px;">— ${appt.therapist_name} via MelloMinds</p>
+                </div>
+            `
+        });
+
+        res.json({ message: 'Reminder sent successfully' });
+    } catch (err) {
+        console.error('Error sending reminder:', err);
+        res.status(500).json({ error: 'Failed to send reminder' });
+    } finally {
+        client.release();
+    }
+});
+
+// PATCH /api/bookings/:id/reschedule - Therapist reschedules a booking
+router.patch('/:id/reschedule', async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const { new_start_time } = req.body;
+
+        if (!new_start_time) return res.status(400).json({ error: 'new_start_time is required' });
+
+        // Fetch appointment + calendar duration + google tokens
+        const apptRes = await client.query(
+            `SELECT a.*, c.duration, c.title as cal_title,
+                    u.user_name as therapist_name, u.email as therapist_email,
+                    ui.access_token, ui.refresh_token, ui.expiry_date
+             FROM Appointments a
+             JOIN Calendars c ON a.calendar_id = c.id
+             JOIN Users u ON a.therapist_id = u.id
+             LEFT JOIN UserIntegrations ui ON ui.user_id = a.therapist_id AND ui.provider = 'google'
+             WHERE a.id = $1 AND a.therapist_id = $2`,
+            [id, userId]
+        );
+
+        if (apptRes.rows.length === 0) return res.status(404).json({ error: 'Booking not found' });
+        const appt = apptRes.rows[0];
+
+        if (appt.status === 'cancelled') return res.status(400).json({ error: 'Cannot reschedule a cancelled booking' });
+
+        const durationMatch = appt.duration?.match(/(\d+)/);
+        const durationMinutes = durationMatch ? parseInt(durationMatch[0]) : 60;
+        const newStart = new Date(new_start_time);
+        const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
+
+        // Update Google Calendar event if connected
+        if (appt.access_token && appt.google_event_id) {
+            try {
+                oauth2Client.setCredentials({
+                    access_token: appt.access_token,
+                    refresh_token: appt.refresh_token,
+                    expiry_date: appt.expiry_date
+                });
+                const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+                await calendar.events.patch({
+                    calendarId: 'primary',
+                    eventId: appt.google_event_id,
+                    resource: {
+                        start: { dateTime: newStart.toISOString() },
+                        end: { dateTime: newEnd.toISOString() }
+                    }
+                });
+            } catch (gErr) {
+                console.error('Google Calendar update failed:', gErr.message);
+            }
+        }
+
+        // Update DB
+        const updated = await client.query(
+            `UPDATE Appointments SET start_time = $1, end_time = $2 WHERE id = $3 AND therapist_id = $4 RETURNING *`,
+            [newStart, newEnd, id, userId]
+        );
+
+        // Send reschedule email to client
+        if (appt.client_email) {
+            const emailContent = rescheduleConfirmationEmail({
+                clientName: appt.client_name || 'Client',
+                therapistName: appt.therapist_name,
+                sessionTitle: appt.title,
+                newStartTime: newStart.toISOString(),
+                meetLink: appt.meet_link
+            });
+            sendEmail({ to: appt.client_email, ...emailContent }).catch(() => {});
+        }
+
+        res.json(updated.rows[0]);
+    } catch (err) {
+        console.error('Error rescheduling booking:', err);
+        res.status(500).json({ error: 'Failed to reschedule booking' });
+    } finally {
+        client.release();
+    }
+});
+
 // PATCH /api/bookings/:id/status - Update appointment status (cancelled, noshow, scheduled, completed)
 router.patch('/:id/status', async (req, res) => {
     const client = await pool.connect();
@@ -717,7 +878,11 @@ router.patch('/:id/status', async (req, res) => {
         }
 
         const result = await client.query(
-            `UPDATE Appointments SET status = $1
+            `UPDATE Appointments SET status = $1,
+             payment_status = CASE 
+               WHEN $1 = 'cancelled' AND payment_status = 'Pending' THEN 'Cancelled'
+               ELSE payment_status
+             END
              WHERE id = $2 AND therapist_id = $3
              RETURNING *, (SELECT user_name FROM Users WHERE id = $3) as therapist_name`,
             [status, id, userId]
@@ -728,6 +893,26 @@ router.patch('/:id/status', async (req, res) => {
         }
 
         const appt = result.rows[0];
+
+        // When cancelled: delete Google Calendar event to free the slot
+        if (status === 'cancelled' && appt.google_event_id) {
+            try {
+                const tokenRes = await client.query(
+                    "SELECT access_token, refresh_token, expiry_date FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
+                    [userId]
+                );
+                if (tokenRes.rows.length > 0) {
+                    oauth2Client.setCredentials(tokenRes.rows[0]);
+                    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+                    await calendar.events.delete({ calendarId: 'primary', eventId: appt.google_event_id });
+                    // Clear the google_event_id so we don't try to delete again
+                    await client.query('UPDATE Appointments SET google_event_id = NULL WHERE id = $1', [appt.id]);
+                }
+            } catch (gErr) {
+                console.error('Google Calendar event deletion failed:', gErr.message);
+                // Non-fatal — booking is still cancelled in our system
+            }
+        }
 
         // Send cancellation email to client when therapist cancels
         if (status === 'cancelled' && appt.client_email) {
@@ -758,7 +943,7 @@ router.patch('/:id/payment', async (req, res) => {
         const { id } = req.params;
         const { payment_status, payment_amount } = req.body;
 
-        const allowedStatuses = ['Pending', 'Paid', 'Refunded'];
+        const allowedStatuses = ['Pending', 'Paid', 'Refunded', 'Cancelled'];
         if (payment_status && !allowedStatuses.includes(payment_status)) {
             return res.status(400).json({ error: `Invalid payment_status. Must be one of: ${allowedStatuses.join(', ')}` });
         }

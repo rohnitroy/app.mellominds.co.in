@@ -169,3 +169,24 @@ export function rescheduleConfirmationEmail({ clientName, therapistName, session
         </div>`
     };
 }
+
+export function transferCancelledEmail({ recipientName, fromTherapistName, clientName, isClient = false }) {
+    const subject = `Transfer Cancelled — ${clientName}`;
+    const body = isClient
+        ? `A transfer request involving your care has been cancelled by your therapist <strong>${fromTherapistName}</strong>. You will continue your sessions as before.`
+        : `<strong>${fromTherapistName}</strong> has cancelled the pending transfer request for client <strong>${clientName}</strong>. No action is required from you.`;
+    return {
+        subject,
+        html: `
+        <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px; background: #f9f9f9;">
+            <div style="background: #082421; border-radius: 12px 12px 0 0; padding: 24px 32px;">
+                <h1 style="color: #fff; margin: 0; font-size: 20px;">Transfer Cancelled</h1>
+            </div>
+            <div style="background: #fff; border-radius: 0 0 12px 12px; padding: 32px; border: 1px solid #e0e0e0;">
+                <p style="color: #333; font-size: 15px;">Hi <strong>${recipientName}</strong>,</p>
+                <p style="color: #333; font-size: 15px;">${body}</p>
+                <p style="color: #888; font-size: 13px; margin-top: 32px;">— The MelloMinds Team</p>
+            </div>
+        </div>`
+    };
+}

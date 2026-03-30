@@ -28,11 +28,13 @@ interface Client {
 interface ClientViewProps {
   client: Client;
   onBack: () => void;
+  initialTab?: string;
+  propCutoffDate?: Date;
 }
 
-const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
+const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, propCutoffDate }) => {
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState<string>('Overview');
+  const [activeTab, setActiveTab] = useState<string>(initialTab || 'Overview');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
   const [showAddNotesModal, setShowAddNotesModal] = useState<boolean>(false);
@@ -92,8 +94,10 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
   const [activities, setActivities] = useState<any[]>([]);
   const [activityForm, setActivityForm] = useState({ name: '', description: '', visible_to_client: false });
   const [transferInfo, setTransferInfo] = useState<{ transferred: boolean; from_therapist_email?: string; created_at?: string } | null>(null);
-  const [isTransferredClient, setIsTransferredClient] = useState(false);
-  const [transferCutoffDate, setTransferCutoffDate] = useState<Date | null>(null); // Therapist A: date after which data is hidden
+  const [isTransferredClient, setIsTransferredClient] = useState(!!propCutoffDate);
+  const [transferCutoffDate, setTransferCutoffDate] = useState<Date | null>(propCutoffDate || null);
+  const [pendingTransfer, setPendingTransfer] = useState<{ id: number } | null>(null);
+  const [showCancelTransferModal, setShowCancelTransferModal] = useState(false);
 
   // Note template state
   const [noteTemplate, setNoteTemplate] = useState<any[]>([]);
@@ -137,11 +141,14 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     fetch(`${API_BASE_URL}/api/clients/transfers/outgoing`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : [])
       .then((data: any[]) => {
-        const match = data.find(t => t.client_email === client.email && t.status === 'approved');
-        if (match) {
+        const approved = data.find(t => t.client_email === client.email && t.status === 'approved');
+        if (approved) {
           setIsTransferredClient(true);
-          setTransferCutoffDate(new Date(match.updated_at)); // approved_at = updated_at
+          setTransferCutoffDate(new Date(approved.updated_at));
         }
+        const pending = data.find(t => t.client_email === client.email && t.status === 'pending');
+        if (pending) setPendingTransfer({ id: pending.id });
+        else setPendingTransfer(null);
       })
       .catch(() => {});
   }, [client.id, client.email]);
@@ -382,6 +389,23 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
     }
   };
 
+  const handleCancelTransfer = async () => {
+    if (!pendingTransfer) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/clients/transfers/${pendingTransfer.id}/cancel`, {
+        method: 'DELETE', credentials: 'include'
+      });
+      if (res.ok) {
+        toast.success('Transfer cancelled. Notifications sent.');
+        setPendingTransfer(null);
+        setShowCancelTransferModal(false);
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to cancel transfer');
+      }
+    } catch { toast.error('Network error'); }
+  };
+
   const handleTransferEmailChange = (email: string) => {
     setTransferEmail(email);
     if (!email.trim() || !email.includes('@')) {
@@ -500,6 +524,11 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
                   <div className={styles.actionMenuDropdown}>
                     <div className={styles.actionMenuItem} onClick={() => { handleEditClient(); setShowActionMenu(false); }}>Edit</div>
                     <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); setShowTransferModal(true); }}>Transfer</div>
+                    {pendingTransfer && (
+                      <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); setShowCancelTransferModal(true); }} style={{ color: '#e65100' }}>
+                        Cancel Transfer
+                      </div>
+                    )}
                     {client.manually_added && !isTransferredClient && (
                       <div className={styles.actionMenuItem} onClick={() => { setShowActionMenu(false); setShowDeleteModal(true); }} style={{ color: '#e53935' }}>Delete</div>
                     )}
@@ -1159,6 +1188,40 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack }) => {
               onBack={() => { setShowCreateBookingModal(false); setRefreshTrigger(prev => prev + 1); }}
               prefillClient={{ name: editData.name, email: editData.email, phone: editData.phone }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Transfer Confirmation Modal */}
+      {showCancelTransferModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          onClick={() => setShowCancelTransferModal(false)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '420px', fontFamily: 'Urbanist' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#fff3e0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e65100" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              </div>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#082421' }}>Cancel Transfer?</h3>
+            </div>
+            <p style={{ margin: '0 0 8px', fontSize: '14px', color: '#555', lineHeight: 1.6 }}>
+              Are you sure you want to cancel the pending transfer request for <strong>{client.name}</strong>?
+            </p>
+            <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#9CA3AF' }}>
+              The receiving therapist and the client will be notified via email and dashboard notification.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowCancelTransferModal(false)}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
+                Keep Transfer
+              </button>
+              <button onClick={handleCancelTransfer}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#e65100', color: '#fff', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
+                Yes, Cancel Transfer
+              </button>
+            </div>
           </div>
         </div>
       )}
