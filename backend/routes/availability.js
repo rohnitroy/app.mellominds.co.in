@@ -89,18 +89,21 @@ router.get('/slots', async (req, res) => {
         const { user_id: therapistId, duration } = calRes.rows[0];
         const durationMinutes = parseInt((duration || '60').match(/\d+/)[0]) || 60;
 
-        // 2. Determine Day of Week in IST (0=Sun, 6=Sat)
-        // Parse date as IST to get correct day
+        // 2. Determine Day of Week in the therapist's timezone (IST)
         const [dy, dm, dd] = date.split('-').map(Number);
-        const istDate = new Date(Date.UTC(dy, dm - 1, dd, 0, 0, 0)); // treat as IST midnight
-        const dayOfWeek = istDate.getUTCDay();
+        const istDate = new Date(Date.UTC(dy, dm - 1, dd, 0, 0, 0));
+        const dayOfWeekStr = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', weekday: 'short' })
+            .formatToParts(istDate)
+            .find(p => p.type === 'weekday')?.value;
+        const dayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+        const dayOfWeekNum = dayMap[dayOfWeekStr] ?? istDate.getUTCDay();
 
         // 3. Fetch Platform Availability for that day
         const availRes = await client.query(
             `SELECT start_time, end_time 
              FROM Availability 
              WHERE user_id = $1 AND day_of_week = $2 AND is_enabled = true`,
-            [therapistId, dayOfWeek]
+            [therapistId, dayOfWeekNum]
         );
 
         if (availRes.rows.length === 0) {
@@ -145,26 +148,28 @@ router.get('/slots', async (req, res) => {
         ];
 
         // 6. Generate available slots
-        // All times are in IST (Asia/Kolkata, UTC+5:30)
+        // Slot times are stored as IST in the Availability table (therapist's local time).
+        // We generate slots in IST, then format them in the client's requested timezone.
         const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
         const toISTMidnight = (dateStr) => {
-            // Parse date as IST midnight → get UTC equivalent
             const [y, m, d] = dateStr.split('-').map(Number);
-            // IST midnight = UTC midnight - 5:30 = UTC (prev day) 18:30
             return new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - IST_OFFSET_MS);
         };
 
+        // Format a UTC ms timestamp as a slot label in the requested timezone
         const formatSlot = (utcMs) => {
-            // Convert UTC ms to IST time for display
-            const istMs = utcMs + IST_OFFSET_MS;
-            const d = new Date(istMs);
-            let h = d.getUTCHours();
-            const m = d.getUTCMinutes();
-            const period = h >= 12 ? 'PM' : 'AM';
-            if (h > 12) h -= 12;
-            if (h === 0) h = 12;
-            return `${h}:${m.toString().padStart(2, '0')}${period}`;
+            const d = new Date(utcMs);
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone,
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+            }).formatToParts(d);
+            const hour = parts.find(p => p.type === 'hour')?.value || '12';
+            const minute = parts.find(p => p.type === 'minute')?.value || '00';
+            const dayPeriod = parts.find(p => p.type === 'dayPeriod')?.value?.toUpperCase() || 'AM';
+            return `${hour}:${minute}${dayPeriod}`;
         };
 
         const availableSlots = [];

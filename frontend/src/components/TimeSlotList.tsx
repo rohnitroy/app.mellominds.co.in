@@ -40,8 +40,8 @@ const TimeSlotList: React.FC<TimeSlotListProps> = ({ calendarId, selectedDate, o
         }
     }, [calendarId, selectedDate, fetchSlots]);
 
-    // Slots come back as "9:00AM", "10:30PM" etc.
-    // Convert to ISO datetime for the backend by combining with selectedDate
+    // Slots come back as "9:00AM", "10:30PM" etc. in the user's local timezone.
+    // Convert to UTC ISO by interpreting the time in the user's actual timezone.
     const slotToISO = (slot: string): string => {
         const match = slot.match(/^(\d+):(\d+)(AM|PM)$/i);
         if (!match) return '';
@@ -50,11 +50,30 @@ const TimeSlotList: React.FC<TimeSlotListProps> = ({ calendarId, selectedDate, o
         const period = match[3].toUpperCase();
         if (period === 'PM' && h !== 12) h += 12;
         if (period === 'AM' && h === 12) h = 0;
-        // Build as IST (UTC+5:30) — same convention as the rest of the system
+
         const [y, mo, d] = selectedDate.split('-').map(Number);
-        const istMidnightUTC = Date.UTC(y, mo - 1, d) - 5.5 * 60 * 60 * 1000;
-        const slotUTC = istMidnightUTC + (h * 60 + m) * 60000;
-        return new Date(slotUTC).toISOString();
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+        // Use Intl to find the UTC offset for this exact date/time in the user's timezone
+        // by formatting a known UTC time and comparing
+        const approxUTC = Date.UTC(y, mo - 1, d, h, m, 0);
+        const localStr = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', hour12: false,
+        }).format(new Date(approxUTC));
+
+        // Parse back the local time to find offset
+        const [datePart, timePart] = localStr.split(', ');
+        if (!datePart || !timePart) {
+            // Fallback: use local Date constructor
+            return new Date(`${selectedDate}T${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`).toISOString();
+        }
+        const [ly, lmo, ld] = datePart.split('-').map(Number);
+        const [lh, lmin] = timePart.split(':').map(Number);
+        const localUTC = Date.UTC(ly, lmo - 1, ld, lh, lmin, 0);
+        const offsetMs = localUTC - approxUTC;
+        return new Date(approxUTC - offsetMs).toISOString();
     };
 
     // Display the slot label as-is (already formatted like "9:00AM")
