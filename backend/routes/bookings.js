@@ -135,6 +135,23 @@ router.post('/public', async (req, res) => {
 
         await client.query('COMMIT');
 
+        // Upsert client into Clients table so they appear in All Clients
+        try {
+            await client.query(
+                `INSERT INTO Clients (therapist_id, name, email, phone)
+                 VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (therapist_id, email)
+                 DO UPDATE SET
+                    name = EXCLUDED.name,
+                    phone = COALESCE(EXCLUDED.phone, Clients.phone),
+                    updated_at = CURRENT_TIMESTAMP`,
+                [userId, client_name, client_email, client_phone || null]
+            );
+        } catch (clientErr) {
+            // Non-fatal — booking is already committed, just log
+            console.error('Failed to upsert client from public booking:', clientErr.message);
+        }
+
         // Notify therapist of new booking (public)
         await createNotification({
             userId,
