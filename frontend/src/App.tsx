@@ -1094,6 +1094,8 @@ const AppContent: React.FC = () => {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardHome />} />
               <Route path="clients" element={<AllClients />} />
+              <Route path="clients/:clientId" element={<AllClients />} />
+              <Route path="clients/:clientId/:tab" element={<AllClients />} />
               <Route path="bookings" element={<Appointments />} />
               <Route path="my-calendar" element={<CalendarPage />} />
               <Route path="my-calendar/new" element={<CreateEventPage />} />

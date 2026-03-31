@@ -30,9 +30,10 @@ interface ClientViewProps {
   onBack: () => void;
   initialTab?: string;
   propCutoffDate?: Date;
+  onTabChange?: (tab: string) => void;
 }
 
-const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, propCutoffDate }) => {
+const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, propCutoffDate, onTabChange }) => {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<string>(initialTab || 'Overview');
   const [selectedDate, setSelectedDate] = useState<string>('all');
@@ -76,17 +77,18 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   });
 
   // Track saved state separately so cancel always resets to last saved
+  const clean = (v?: string) => (!v || v === '-' ? '' : v);
   const [savedData, setSavedData] = useState({
-    name: client.name || '',
-    phone: client.phone || '',
-    email: client.email || '',
-    emergencyName: client.emergencyName || '',
-    emergencyRelation: client.emergencyRelation || '',
-    emergencyPhone: client.emergencyPhone || '',
-    age: client.age || '',
-    occupation: client.occupation || '',
-    gender: client.gender || 'Male',
-    maritalStatus: client.maritalStatus || 'Single'
+    name: clean(client.name),
+    phone: clean(client.phone),
+    email: clean(client.email),
+    emergencyName: clean(client.emergencyName),
+    emergencyRelation: clean(client.emergencyRelation),
+    emergencyPhone: clean(client.emergencyPhone),
+    age: clean(client.age),
+    occupation: clean(client.occupation),
+    gender: clean(client.gender),
+    maritalStatus: clean(client.maritalStatus),
   });
 
   const [editData, setEditData] = useState({ ...savedData });
@@ -112,6 +114,30 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   };
 
   useEffect(() => { fetchActivities(); }, [client.id]);
+
+  // Fetch fresh client data from backend to ensure no stale/placeholder values
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/clients/${client.id}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        const fresh = {
+          name: data.name || '',
+          phone: data.phone || '',
+          email: data.email || '',
+          emergencyName: data.emergencyName || '',
+          emergencyRelation: data.emergencyRelation || '',
+          emergencyPhone: data.emergencyPhone || '',
+          age: data.age || '',
+          occupation: data.occupation || '',
+          gender: clean(data.gender),
+          maritalStatus: clean(data.maritalStatus),
+        };
+        setSavedData(fresh);
+        setEditData(fresh);
+      })
+      .catch(() => {});
+  }, [client.id]);
 
   // Fetch note template
   useEffect(() => {
@@ -156,6 +182,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
   const [noteContent, setNoteContent] = useState<string>('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [bookingStatusUpdating, setBookingStatusUpdating] = useState<number | null>(null);
 
   const handleActivitySubmit = async () => {
     if (!activityForm.name.trim()) { toast.warning('Activity name is required.'); return; }
@@ -286,7 +313,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         setNoteContent('');
         setSelectedAppointmentId('');
         setEditingNote(null);
-        // Reset form
         const init: Record<string, any> = {};
         noteTemplate.forEach((f: any) => { init[f.key] = f.type === 'checkbox' ? [] : ''; });
         setNoteFormData(init);
@@ -345,8 +371,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
           emergencyPhone: updated.emergencyPhone || '',
           age: updated.age || '',
           occupation: updated.occupation || '',
-          gender: updated.gender || 'Male',
-          maritalStatus: updated.maritalStatus || 'Single'
+          gender: clean(updated.gender),
+          maritalStatus: clean(updated.maritalStatus),
         };
         setSavedData(newSaved);
         setEditData(newSaved);
@@ -462,6 +488,26 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     }
   };
 
+  const handleUpdateBookingStatus = async (bookingId: number, status: string) => {
+    setBookingStatusUpdating(bookingId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+        credentials: 'include'
+      });
+      if (res.ok) {
+        toast.success(`Booking marked as ${status}`);
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to update status');
+      }
+    } catch { toast.error('Error updating booking status'); }
+    finally { setBookingStatusUpdating(null); }
+  };
+
   const formatDateTime = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleString('en-US', {
@@ -491,7 +537,63 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       enableSorting: false,
       cell: ({ row }) => row.original.meet_link ? 'Google Meet' : (row.original.location_type === 'in_person' ? 'In-person' : 'Google Meet'),
     },
-  ], []);
+    {
+      id: 'status',
+      header: 'Status',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const s = row.original.status || 'scheduled';
+        const colors: Record<string, { bg: string; color: string }> = {
+          scheduled: { bg: '#e8f5e9', color: '#2e7d32' },
+          completed: { bg: '#e3f2fd', color: '#1565c0' },
+          cancelled: { bg: '#fdecea', color: '#c62828' },
+          noshow: { bg: '#fff3e0', color: '#e65100' },
+        };
+        const c = colors[s] || colors.scheduled;
+        return (
+          <span style={{ fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: c.bg, color: c.color, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
+            {s === 'noshow' ? 'No Show' : s.charAt(0).toUpperCase() + s.slice(1)}
+          </span>
+        );
+      },
+    },
+    ...(!(isTransferredClient && transferCutoffDate) ? [{
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      cell: ({ row }: any) => {
+        const appt = row.original;
+        const isUpdating = bookingStatusUpdating === appt.id;
+        if (appt.status === 'cancelled') return <span style={{ color: '#ccc', fontSize: '12px' }}>—</span>;
+        return (
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {appt.status !== 'completed' && (
+              <button
+                disabled={isUpdating}
+                onClick={() => handleUpdateBookingStatus(appt.id, 'completed')}
+                style={{ padding: '3px 10px', fontSize: '12px', fontFamily: 'Urbanist', fontWeight: 600, border: '1px solid #1565c0', borderRadius: '6px', background: '#fff', color: '#1565c0', cursor: 'pointer', opacity: isUpdating ? 0.6 : 1 }}>
+                Complete
+              </button>
+            )}
+            {appt.status !== 'noshow' && (
+              <button
+                disabled={isUpdating}
+                onClick={() => handleUpdateBookingStatus(appt.id, 'noshow')}
+                style={{ padding: '3px 10px', fontSize: '12px', fontFamily: 'Urbanist', fontWeight: 600, border: '1px solid #e65100', borderRadius: '6px', background: '#fff', color: '#e65100', cursor: 'pointer', opacity: isUpdating ? 0.6 : 1 }}>
+                No Show
+              </button>
+            )}
+            <button
+              disabled={isUpdating}
+              onClick={() => handleUpdateBookingStatus(appt.id, 'cancelled')}
+              style={{ padding: '3px 10px', fontSize: '12px', fontFamily: 'Urbanist', fontWeight: 600, border: '1px solid #c62828', borderRadius: '6px', background: '#fff', color: '#c62828', cursor: 'pointer', opacity: isUpdating ? 0.6 : 1 }}>
+              Cancel
+            </button>
+          </div>
+        );
+      },
+    }] as ColumnDef<any, any>[] : []),
+  ], [isTransferredClient, transferCutoffDate, bookingStatusUpdating]);
 
   return (
     <div className={styles.clientView}>
@@ -617,7 +719,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
               <button
                 key={tab}
                 className={`${styles.tabButton} ${activeTab === tab ? styles.active : ''}`}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => { setActiveTab(tab); onTabChange?.(tab); }}
               >
                 {tab}
               </button>
@@ -703,71 +805,77 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
               <>
                 <div className={styles.sessionList}>
                   {appointments.length === 0 && (
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px' }}>No bookings found for this client.</div>
+                    <div style={{ padding: '32px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px', fontFamily: 'Urbanist' }}>No bookings found for this client.</div>
                   )}
                   {appointments.map((app, i) => (
                     <div className={styles.sessionItem} key={i}>
                       <div className={styles.sessionHeader}>
-                        <span className={styles.sessionTime}>{formatDateTime(app.start_time)}</span>
-                        <div className={styles.sessionTags}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span className={styles.sessionTime}>{formatDateTime(app.start_time)}</span>
                           <span className={styles.sessionMode}>{app.meet_link ? 'Google Meet' : (app.location_type === 'in_person' ? 'In-person' : 'Google Meet')}</span>
                           <span className={styles.sessionType}>{app.title}</span>
                           <span style={{
-                            fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '12px',
-                            background: app.status === 'cancelled' ? '#fdecea' : app.status === 'noshow' ? '#fff3e0' : '#e8f5e9',
-                            color: app.status === 'cancelled' ? '#c62828' : app.status === 'noshow' ? '#e65100' : '#2e7d32',
-                            textTransform: 'capitalize'
-                          }}>{app.status || 'scheduled'}</span>
+                            fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '6px',
+                            background: app.status === 'cancelled' ? '#fdecea' : app.status === 'noshow' ? '#fff3e0' : app.status === 'completed' ? '#e3f2fd' : '#e8f5e9',
+                            color: app.status === 'cancelled' ? '#c62828' : app.status === 'noshow' ? '#e65100' : app.status === 'completed' ? '#1565c0' : '#2e7d32',
+                            fontFamily: 'Urbanist',
+                          }}>
+                            {app.status === 'noshow' ? 'No Show' : app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)) : 'Scheduled'}
+                          </span>
                         </div>
+                        {!(isTransferredClient && transferCutoffDate) && app.status !== 'cancelled' && !(app.notes?.length > 0) && (
+                          <button
+                            className={styles.noteEditBtn}
+                            onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
+                            + Add Note
+                          </button>
+                        )}
                       </div>
                       <div className={styles.sessionNotes}>
                         {app.notes && app.notes.length > 0 ? (
                           app.notes.map((note: any, idx: number) => (
-                            <div key={idx} style={{ marginBottom: '8px', padding: '10px 12px', background: '#f8fffe', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                <div style={{ fontSize: '11px', color: '#9CA3AF', fontFamily: 'Urbanist' }}>
+                            <div key={idx} className={styles.noteCard}>
+                              <div className={styles.noteCardHeader}>
+                                <span className={styles.noteDate}>
                                   {new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </div>
-                                <button
-                                  onClick={() => handleEditNote(note, app.id.toString())}
-                                  style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '3px 10px', fontSize: '12px', fontFamily: 'Urbanist', fontWeight: 600, color: '#082421', cursor: 'pointer', display: (isTransferredClient && transferCutoffDate) ? 'none' : 'block' }}>
-                                  Edit
-                                </button>
+                                </span>
+                                {!(isTransferredClient && transferCutoffDate) && (
+                                  <button className={styles.noteEditBtn} onClick={() => handleEditNote(note, app.id.toString())}>
+                                    Edit
+                                  </button>
+                                )}
                               </div>
-                              {/* Render structured note or plain text */}
                               {noteTemplate.length > 0 && note.content && typeof note.content === 'object' && !note.content.text ? (
                                 noteTemplate.map((field: any) => {
                                   const val = note.content[field.key];
                                   if (!val || (Array.isArray(val) && val.length === 0)) return null;
                                   return (
-                                    <div key={field.key} style={{ marginBottom: '6px' }}>
-                                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#6E6E6E', fontFamily: 'Urbanist', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{field.label}</div>
-                                      <div style={{ fontSize: '14px', fontFamily: 'Urbanist', color: '#1a1a1a' }}>
-                                        {Array.isArray(val) ? val.join(', ') : val}
-                                      </div>
+                                    <div key={field.key}>
+                                      <div className={styles.noteFieldLabel}>{field.label}</div>
+                                      <div className={styles.noteFieldValue}>{Array.isArray(val) ? val.join(', ') : val}</div>
                                     </div>
                                   );
                                 })
                               ) : (
-                                <div style={{ fontSize: '14px', fontFamily: 'Urbanist', fontWeight: 500, color: '#1a1a1a' }}>
+                                <div className={styles.notePlainText}>
                                   {typeof note.content === 'object' ? note.content?.text : note.content}
                                 </div>
                               )}
                             </div>
                           ))
                         ) : (
-                          <div style={{ fontSize: '13px', color: '#9CA3AF', fontStyle: 'italic', padding: '4px 0' }}>No notes for this session.</div>
+                          <span className={styles.noNotesText}>No notes for this session.</span>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className={styles.addNotesSection}>
-                  {!(isTransferredClient && transferCutoffDate) && (
-                    <button className={styles.addNotesButton} onClick={() => setShowAddNotesModal(true)}>+ Add Note</button>
-                  )}
-                </div>
+                {!(isTransferredClient && transferCutoffDate) && (
+                  <div className={styles.addNotesSection}>
+                    <button className={styles.addNotesButton} onClick={() => { setSelectedAppointmentId(''); setShowAddNotesModal(true); }}>+ Add Note</button>
+                  </div>
+                )}
               </>
             )}
 
@@ -880,6 +988,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
               <div className={styles.formGroup}>
                 <label>Gender</label>
                 <select className={styles.formSelect} value={editData.gender} onChange={(e) => setEditData({ ...editData, gender: e.target.value })}>
+                  <option value="">Not specified</option>
                   <option>Male</option>
                   <option>Female</option>
                   <option>Other</option>
@@ -888,6 +997,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
               <div className={styles.formGroup}>
                 <label>Marital Status</label>
                 <select className={styles.formSelect} value={editData.maritalStatus} onChange={(e) => setEditData({ ...editData, maritalStatus: e.target.value })}>
+                  <option value="">Not specified</option>
                   <option>Single</option>
                   <option>Married</option>
                   <option>Divorced</option>
@@ -917,11 +1027,11 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
 
       {/* Add Notes Modal */}
       {showAddNotesModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowAddNotesModal(false)}>
+        <div className={styles.modalOverlay} onClick={() => { setShowAddNotesModal(false); setEditingNote(null); setSelectedAppointmentId(''); }}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <h2 style={{ margin: 0 }}>{editingNote ? 'Edit Note' : '+ Add Notes'}</h2>
-              <button onClick={() => { setShowAddNotesModal(false); setEditingNote(null); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+              <button onClick={() => { setShowAddNotesModal(false); setEditingNote(null); setSelectedAppointmentId(''); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
             </div>
             <p>{editingNote ? 'Update the note for this session.' : 'Add notes to a dedicated client booking.'}</p>
 
@@ -934,11 +1044,13 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   onChange={(e) => setSelectedAppointmentId(e.target.value)}
                 >
                   <option value="">Select booking</option>
-                  {appointments.map(app => (
-                    <option key={app.id} value={app.id}>
-                      {formatDateTime(app.start_time)} - {app.title}{app.notes?.length > 0 ? ' ✓' : ''}
-                    </option>
-                  ))}
+                  {appointments
+                    .filter(app => app.status !== 'cancelled' && !(app.notes?.length > 0))
+                    .map(app => (
+                      <option key={app.id} value={app.id}>
+                        {formatDateTime(app.start_time)} - {app.title}
+                      </option>
+                    ))}
                 </select>
               </div>
             )}

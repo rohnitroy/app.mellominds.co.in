@@ -8,7 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
 import { useToast } from './context/ToastContext';
 import { exportToCSV } from './utils/exportCSV';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 interface Client {
   id: number;
   name: string;
@@ -43,6 +43,8 @@ const defaultForm = {
 const AllClients: React.FC = () => {
   const toast = useToast();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { clientId, tab } = useParams<{ clientId?: string; tab?: string }>();
   const [activeTab, setActiveTab] = useState<'all' | 'transferred'>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -79,6 +81,18 @@ const AllClients: React.FC = () => {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  // Handle URL-based client selection (e.g. /clients/:clientId/:tab)
+  useEffect(() => {
+    if (clientId && clients.length > 0) {
+      const match = clients.find(c => c.id === parseInt(clientId));
+      if (match) {
+        const tabName = tab ? decodeURIComponent(tab) : 'Overview';
+        setInitialTab(tabName);
+        setSelectedClient(match);
+      }
+    }
+  }, [clientId, tab, clients]);
 
   // Handle navigation from Appointments "Add Note" action
   useEffect(() => {
@@ -164,7 +178,10 @@ const AllClients: React.FC = () => {
         <div
           className={styles.clientName}
           style={{ cursor: 'pointer', color: '#2D7579', textDecoration: 'underline' }}
-          onClick={() => setSelectedClient(row.original)}
+          onClick={() => {
+            setSelectedClient(row.original);
+            navigate(`/clients/${row.original.id}/Overview`);
+          }}
         >
           {row.original.name}
         </div>
@@ -296,6 +313,7 @@ const AllClients: React.FC = () => {
               setSelectedClientCutoff(new Date(t.transfer_date || t.updated_at));
               setInitialTab('Overview');
               setSelectedClient(clientObj);
+              navigate(`/clients/${t.client_id}/Overview`);
             }}
             style={{ padding: '5px 14px', background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
           >
@@ -317,6 +335,10 @@ const AllClients: React.FC = () => {
           setInitialTab(undefined);
           setSelectedClientCutoff(undefined);
           fetchClients();
+          navigate('/clients', { replace: true });
+        }}
+        onTabChange={(newTab) => {
+          navigate(`/clients/${selectedClient.id}/${encodeURIComponent(newTab)}`, { replace: true });
         }}
       />
     );

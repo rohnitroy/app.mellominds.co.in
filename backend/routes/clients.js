@@ -441,6 +441,27 @@ router.post('/:id/transfer', async (req, res) => {
     }
 });
 
+// GET /api/clients/:id
+router.get('/:id', async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT id, name, email, phone, age, occupation, gender,
+                    marital_status as "maritalStatus",
+                    emergency_name as "emergencyName",
+                    emergency_phone as "emergencyPhone",
+                    emergency_relation as "emergencyRelation",
+                    manually_added
+             FROM Clients WHERE id = $1 AND therapist_id = $2`,
+            [req.params.id, req.user.id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Client not found' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Error fetching client:', err);
+        res.status(500).json({ error: 'Failed to fetch client' });
+    }
+});
+
 // PUT /api/clients/:id
 router.put('/:id', async (req, res) => {
     try {

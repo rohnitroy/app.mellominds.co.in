@@ -1055,4 +1055,45 @@ router.patch('/:id/payment', async (req, res) => {
     }
 });
 
+// POST /api/bookings/send-link - Send booking link to client via email
+router.post('/send-link', async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { client_name, client_email, client_phone, calendar_id } = req.body;
+
+        if (!client_name || !client_email || !calendar_id) {
+            return res.status(400).json({ error: 'Client name, email and calendar are required' });
+        }
+
+        const calRes = await pool.query(
+            `SELECT c.*, u.user_name as therapist_name
+             FROM Calendars c JOIN Users u ON c.user_id = u.id
+             WHERE c.id = $1 AND c.user_id = $2`,
+            [calendar_id, userId]
+        );
+        if (calRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Calendar not found' });
+        }
+        const cal = calRes.rows[0];
+
+        const bookingLink = `${process.env.FRONTEND_URL}/book/${userId}/${cal.slug?.replace(/^\//, '')}`;
+
+        const { bookingLinkEmail } = await import('../lib/email.js');
+        const emailContent = bookingLinkEmail({
+            clientName: client_name,
+            therapistName: cal.therapist_name,
+            calendarTitle: cal.title,
+            calendarDescription: cal.description || '',
+            duration: cal.duration,
+            bookingLink,
+        });
+
+        await sendEmail({ to: client_email, ...emailContent });
+        res.json({ message: 'Booking link sent successfully' });
+    } catch (error) {
+        console.error('Error sending booking link:', error);
+        res.status(500).json({ error: 'Failed to send booking link' });
+    }
+});
+
 export default router;

@@ -190,3 +190,29 @@ export function transferCancelledEmail({ recipientName, fromTherapistName, clien
         </div>`
     };
 }
+
+export function bookingLinkEmail({ clientName, therapistName, calendarTitle, calendarDescription, duration, bookingLink }) {
+    return {
+        subject: `Book a session with ${therapistName} — ${calendarTitle}`,
+        html: `
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #f9f9f9; padding: 32px;">
+            <div style="background: #082421; border-radius: 12px 12px 0 0; padding: 24px 32px;">
+                <h1 style="color: #fff; margin: 0; font-size: 22px;">You're invited to book a session 📅</h1>
+            </div>
+            <div style="background: #fff; border-radius: 0 0 12px 12px; padding: 32px; border: 1px solid #e0e0e0;">
+                <p style="color: #333; font-size: 15px;">Hi <strong>${clientName}</strong>,</p>
+                <p style="color: #333; font-size: 15px;"><strong>${therapistName}</strong> has shared a booking link with you.</p>
+                <div style="background: #f4fffe; border-left: 4px solid #2D7579; border-radius: 8px; padding: 16px 20px; margin: 24px 0;">
+                    <p style="margin: 0 0 6px; color: #082421; font-weight: 700; font-size: 16px;">${calendarTitle}</p>
+                    ${calendarDescription ? `<p style="margin: 0 0 6px; color: #555; font-size: 14px;">${calendarDescription}</p>` : ''}
+                    <p style="margin: 0; color: #555; font-size: 14px;">⏱ Duration: ${duration}</p>
+                </div>
+                <p style="text-align: center; margin: 28px 0;">
+                    <a href="${bookingLink}" style="background: #082421; color: #fff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 15px;">Book Your Session</a>
+                </p>
+                <p style="color: #888; font-size: 13px; margin-top: 32px; text-align: center;">Or copy this link: <a href="${bookingLink}" style="color: #2D7579;">${bookingLink}</a></p>
+                <p style="color: #888; font-size: 13px; margin-top: 24px;">— The MelloMinds Team</p>
+            </div>
+        </div>`
+    };
+}
