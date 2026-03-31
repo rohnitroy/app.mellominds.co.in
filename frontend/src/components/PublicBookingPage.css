@@ -1,4 +1,14 @@
 /* ── Container ─────────────────────────────────────────────────────────────── */
+
+/* Allow scroll on the public booking page — App.css sets overflow:hidden on
+   html/body for the dashboard layout. This class is added/removed by the
+   PublicBookingPage component on mount/unmount. */
+html.pbp-page,
+body.pbp-page {
+    overflow: auto !important;
+    height: auto !important;
+}
+
 .pbp-container {
     display: flex;
     justify-content: center;
@@ -470,16 +480,145 @@
 
 /* ── Responsive ────────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
+    /* Container: tighter padding on tablets */
+    .pbp-container {
+        padding: 16px 12px;
+        align-items: flex-start;
+    }
+
+    /* Grid: collapse to single column, remove fixed height so content flows naturally */
     .pbp-grid {
         grid-template-columns: 1fr;
+        height: auto;
+        min-height: unset;
         max-height: none;
         border-radius: 16px;
     }
-    .pbp-grid-details { grid-template-columns: 1fr; }
-    .pbp-col-service { border-right: none; border-bottom: 1px solid #f0f0f0; }
-    .pbp-col-calendar { border-right: none; border-bottom: 1px solid #f0f0f0; }
-    .pbp-selection-cards { grid-template-columns: 1fr; }
-    .pbp-col-details { padding: 28px 20px; }
+    .pbp-grid-details {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: unset;
+    }
+
+    /* All columns: remove fixed height, allow natural scroll */
+    .pbp-col-service {
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 24px 20px;
+    }
+    .pbp-col-calendar {
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 24px 20px;
+    }
+
+    /* Slots column: switch from fixed-height flex to natural flow */
+    .pbp-col-slots {
+        height: auto;
+        overflow: visible;
+        padding: 24px 20px;
+    }
+
+    /* Time slot list: remove overflow hidden so all slots show */
+    .time-slot-list {
+        flex: none;
+        overflow: visible;
+    }
+    .slots-scroll-container {
+        overflow: visible;
+        flex: none;
+        max-height: none;
+    }
+
+    /* Next button: no longer needs margin-top: auto */
+    .pbp-next-container {
+        margin-top: 16px;
+    }
+
+    /* Details column */
+    .pbp-col-details {
+        height: auto;
+        padding: 24px 20px;
+    }
+
+    /* Selection cards: stack vertically */
+    .pbp-selection-cards {
+        grid-template-columns: 1fr;
+    }
+
+    /* Meta row: allow wrapping on small screens */
+    .pbp-meta {
+        margin-top: 16px;
+    }
+
+    /* Form actions: stack buttons on small screens */
+    .pbp-form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .pbp-confirm-btn {
+        justify-content: center;
+        width: 100%;
+    }
+    .pbp-cancel-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Extra small phones */
+    .pbp-container {
+        padding: 12px 8px;
+    }
+
+    .pbp-grid,
+    .pbp-grid-details {
+        border-radius: 12px;
+    }
+
+    .pbp-col-service,
+    .pbp-col-calendar,
+    .pbp-col-slots,
+    .pbp-col-details {
+        padding: 20px 16px;
+    }
+
+    .pbp-service-title {
+        font-size: 18px;
+    }
+
+    .pbp-details-heading {
+        font-size: 18px;
+    }
+
+    /* Slot summary: keep badge and info side by side but allow wrapping */
+    .pbp-slot-summary {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    /* Success card: reduce padding on small phones */
+    .pbp-success-card {
+        padding: 36px 20px;
+    }
+    .pbp-success-card h2 {
+        font-size: 20px;
+    }
+
+    /* Timezone pill: allow text to wrap if needed */
+    .pbp-tz-pill {
+        white-space: normal;
+        text-align: right;
+    }
+
+    /* Col header: wrap if title + tz pill are too wide */
+    .pbp-col-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
 }
 
 /* ── InlineCalendar classes ────────────────────────────────────────────────── */

@@ -46,6 +46,16 @@ const PublicBookingPage: React.FC = () => {
     const { userId, slug } = useParams<{ userId: string; slug: string }>();
     const toast = useToast();
 
+    // Allow the page to scroll — App.css sets overflow:hidden on html/body for the dashboard
+    useEffect(() => {
+        document.body.classList.add('pbp-page');
+        document.documentElement.classList.add('pbp-page');
+        return () => {
+            document.body.classList.remove('pbp-page');
+            document.documentElement.classList.remove('pbp-page');
+        };
+    }, []);
+
     const [calendar, setCalendar] = useState<Calendar | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
