@@ -101,16 +101,32 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard}>
-            <div className={styles.cardContent}>
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: 0.75 }}>
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: '16px',
+              zIndex: 2, cursor: 'not-allowed',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+              padding: '16px'
+            }}>
+              <span style={{
+                background: '#F9E141',
+                color: '#082421', fontSize: '11px', fontWeight: 700,
+                padding: '4px 10px', borderRadius: '20px',
+                fontFamily: 'Urbanist', letterSpacing: '0.3px',
+                
+                whiteSpace: 'nowrap'
+              }}>
+                ⭐ Upgrade your plan
+              </span>
+            </div>
+            <div className={styles.cardContent} style={{ pointerEvents: 'none', userSelect: 'none' }}>
               <h3>
                 <People set="bulk" size="medium" primaryColor="#082421" />
                 Profile Link
-                <div className={styles.upgradeTag}>Upgrade your plan</div>
               </h3>
               <p>customize your profile link & edit your username...</p>
             </div>
-            <div className={styles.cardArrow}>
+            <div className={styles.cardArrow} style={{ pointerEvents: 'none' }}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -148,16 +164,32 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard}>
-            <div className={styles.cardContent}>
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: 0.75 }}>
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: '16px',
+              zIndex: 2, cursor: 'not-allowed',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+              padding: '16px'
+            }}>
+              <span style={{
+                background: '#F9E141',
+                color: '#082421', fontSize: '11px', fontWeight: 700,
+                padding: '4px 10px', borderRadius: '20px',
+                fontFamily: 'Urbanist', letterSpacing: '0.3px',
+                
+                whiteSpace: 'nowrap'
+              }}>
+                ⭐ Upgrade your plan
+              </span>
+            </div>
+            <div className={styles.cardContent} style={{ pointerEvents: 'none', userSelect: 'none' }}>
               <h3>
                 <Filter set="bulk" size="medium" primaryColor="#082421" />
                 Manage Reminders
               </h3>
               <p>enable/disable reminders and notifications...</p>
-              <div className={styles.upgradeTag}>Upgrade your plan</div>
             </div>
-            <div className={styles.cardArrow}>
+            <div className={styles.cardArrow} style={{ pointerEvents: 'none' }}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -201,54 +233,32 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard}>
-            <div className={styles.cardContent}>
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: 0.75 }}>
+            {/* Upgrade overlay */}
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: '16px',
+              zIndex: 2, cursor: 'not-allowed',
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+              padding: '16px'
+            }}>
+              <span style={{
+                background: '#F9E141',
+                color: '#082421', fontSize: '11px', fontWeight: 700,
+                padding: '4px 10px', borderRadius: '20px',
+                fontFamily: 'Urbanist', letterSpacing: '0.3px',
+                
+                whiteSpace: 'nowrap'
+              }}>
+                ⭐ Upgrade your plan
+              </span>
+            </div>
+            <div className={styles.cardContent} style={{ pointerEvents: 'none', userSelect: 'none' }}>
               <h3>
                 <Wallet set="bulk" size="medium" primaryColor="#082421" />
                 Connect Cashfree
               </h3>
               <p>Accept appointment payments via Cashfree payment gateway</p>
-              {cashfreeConnected ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
-                  <div className={styles.connectedTag}>✓ Connected ({cashfreeEnv})</div>
-                  <button className={styles.connectBtn} style={{ background: 'none', color: '#dc3545', border: '1px solid #dc3545' }} onClick={() => setShowDisconnectConfirm(true)}>Disconnect</button>
-                </div>
-              ) : showCashfreeForm ? (
-                <form onSubmit={handleCashfreeConnect} style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <select
-                    value={cashfreeForm.environment}
-                    onChange={e => setCashfreeForm({ ...cashfreeForm, environment: e.target.value })}
-                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px' }}
-                  >
-                    <option value="sandbox">Sandbox (Testing)</option>
-                    <option value="production">Production (Live)</option>
-                  </select>
-                  <input
-                    required
-                    type="text"
-                    placeholder="App ID"
-                    value={cashfreeForm.app_id}
-                    onChange={e => setCashfreeForm({ ...cashfreeForm, app_id: e.target.value })}
-                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px' }}
-                  />
-                  <input
-                    required
-                    type="password"
-                    placeholder="Secret Key"
-                    value={cashfreeForm.secret_key}
-                    onChange={e => setCashfreeForm({ ...cashfreeForm, secret_key: e.target.value })}
-                    style={{ padding: '8px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px' }}
-                  />
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button type="submit" className={styles.connectBtn} disabled={cashfreeLoading}>
-                      {cashfreeLoading ? 'Verifying...' : 'Save & Connect'}
-                    </button>
-                    <button type="button" className={styles.connectBtn} style={{ background: 'none', color: '#666', border: '1px solid #ddd' }} onClick={() => setShowCashfreeForm(false)}>Cancel</button>
-                  </div>
-                </form>
-              ) : (
-                <button className={styles.connectBtn} onClick={() => setShowCashfreeForm(true)}>+ Connect Cashfree</button>
-              )}
+              <button className={styles.connectBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>+ Connect Cashfree</button>
             </div>
           </div>
         </div>
