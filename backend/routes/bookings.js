@@ -49,6 +49,24 @@ router.post('/public', async (req, res) => {
         const calendarService = calendarRes.rows[0];
         const userId = calendarService.user_id; // Therapist ID
 
+        // Check if this client has been transferred away from this therapist
+        const transferCheck = await client.query(
+            `SELECT ct.id
+             FROM ClientTransfers ct
+             JOIN Clients c ON ct.client_id = c.id
+             WHERE ct.from_therapist_id = $1
+               AND LOWER(c.email) = LOWER($2)
+               AND ct.status = 'approved'
+             LIMIT 1`,
+            [userId, client_email]
+        );
+        if (transferCheck.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({
+                error: 'Your profile has been transferred to another therapist. Please book through your new therapist\'s booking page.'
+            });
+        }
+
         // Parse duration
         const durationMatch = calendarService.duration.match(/(\d+)/);
         const durationMinutes = durationMatch ? parseInt(durationMatch[0]) : 60;

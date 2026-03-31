@@ -246,7 +246,11 @@ const PublicBookingPage: React.FC = () => {
                 window.scrollTo(0, 0);
             } else {
                 const err = await response.json();
-                toast.error(`Booking failed: ${err.error}`);
+                if (response.status === 403) {
+                    toast.error(err.error);
+                } else {
+                    toast.error(`Booking failed: ${err.error}`);
+                }
             }
         } catch {
             toast.error('Network error. Please try again.');
