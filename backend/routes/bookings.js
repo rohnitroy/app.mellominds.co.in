@@ -185,7 +185,15 @@ router.get('/manage/:token', async (req, res) => {
             [req.params.token]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Booking not found' });
-        res.json(result.rows[0]);
+
+        const booking = result.rows[0];
+
+        // Expire the link once the session start time has passed
+        if (new Date(booking.start_time) <= new Date()) {
+            return res.status(410).json({ error: 'This booking link has expired. The session has already started or passed.' });
+        }
+
+        res.json(booking);
     } catch (err) {
         console.error('Error fetching booking by token:', err);
         res.status(500).json({ error: 'Failed to fetch booking' });

@@ -472,6 +472,188 @@ body.pbp-page {
 .pbp-success-card p { font-size: 15px; color: #444; margin: 0 0 8px; }
 .pbp-success-sub { font-size: 13px; color: #6b7280; }
 
+/* ── Confirmation Card ─────────────────────────────────────────────────────── */
+.pbp-confirm-card {
+    background: #fff;
+    border-radius: 20px;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.pbp-confirm-header {
+    background: #082421;
+    padding: 32px 32px 28px;
+    text-align: center;
+}
+
+.pbp-confirm-check {
+    width: 60px;
+    height: 60px;
+    background: #2D7579;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.pbp-confirm-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 8px;
+}
+
+.pbp-confirm-subtitle {
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    margin: 0;
+}
+.pbp-confirm-subtitle strong { color: #fff; }
+
+.pbp-confirm-body {
+    padding: 28px 32px 32px;
+}
+
+.pbp-confirm-detail-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.pbp-confirm-date-badge {
+    background: #082421;
+    color: #fff;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    min-width: 56px;
+    flex-shrink: 0;
+}
+
+.pbp-confirm-info { display: flex; flex-direction: column; gap: 4px; }
+.pbp-confirm-service { font-size: 16px; font-weight: 700; color: #0f1a19; }
+.pbp-confirm-therapist { font-size: 13px; color: #6b7280; font-weight: 500; }
+.pbp-confirm-time { font-size: 14px; font-weight: 600; color: #333; margin-top: 2px; }
+.pbp-confirm-tz {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #2D7579;
+    margin-top: 2px;
+}
+
+.pbp-confirm-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.pbp-confirm-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #444;
+    font-weight: 500;
+}
+.pbp-confirm-meta-item svg { color: #2D7579; flex-shrink: 0; }
+
+.pbp-meet-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    background: #1a73e8;
+    color: #fff;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    transition: background 0.15s;
+    box-sizing: border-box;
+}
+.pbp-meet-btn:hover { background: #1558b0; }
+
+.pbp-gcal-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    background: #f3f4f6;
+    color: #082421;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    transition: background 0.15s;
+    box-sizing: border-box;
+    border: 1px solid #e0e0e0;
+}
+.pbp-gcal-btn:hover { background: #e5e7eb; }
+
+.pbp-confirm-manage {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 20px;
+    text-align: center;
+}
+
+.pbp-confirm-manage-label {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0 0 12px;
+}
+
+.pbp-confirm-manage-btns {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.pbp-manage-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.pbp-manage-cancel {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    color: #555;
+}
+.pbp-manage-cancel:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+
+.pbp-manage-reschedule {
+    background: #082421;
+    border: 1px solid #082421;
+    color: #fff;
+}
+.pbp-manage-reschedule:hover { background: #0d3330; }
+
+.pbp-confirm-manage-note {
+    font-size: 11px;
+    color: #9ca3af;
+    margin: 10px 0 0;
+}
+
 /* ── Error ─────────────────────────────────────────────────────────────────── */
 .pbp-error {
     display: flex; justify-content: center; align-items: center;
@@ -606,6 +788,23 @@ body.pbp-page {
     }
     .pbp-success-card h2 {
         font-size: 20px;
+    }
+
+    /* Confirmation card mobile */
+    .pbp-confirm-card {
+        border-radius: 16px;
+    }
+    .pbp-confirm-header {
+        padding: 24px 20px 20px;
+    }
+    .pbp-confirm-body {
+        padding: 20px 20px 24px;
+    }
+    .pbp-confirm-manage-btns {
+        flex-direction: column;
+    }
+    .pbp-manage-btn {
+        text-align: center;
     }
 
     /* Timezone pill: allow text to wrap if needed */

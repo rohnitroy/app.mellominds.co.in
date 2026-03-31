@@ -75,6 +75,15 @@ const PublicBookingPage: React.FC = () => {
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
+    // Stored after successful booking to power the confirmation screen
+    const [confirmedBooking, setConfirmedBooking] = useState<{
+        cancel_token: string;
+        start_time: string;
+        end_time: string;
+        meet_link: string | null;
+        location_type: string;
+    } | null>(null);
+
     const tzLabel = getTimezoneLabel();
 
     useEffect(() => {
@@ -225,6 +234,14 @@ const PublicBookingPage: React.FC = () => {
             });
 
             if (response.ok) {
+                const bookingData = await response.json();
+                setConfirmedBooking({
+                    cancel_token: bookingData.cancel_token,
+                    start_time: bookingData.start_time,
+                    end_time: bookingData.end_time,
+                    meet_link: bookingData.meet_link || null,
+                    location_type: bookingData.location_type || formData.location,
+                });
                 setStep('success');
                 window.scrollTo(0, 0);
             } else {
@@ -317,17 +334,115 @@ const PublicBookingPage: React.FC = () => {
 
     // ── Success screen ──────────────────────────────────────────────────────────
     if (step === 'success') {
+        const startISO = confirmedBooking?.start_time || selectedSlot!;
+        const endISO = confirmedBooking?.end_time || (() => {
+            const dMins = parseInt(calendar.duration) || 60;
+            return new Date(new Date(startISO).getTime() + dMins * 60000).toISOString();
+        })();
+        const meetLink = confirmedBooking?.meet_link;
+        const cancelToken = confirmedBooking?.cancel_token;
+        const manageUrl = cancelToken ? `/manage-booking/${cancelToken}` : null;
+        const locType = confirmedBooking?.location_type || formData.location;
+
+        const dateStr = formatInUserTZ(startISO, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        const timeStr = formatInUserTZ(startISO, { hour: '2-digit', minute: '2-digit', hour12: true });
+        const endTimeStr = formatInUserTZ(endISO, { hour: '2-digit', minute: '2-digit', hour12: true });
+        const monthStr = formatInUserTZ(startISO, { month: 'short' }).toUpperCase();
+        const dayNum = formatInUserTZ(startISO, { day: 'numeric' });
+
+        // Build Google Calendar "Add to Calendar" URL
+        const gcalStart = new Date(startISO).toISOString().replace(/[-:]/g, '').replace('.000', '');
+        const gcalEnd = new Date(endISO).toISOString().replace(/[-:]/g, '').replace('.000', '');
+        const gcalTitle = encodeURIComponent(`${calendar.title} with ${calendar.therapist_name}`);
+        const gcalDetails = encodeURIComponent(meetLink ? `Join Google Meet: ${meetLink}` : (locType === 'in_person' ? `In-person session` : ''));
+        const gcalLocation = encodeURIComponent(meetLink || '');
+        const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${gcalTitle}&dates=${gcalStart}/${gcalEnd}&details=${gcalDetails}&location=${gcalLocation}`;
+
         return (
             <div className="pbp-container">
-                <div className="pbp-success-card">
-                    <div className="pbp-success-icon">
-                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2D7579" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-                        </svg>
+                <div className="pbp-confirm-card">
+                    {/* Header */}
+                    <div className="pbp-confirm-header">
+                        <div className="pbp-confirm-check">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                        </div>
+                        <h2 className="pbp-confirm-title">Booking Confirmed</h2>
+                        <p className="pbp-confirm-subtitle">
+                            A confirmation email has been sent to <strong>{formData.client_email}</strong>
+                        </p>
                     </div>
-                    <h2>Booking Confirmed</h2>
-                    <p>You are scheduled with <strong>{calendar.therapist_name}</strong>.</p>
-                    <p className="pbp-success-sub">A confirmation email has been sent to <strong>{formData.client_email}</strong>.</p>
+
+                    {/* Booking details */}
+                    <div className="pbp-confirm-body">
+                        <div className="pbp-confirm-detail-row">
+                            <div className="pbp-confirm-date-badge">
+                                <div className="pbp-slot-month">{monthStr}</div>
+                                <div className="pbp-slot-day">{dayNum}</div>
+                            </div>
+                            <div className="pbp-confirm-info">
+                                <div className="pbp-confirm-service">{calendar.title}</div>
+                                <div className="pbp-confirm-therapist">with {calendar.therapist_name}</div>
+                                <div className="pbp-confirm-time">{timeStr} – {endTimeStr}</div>
+                                <div className="pbp-confirm-tz"><GlobeIcon />{tzLabel}</div>
+                            </div>
+                        </div>
+
+                        <div className="pbp-confirm-meta">
+                            <div className="pbp-confirm-meta-item">
+                                <ClockIcon />
+                                <span>{calendar.duration}</span>
+                            </div>
+                            {locType === 'in_person' ? (
+                                <div className="pbp-confirm-meta-item">
+                                    <MapPinIcon />
+                                    <span>In-person{inPersonAddress ? ` — ${inPersonAddress}` : ''}</span>
+                                </div>
+                            ) : (
+                                <div className="pbp-confirm-meta-item">
+                                    <VideoIcon />
+                                    <span>Google Meet</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Meet link */}
+                        {meetLink && (
+                            <a href={meetLink} target="_blank" rel="noopener noreferrer" className="pbp-meet-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                                </svg>
+                                Join Google Meet
+                            </a>
+                        )}
+
+                        {/* Add to Calendar */}
+                        <a href={gcalUrl} target="_blank" rel="noopener noreferrer" className="pbp-gcal-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                            </svg>
+                            Add to Google Calendar
+                        </a>
+
+                        {/* Manage actions */}
+                        {manageUrl && (
+                            <div className="pbp-confirm-manage">
+                                <p className="pbp-confirm-manage-label">Need to make changes?</p>
+                                <div className="pbp-confirm-manage-btns">
+                                    <a href={manageUrl} className="pbp-manage-btn pbp-manage-cancel">
+                                        Cancel Booking
+                                    </a>
+                                    <a href={manageUrl} className="pbp-manage-btn pbp-manage-reschedule">
+                                        Reschedule
+                                    </a>
+                                </div>
+                                <p className="pbp-confirm-manage-note">
+                                    These options are available until your session starts.
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         );

@@ -22,9 +22,17 @@ const ManageBooking: React.FC = () => {
 
     useEffect(() => {
         fetch(`${API_BASE_URL}/api/bookings/manage/${token}`)
-            .then(r => r.ok ? r.json() : Promise.reject('not found'))
-            .then(data => setBooking(data))
-            .catch(() => setError('Booking not found or link has expired.'))
+            .then(async r => {
+                const data = await r.json();
+                if (r.status === 410) {
+                    setError('expired');
+                } else if (!r.ok) {
+                    setError('not_found');
+                } else {
+                    setBooking(data);
+                }
+            })
+            .catch(() => setError('not_found'))
             .finally(() => setLoading(false));
     }, [token]);
 
@@ -80,12 +88,31 @@ const ManageBooking: React.FC = () => {
     };
 
     if (loading) return <Loader fullScreen />;
+    if (error === 'expired') return (
+        <div style={containerStyle}>
+            <div style={cardStyle}>
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                </div>
+                <h2 style={{ textAlign: 'center', color: '#1a1a1a', marginBottom: '8px' }}>Link Expired</h2>
+                <p style={{ textAlign: 'center', color: '#6E6E6E', fontSize: '14px' }}>
+                    This booking link has expired. The session has already started or passed.
+                </p>
+            </div>
+        </div>
+    );
     if (error) return (
         <div style={containerStyle}>
             <div style={cardStyle}>
-                <div style={{ fontSize: '48px', textAlign: 'center', marginBottom: '16px' }}>❌</div>
-                <h2 style={{ textAlign: 'center', color: '#1a1a1a' }}>Link Not Found</h2>
-                <p style={{ textAlign: 'center', color: '#6E6E6E' }}>{error}</p>
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                    </svg>
+                </div>
+                <h2 style={{ textAlign: 'center', color: '#1a1a1a', marginBottom: '8px' }}>Booking Not Found</h2>
+                <p style={{ textAlign: 'center', color: '#6E6E6E', fontSize: '14px' }}>This booking link is invalid or no longer exists.</p>
             </div>
         </div>
     );
@@ -93,8 +120,12 @@ const ManageBooking: React.FC = () => {
     if (view === 'done') return (
         <div style={containerStyle}>
             <div style={cardStyle}>
-                <div style={{ fontSize: '48px', textAlign: 'center', marginBottom: '16px' }}>✅</div>
-                <h2 style={{ textAlign: 'center', color: '#1a1a1a' }}>Done!</h2>
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2D7579" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+                <h2 style={{ textAlign: 'center', color: '#1a1a1a', marginBottom: '8px' }}>Done!</h2>
                 <p style={{ textAlign: 'center', color: '#6E6E6E' }}>{doneMessage}</p>
             </div>
         </div>
