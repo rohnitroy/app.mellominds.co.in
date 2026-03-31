@@ -8,6 +8,25 @@ const transporter = nodemailer.createTransport({
     },
 });
 
+// Verify email transporter on startup so misconfiguration is caught early
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    transporter.verify((err) => {
+        if (err) {
+            console.error('❌ Email transporter verification failed:', err.message);
+            console.error('   Check GMAIL_USER and GMAIL_APP_PASSWORD in your .env');
+        } else {
+            console.log('✅ Email transporter ready — using', process.env.GMAIL_USER);
+        }
+    });
+} else {
+    console.warn('⚠️  Email not configured — GMAIL_USER or GMAIL_APP_PASSWORD missing. Emails will be skipped.');
+}
+
+// Warn if FRONTEND_URL is still pointing to localhost in a non-development context
+if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.includes('localhost') && process.env.NODE_ENV === 'production') {
+    console.warn('⚠️  FRONTEND_URL is set to localhost but NODE_ENV is production. Cancel/reschedule links in emails will be broken.');
+}
+
 /**
  * Send an email.
  * @param {object} opts - { to, subject, html, text? }
@@ -29,6 +48,7 @@ export async function sendEmail({ to, subject, html, text }) {
     } catch (err) {
         // Non-fatal — log but don't crash the request
         console.error(`❌ Email failed to ${to}:`, err.message);
+        console.error('   Verify GMAIL_APP_PASSWORD is valid and 2FA is enabled on the Gmail account.');
     }
 }
 
