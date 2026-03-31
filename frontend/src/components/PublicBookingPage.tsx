@@ -521,7 +521,7 @@ const PublicBookingPage: React.FC = () => {
                                         onClick={() => setTermsAccepted(!termsAccepted)}>
                                         {termsAccepted && <CheckIcon />}
                                     </div>
-                                    <span>I have read and agree to the <a href="/terms" target="_blank" className="pbp-link">Terms & Conditions</a></span>
+                                    <span>I have read and agree to the <a href="/terms-of-service" target="_blank" className="pbp-link">Terms & Conditions</a></span>
                                 </label>
                             </div>
 
