@@ -428,17 +428,11 @@ const PublicBookingPage: React.FC = () => {
                         {/* Manage actions */}
                         {manageUrl && (
                             <div className="pbp-confirm-manage">
-                                <p className="pbp-confirm-manage-label">Need to make changes?</p>
-                                <div className="pbp-confirm-manage-btns">
-                                    <a href={manageUrl} className="pbp-manage-btn pbp-manage-cancel">
-                                        Cancel Booking
-                                    </a>
-                                    <a href={manageUrl} className="pbp-manage-btn pbp-manage-reschedule">
-                                        Reschedule
-                                    </a>
-                                </div>
+                                <a href={manageUrl} className="pbp-manage-btn pbp-manage-reschedule" style={{ display: 'block', textAlign: 'center' }}>
+                                    Manage Booking
+                                </a>
                                 <p className="pbp-confirm-manage-note">
-                                    These options are available until your session starts.
+                                    Cancel or reschedule — available until your session starts.
                                 </p>
                             </div>
                         )}
