@@ -145,7 +145,7 @@ router.post('/public', async (req, res) => {
                     name = EXCLUDED.name,
                     phone = COALESCE(EXCLUDED.phone, Clients.phone),
                     updated_at = CURRENT_TIMESTAMP`,
-                [userId, client_name, client_email, client_phone || null]
+                [userId, client_name, client_email.trim().toLowerCase(), client_phone || null]
             );
         } catch (clientErr) {
             // Non-fatal — booking is already committed, just log
@@ -518,7 +518,7 @@ router.get('/clients', async (req, res) => {
                 c.emergency_phone as "emergencyPhone",
                 c.emergency_relation as "emergencyRelation"
             FROM Clients c
-            LEFT JOIN Appointments a ON c.email = a.client_email AND c.therapist_id = a.therapist_id
+            LEFT JOIN Appointments a ON LOWER(c.email) = LOWER(a.client_email) AND c.therapist_id = a.therapist_id
             WHERE c.therapist_id = $1
               AND NOT EXISTS (
                 SELECT 1 FROM ClientTransfers ct
