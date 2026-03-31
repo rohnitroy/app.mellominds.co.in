@@ -20,7 +20,7 @@ interface Calendar {
     payment_gateway?: string;
     prices?: { amount: number; currency: string; label?: string }[];
     locations?: { type: string; address?: string }[];
-    form_data?: { questions: any[] };
+    form_data?: { heading?: string; questions: any[] };
 }
 
 // Detect user timezone
@@ -129,24 +129,27 @@ const PublicBookingPage: React.FC = () => {
         if (calendar.form_data?.questions) {
             for (const q of calendar.form_data.questions) {
                 if (!q.required) continue;
-                // Base fields are in formData, not formResponses
                 if (q.key === 'name' && !formData.client_name.trim()) {
-                    toast.warning('Please fill out: Name'); return;
+                    toast.warning(`Please fill out: ${q.label || 'Name'}`); return;
                 }
                 if (q.key === 'email' && !formData.client_email.trim()) {
-                    toast.warning('Please fill out: Email address'); return;
+                    toast.warning(`Please fill out: ${q.label || 'Email address'}`); return;
                 }
-                if ((q.key === 'whatsapp_number' || q.key === 'phone') && !formData.whatsapp_number.trim()) {
-                    toast.warning(`Please fill out: ${q.label || 'WhatsApp Number'}`); return;
+                if ((q.key === 'phone' || q.key === 'whatsapp_number') && !formData.whatsapp_number.trim()) {
+                    toast.warning(`Please fill out: ${q.label || 'Phone number'}`); return;
                 }
-                // All other custom questions are in formResponses
-                if (q.key !== 'name' && q.key !== 'email' && q.key !== 'whatsapp_number' && q.key !== 'phone') {
+                // Custom questions
+                if (!['name', 'email', 'phone', 'whatsapp_number'].includes(q.key)) {
                     const ans = formResponses[String(q.id)];
                     if (ans === undefined || ans === null || ans === '' || (Array.isArray(ans) && ans.length === 0)) {
                         toast.warning(`Please fill out: ${q.label || q.text || 'required field'}`); return;
                     }
                 }
             }
+        } else {
+            // Fallback validation for default fields
+            if (!formData.client_name.trim()) { toast.warning('Please enter your name'); return; }
+            if (!formData.client_email.trim()) { toast.warning('Please enter your email'); return; }
         }
 
         setSubmitting(true);
@@ -331,13 +334,123 @@ const PublicBookingPage: React.FC = () => {
         const monthStr = formatInUserTZ(selectedSlot!, { month: 'short' }).toUpperCase();
         const dayNum = formatInUserTZ(selectedSlot!, { day: 'numeric' });
 
+        // Keys that map to fixed formData fields (not formResponses)
+        const BASE_KEYS = ['name', 'email', 'phone', 'whatsapp_number'];
+
+        // Helper: render a single question field
+        const renderQuestion = (q: any) => {
+            const label = q.label || q.text || '';
+            const qId = String(q.id);
+            // Normalize QuestionModal type names
+            const qType = q.type === 'textarea' ? 'long_text'
+                : q.type === 'tel' ? 'phone'
+                : q.type === 'select' ? 'dropdown'
+                : q.type;
+
+            // Base fields — bound to formData
+            if (q.key === 'name') return (
+                <div key={qId} className="pbp-form-group">
+                    <label>{label} {q.required && <span className="pbp-required">*</span>}</label>
+                    <input type="text" className="pbp-input" required={q.required}
+                        value={formData.client_name}
+                        onChange={e => setFormData(p => ({ ...p, client_name: e.target.value }))} />
+                </div>
+            );
+            if (q.key === 'email') return (
+                <div key={qId} className="pbp-form-group">
+                    <label>{label} {q.required && <span className="pbp-required">*</span>}</label>
+                    <input type="email" className="pbp-input" required={q.required}
+                        value={formData.client_email}
+                        onChange={e => setFormData(p => ({ ...p, client_email: e.target.value }))} />
+                </div>
+            );
+            if (q.key === 'phone' || q.key === 'whatsapp_number') return (
+                <div key={qId} className="pbp-form-group">
+                    <label>{label} {q.required && <span className="pbp-required">*</span>}</label>
+                    <div className="pbp-phone-group">
+                        <span className="pbp-country-code">+91</span>
+                        <input type="tel" className="pbp-input" required={q.required}
+                            value={formData.whatsapp_number}
+                            onChange={e => setFormData(p => ({ ...p, whatsapp_number: e.target.value }))} />
+                    </div>
+                </div>
+            );
+
+            // Custom questions — bound to formResponses
+            return (
+                <div key={qId} className="pbp-form-group">
+                    <label>{label} {q.required && <span className="pbp-required">*</span>}</label>
+                    {(qType === 'text' || qType === 'email' || qType === 'number' || qType === 'date') && (
+                        <input type={qType} className="pbp-input" required={q.required}
+                            value={formResponses[qId] || ''}
+                            onChange={e => handleDynamicResponseChange(qId, e.target.value)} />
+                    )}
+                    {qType === 'long_text' && (
+                        <textarea className="pbp-textarea" rows={3} required={q.required}
+                            value={formResponses[qId] || ''}
+                            onChange={e => handleDynamicResponseChange(qId, e.target.value)} />
+                    )}
+                    {qType === 'phone' && (
+                        <div className="pbp-phone-group">
+                            <span className="pbp-country-code">+91</span>
+                            <input type="tel" className="pbp-input" required={q.required}
+                                value={formResponses[qId] || ''}
+                                onChange={e => handleDynamicResponseChange(qId, e.target.value)} />
+                        </div>
+                    )}
+                    {qType === 'dropdown' && q.options?.length > 0 && (
+                        <select className="pbp-input pbp-select" required={q.required}
+                            value={formResponses[qId] || ''}
+                            onChange={e => handleDynamicResponseChange(qId, e.target.value)}>
+                            <option value="">Select an option...</option>
+                            {q.options.map((opt: string, i: number) => <option key={i} value={opt}>{opt}</option>)}
+                        </select>
+                    )}
+                    {qType === 'radio' && q.options?.length > 0 && (
+                        <div className="pbp-radio-group">
+                            {q.options.map((opt: string, i: number) => (
+                                <label key={i} className="pbp-radio-label">
+                                    <input type="radio" name={`radio-${qId}`} value={opt}
+                                        checked={formResponses[qId] === opt} required={q.required}
+                                        onChange={e => handleDynamicResponseChange(qId, e.target.value)} />
+                                    {opt}
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                    {qType === 'checkbox' && q.options?.length > 0 && (
+                        <div className="pbp-checkbox-group">
+                            {q.options.map((opt: string, i: number) => (
+                                <label key={i} className="pbp-checkbox-label">
+                                    <input type="checkbox"
+                                        checked={(formResponses[qId] || []).includes(opt)}
+                                        onChange={e => handleCheckboxChange(qId, opt, e.target.checked)} />
+                                    {opt}
+                                </label>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Fallback questions if calendar has no form_data configured
+        const defaultQuestions = [
+            { id: 'default_name', key: 'name', type: 'text', label: 'Name', required: true },
+            { id: 'default_email', key: 'email', type: 'email', label: 'Email address', required: true },
+            { id: 'default_phone', key: 'whatsapp_number', type: 'tel', label: 'WhatsApp Number', required: true },
+        ];
+        const questions = calendar.form_data?.questions?.length
+            ? calendar.form_data.questions
+            : defaultQuestions;
+
         return (
             <div className="pbp-container">
                 <div className="pbp-grid pbp-grid-details">
                     <ServicePanel showBack />
                     <div className="pbp-col-details">
                         <form onSubmit={handleSubmit} className="pbp-details-form">
-                            <h2 className="pbp-details-heading">Enter Your Details</h2>
+                            <h2 className="pbp-details-heading">{calendar.form_data?.heading || 'Enter Your Details'}</h2>
 
                             <div className="pbp-slot-summary">
                                 <div className="pbp-slot-badge">
@@ -353,104 +466,16 @@ const PublicBookingPage: React.FC = () => {
                                 </div>
                             </div>
 
+                            {/* Render all questions from calendar form_data in order */}
+                            {questions.map((q: any) => renderQuestion(q))}
+
+                            {/* Session mode — always show, picker only if multiple modes */}
                             <div className="pbp-form-group">
-                                <label>Name <span className="pbp-required">*</span></label>
-                                <input required type="text" className="pbp-input" value={formData.client_name}
-                                    onChange={e => setFormData({ ...formData, client_name: e.target.value })} />
-                            </div>
-                            <div className="pbp-form-group">
-                                <label>Email address <span className="pbp-required">*</span></label>
-                                <input required type="email" className="pbp-input" value={formData.client_email}
-                                    onChange={e => setFormData({ ...formData, client_email: e.target.value })} />
-                            </div>
-                            <div className="pbp-form-group">
-                                <label>WhatsApp Number <span className="pbp-required">*</span></label>
-                                <div className="pbp-phone-group">
-                                    <span className="pbp-country-code">+91</span>
-                                    <input required type="tel" className="pbp-input" value={formData.whatsapp_number}
-                                        onChange={e => setFormData({ ...formData, whatsapp_number: e.target.value })} />
-                                </div>
-                            </div>
-
-                            {/* Dynamic questions from calendar form config */}
-                            {calendar.form_data?.questions?.map((q: any) => {
-                                const questionLabel = q.label || q.text || '';
-                                // Skip base fields already captured in fixed inputs above
-                                const BASE_KEYS = ['name', 'email', 'whatsapp_number', 'phone'];
-                                if (BASE_KEYS.includes(q.key)) return null;
-
-                                // Normalize type names from QuestionModal
-                                const qType = q.type === 'textarea' ? 'long_text'
-                                    : q.type === 'tel' ? 'phone'
-                                    : q.type === 'select' ? 'dropdown'
-                                    : q.type;
-
-                                const qId = String(q.id);
-
-                                return (
-                                <div key={qId} className="pbp-form-group">
-                                    <label>{questionLabel} {q.required && <span className="pbp-required">*</span>}</label>
-                                    {(qType === 'text' || qType === 'email' || qType === 'number' || qType === 'date') && (
-                                        <input type={qType} className="pbp-input" required={q.required}
-                                            value={formResponses[qId] || ''}
-                                            onChange={e => handleDynamicResponseChange(qId, e.target.value)} />
-                                    )}
-                                    {qType === 'long_text' && (
-                                        <textarea className="pbp-textarea" rows={3} required={q.required}
-                                            value={formResponses[qId] || ''}
-                                            onChange={e => handleDynamicResponseChange(qId, e.target.value)} />
-                                    )}
-                                    {qType === 'phone' && (
-                                        <div className="pbp-phone-group">
-                                            <span className="pbp-country-code">+91</span>
-                                            <input type="tel" className="pbp-input" required={q.required}
-                                                value={formResponses[qId] || ''}
-                                                onChange={e => handleDynamicResponseChange(qId, e.target.value)} />
-                                        </div>
-                                    )}
-                                    {qType === 'dropdown' && q.options?.length > 0 && (
-                                        <select className="pbp-input pbp-select" required={q.required}
-                                            value={formResponses[qId] || ''}
-                                            onChange={e => handleDynamicResponseChange(qId, e.target.value)}>
-                                            <option value="">Select an option...</option>
-                                            {q.options.map((opt: string, i: number) => <option key={i} value={opt}>{opt}</option>)}
-                                        </select>
-                                    )}
-                                    {qType === 'radio' && q.options?.length > 0 && (
-                                        <div className="pbp-radio-group">
-                                            {q.options.map((opt: string, i: number) => (
-                                                <label key={i} className="pbp-radio-label">
-                                                    <input type="radio" name={`radio-${qId}`} value={opt}
-                                                        checked={formResponses[qId] === opt} required={q.required}
-                                                        onChange={e => handleDynamicResponseChange(qId, e.target.value)} />
-                                                    {opt}
-                                                </label>
-                                            ))}
-                                        </div>
-                                    )}
-                                    {qType === 'checkbox' && q.options?.length > 0 && (
-                                        <div className="pbp-checkbox-group">
-                                            {q.options.map((opt: string, i: number) => (
-                                                <label key={i} className="pbp-checkbox-label">
-                                                    <input type="checkbox"
-                                                        checked={(formResponses[qId] || []).includes(opt)}
-                                                        onChange={e => handleCheckboxChange(qId, opt, e.target.checked)} />
-                                                    {opt}
-                                                </label>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                );
-                            })}
-
-                            {/* Location picker — only if both modes available */}
-                            {showLocationPicker && (
-                                <div className="pbp-form-group">
-                                    <label>Location <span className="pbp-required">*</span></label>
+                                <label>Session Mode {showLocationPicker && <span className="pbp-required">*</span>}</label>
+                                {showLocationPicker ? (
                                     <div className="pbp-selection-cards">
                                         <div className={`pbp-selection-card ${formData.location === 'google_meet' ? 'selected' : ''}`}
-                                            onClick={() => setFormData({ ...formData, location: 'google_meet' })}>
+                                            onClick={() => setFormData(p => ({ ...p, location: 'google_meet' }))}>
                                             <div className="pbp-card-radio">{formData.location === 'google_meet' && <div className="pbp-radio-inner" />}</div>
                                             <div>
                                                 <div className="pbp-card-title"><VideoIcon /> Google Meet</div>
@@ -458,7 +483,7 @@ const PublicBookingPage: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className={`pbp-selection-card ${formData.location === 'in_person' ? 'selected' : ''}`}
-                                            onClick={() => setFormData({ ...formData, location: 'in_person' })}>
+                                            onClick={() => setFormData(p => ({ ...p, location: 'in_person' }))}>
                                             <div className="pbp-card-radio">{formData.location === 'in_person' && <div className="pbp-radio-inner" />}</div>
                                             <div>
                                                 <div className="pbp-card-title"><MapPinIcon /> In-person</div>
@@ -466,8 +491,17 @@ const PublicBookingPage: React.FC = () => {
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                ) : (
+                                    // Single mode — show as read-only info
+                                    <div className="pbp-session-mode-info">
+                                        {hasInPerson ? (
+                                            <><MapPinIcon /> In-person{inPersonAddress ? ` — ${inPersonAddress}` : ''}</>
+                                        ) : (
+                                            <><VideoIcon /> Google Meet — Video call</>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Price */}
                             {calendar.payment_enabled && calendar.prices && calendar.prices.length > 0 && (
@@ -475,7 +509,7 @@ const PublicBookingPage: React.FC = () => {
                                     <label>Session Fee</label>
                                     <div className="pbp-price-row">
                                         {calendar.prices[0].currency} {calendar.prices[0].amount}
-                                        {calendar.prices[0].label && <span className="pbp-price-label">{calendar.prices[0].label}</span>}
+                                        {calendar.prices[0].label && <span className="pbp-price-label"> — {calendar.prices[0].label}</span>}
                                     </div>
                                 </div>
                             )}

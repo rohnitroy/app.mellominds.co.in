@@ -612,3 +612,18 @@
     flex-shrink: 0;
 }
 .status-dot.available { background: #22c55e; }
+
+/* ── Session mode info (single mode, read-only) ────────────────────────────── */
+.pbp-session-mode-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    background: #f8fffe;
+    border: 1px solid #d1ede9;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0f1a19;
+}
+.pbp-session-mode-info svg { color: #2D7579; flex-shrink: 0; }
