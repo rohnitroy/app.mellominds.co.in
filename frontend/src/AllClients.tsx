@@ -17,6 +17,7 @@ interface Client {
   sessions: string;
   revenue: string;
   lastSession?: string;
+  lastSessionStatus?: string;
   age?: string;
   occupation?: string;
   gender?: string;
@@ -190,9 +191,20 @@ const AllClients: React.FC = () => {
     {
       accessorKey: 'lastSession',
       header: 'Last Session Booked',
-      cell: ({ getValue }) => (
-        <span className={styles.sessionCount}>{getValue() || '—'}</span>
-      ),
+      cell: ({ row }) => {
+        const date = row.original.lastSession;
+        const status = row.original.lastSessionStatus;
+        const color =
+          status === 'cancelled' ? '#c62828' :
+          status === 'completed' ? '#2e7d32' :
+          status === 'noshow'    ? '#e65100' :
+          undefined;
+        return (
+          <span className={styles.sessionCount} style={color ? { color, fontWeight: 600 } : undefined}>
+            {date || '—'}
+          </span>
+        );
+      },
     },
     {
       accessorKey: 'revenue',
@@ -240,7 +252,7 @@ const AllClients: React.FC = () => {
     {
       accessorKey: 'revenue',
       header: 'Revenue',
-      cell: ({ getValue }) => <span className={styles.revenueAmount}>₹{parseFloat(getValue() || 0).toLocaleString()}</span>,
+      cell: ({ getValue }) => <span className={styles.revenueAmount}>₹{parseFloat(getValue() || 0).toLocaleString('en-IN')}</span>,
     },
     {
       accessorKey: 'to_therapist_email',

@@ -271,7 +271,14 @@ router.post('/manage/:token/cancel', async (req, res) => {
         }
 
         await dbClient.query(
-            `UPDATE Appointments SET status = 'cancelled' WHERE id = $1`,
+            `UPDATE Appointments SET
+               status = 'cancelled',
+               payment_status = CASE
+                 WHEN payment_status = 'Paid'    THEN 'Refunded'
+                 WHEN payment_status = 'Pending' THEN 'Cancelled'
+                 ELSE payment_status
+               END
+             WHERE id = $1`,
             [appt.id]
         );
 
@@ -457,7 +464,7 @@ router.get('/stats', async (req, res) => {
 
         // Calculate revenue
         const revenueRes = await client.query(
-            `SELECT COALESCE(SUM(payment_amount), 0) as total FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Paid'${dateFilter}`,
+            `SELECT COALESCE(SUM(payment_amount), 0) as total FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Paid' AND status != 'cancelled'${dateFilter}`,
             params
         );
         const revenue = parseFloat(revenueRes.rows[0].total || 0);
@@ -476,10 +483,10 @@ router.get('/stats', async (req, res) => {
         );
         const pendingPayment = parseInt(pendingPaymentRes.rows[0].count);
 
-        // Pending notes - appointments without notes (uses alias 'a')
+        // Pending notes - completed appointments without notes (uses alias 'a')
         const pendingNotesRes = await client.query(
             `SELECT COUNT(*) FROM Appointments a 
-             WHERE a.therapist_id = $1 AND a.status NOT IN ('cancelled', 'noshow')
+             WHERE a.therapist_id = $1 AND a.status = 'completed'
              AND NOT EXISTS (SELECT 1 FROM SessionNotes WHERE appointment_id = a.id)${dateFilterA}`,
             params
         );
@@ -526,8 +533,9 @@ router.get('/clients', async (req, res) => {
                 c.phone,
                 c.manually_added,
                 COUNT(a.id) as sessions,
-                COALESCE(SUM(a.payment_amount), 0) as total_revenue,
+                COALESCE(SUM(CASE WHEN a.payment_status = 'Paid' AND a.status != 'cancelled' THEN a.payment_amount ELSE 0 END), 0) as total_revenue,
                 MAX(a.start_time) as last_session,
+                (SELECT status FROM Appointments a2 WHERE LOWER(a2.client_email) = LOWER(c.email) AND a2.therapist_id = c.therapist_id ORDER BY a2.start_time DESC LIMIT 1) as last_session_status,
                 c.age,
                 c.occupation,
                 c.gender,
@@ -555,8 +563,9 @@ router.get('/clients', async (req, res) => {
             phone: row.phone || '',
             email: row.email,
             sessions: row.sessions.toString(),
-            revenue: `₹${row.total_revenue}`,
+            revenue: `₹${parseFloat(row.total_revenue).toLocaleString('en-IN')}`,
             lastSession: row.last_session ? new Date(row.last_session).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+            lastSessionStatus: row.last_session_status || null,
             // Include other details for ClientView
             age: row.age || '-',
             occupation: row.occupation || '-',
@@ -604,7 +613,7 @@ router.get('/', async (req, res) => {
         let params = [userId];
 
         if (upcoming === 'true') {
-            query += ' AND a.start_time >= NOW() AND a.status != \'cancelled\'';
+            query += " AND a.start_time >= NOW() AND a.status = 'scheduled'";
         }
 
         if (email) {
@@ -936,6 +945,7 @@ router.patch('/:id/status', async (req, res) => {
             `UPDATE Appointments SET
                status = $1,
                payment_status = CASE
+                 WHEN $4 AND payment_status = 'Paid'    THEN 'Refunded'
                  WHEN $4 AND payment_status = 'Pending' THEN 'Cancelled'
                  ELSE payment_status
                END

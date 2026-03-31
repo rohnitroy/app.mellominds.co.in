@@ -131,18 +131,16 @@ const Appointments: React.FC = () => {
   const filteredAppointments = useMemo(() => {
     const now = new Date();
     return appointments.filter(app => {
-      const startTime = new Date(app.start_time);
       switch (activeTab) {
         case 'Upcoming':
-          return startTime > now && app.status !== 'cancelled' && app.status !== 'noshow';
+          // Future sessions that haven't been cancelled or marked no-show
+          return new Date(app.start_time) > now && app.status === 'scheduled';
         case 'Completed':
-          return startTime < now && app.status !== 'cancelled' && app.status !== 'noshow';
+          // Only explicitly completed sessions
+          return app.status === 'completed';
         case 'Pending Session Notes':
-          // Appointments that are past, not cancelled/noshow, and have no notes
-          return startTime < now
-            && app.status !== 'cancelled'
-            && app.status !== 'noshow'
-            && (!app.notes || app.notes.length === 0);
+          // Completed sessions with no notes attached
+          return app.status === 'completed' && (!app.notes || app.notes.length === 0);
         case 'Cancelled':
           return app.status === 'cancelled';
         case 'No Show':
@@ -230,7 +228,8 @@ const Appointments: React.FC = () => {
       enableSorting: false,
       cell: ({ row }) => {
         const { id, status, payment_status } = row.original;
-        const isUpcoming = new Date(row.original.start_time) > new Date();
+        const isPast = new Date(row.original.start_time) < new Date();
+        const isUpcoming = !isPast;
         // No actions for cancelled or noshow
         if (status === 'cancelled' || status === 'noshow') return <span style={{ color: '#ccc', fontSize: '12px', fontFamily: 'Urbanist' }}>—</span>;
         const isMenuOpen = activeMenuId === id;
@@ -318,13 +317,17 @@ const Appointments: React.FC = () => {
         const row = appointments.find(a => a.id === activeMenuId);
         if (!row) return null;
         const { id, status, payment_status } = row;
-        const isUpcoming = new Date(row.start_time) > new Date();
+        const isPast = new Date(row.start_time) < new Date();
+        const isUpcoming = !isPast;
         const canReschedule = status === 'scheduled' && isUpcoming;
         const canCancel = status === 'scheduled';
         const canMarkPaid = payment_status === 'Pending' && status !== 'cancelled' && status !== 'noshow';
-        const canComplete = status === 'scheduled';
+        // Can mark complete: past sessions still in scheduled state
+        const canComplete = status === 'scheduled' && isPast;
+        // Can mark no-show: past sessions still in scheduled state
+        const canMarkNoShow = status === 'scheduled' && isPast;
         const canSendReminder = status === 'scheduled' && isUpcoming;
-        const canAddNote = status === 'completed' || (status === 'scheduled' && !isUpcoming);
+        const canAddNote = status === 'completed';
 
         return createPortal(
           <div
@@ -352,6 +355,10 @@ const Appointments: React.FC = () => {
             {canComplete && (
               <button onClick={() => { updateStatus(id, 'completed'); setActiveMenuId(null); setMenuPos(null); }}
                 style={menuItemStyle}>Mark as Complete</button>
+            )}
+            {canMarkNoShow && (
+              <button onClick={() => { setConfirmModal({ id, action: 'noshow' }); setActiveMenuId(null); setMenuPos(null); }}
+                style={{ ...menuItemStyle, color: '#e65100' }}>Mark as No Show</button>
             )}
             {canAddNote && (
               <button onClick={() => {
@@ -417,12 +424,21 @@ const Appointments: React.FC = () => {
 
       <ConfirmModal
         isOpen={!!confirmModal}
-        title="Cancel Booking"
-        message="Are you sure you want to cancel this booking? This action cannot be undone."
-        confirmLabel="Yes, Cancel Booking"
-        cancelLabel="Keep Booking"
+        title={confirmModal?.action === 'noshow' ? 'Mark as No Show' : 'Cancel Booking'}
+        message={
+          confirmModal?.action === 'noshow'
+            ? 'Mark this session as a no show? The client did not attend.'
+            : 'Are you sure you want to cancel this booking? This action cannot be undone.'
+        }
+        confirmLabel={confirmModal?.action === 'noshow' ? 'Yes, Mark No Show' : 'Yes, Cancel Booking'}
+        cancelLabel={confirmModal?.action === 'noshow' ? 'Go Back' : 'Keep Booking'}
         danger
-        onConfirm={() => { if (confirmModal) { updateStatus(confirmModal.id, 'cancelled'); setConfirmModal(null); } }}
+        onConfirm={() => {
+          if (confirmModal) {
+            updateStatus(confirmModal.id, confirmModal.action === 'noshow' ? 'noshow' : 'cancelled');
+            setConfirmModal(null);
+          }
+        }}
         onCancel={() => setConfirmModal(null)}
       />
     </div>

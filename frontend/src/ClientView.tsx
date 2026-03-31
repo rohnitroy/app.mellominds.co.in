@@ -214,9 +214,9 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         setAppointments(filtered);
 
         const totalSessions = filtered.length;
-        // Only count Paid revenue
+        // Only count Paid revenue on non-cancelled bookings
         const totalRevenue = filtered.reduce((sum: number, app: any) =>
-          app.payment_status === 'Paid' ? sum + (parseFloat(app.payment_amount) || 0) : sum, 0);
+          app.payment_status === 'Paid' && app.status !== 'cancelled' ? sum + (parseFloat(app.payment_amount) || 0) : sum, 0);
         const cancelled = filtered.filter((app: any) => app.status === 'cancelled').length;
         const noShow = filtered.filter((app: any) => app.status === 'noshow').length;
 
