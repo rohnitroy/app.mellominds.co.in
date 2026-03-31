@@ -25,6 +25,10 @@ const CreateEventPage: React.FC = () => {
     const [isSlugEdited, setIsSlugEdited] = useState(isEditMode);
     const [showAddLocationModal, setShowAddLocationModal] = useState(false);
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+    // Group calendar capacity
+    const [maxAttendees, setMaxAttendees] = useState<string>(
+        existingCalendar?.max_attendees ? String(existingCalendar.max_attendees) : '10'
+    );
 
     useEffect(() => {
         fetch(`${API_BASE_URL}/api/connect-calendar/status`, { credentials: 'include' })
@@ -416,6 +420,7 @@ const CreateEventPage: React.FC = () => {
                 slug: normalizedSlug,
                 is_active: true,
                 locations: eventData.locations,
+                ...(initialType === 'group' && maxAttendees ? { max_attendees: parseInt(maxAttendees) } : {}),
                 schedule_settings: {
                     dateRangeType: scheduleData.dateRangeType,
                     dateRangeValue: scheduleData.dateRangeValue,
@@ -528,6 +533,40 @@ const CreateEventPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Calendar type badge */}
+                <div className={styles.formGroup}>
+                    <label className={styles.label}>Calendar Type</label>
+                    <div className={styles.input} style={{ background: '#f8f9fa', color: '#666', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {initialType === 'one_on_one' && (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                            </svg>
+                        )}
+                        {initialType === 'group' && (
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="9" cy="7" r="3"/><circle cx="15" cy="7" r="3"/><path d="M3 21v-1a6 6 0 0 1 6-6h6a6 6 0 0 1 6 6v1"/>
+                            </svg>
+                        )}
+                        {initialType === 'one_on_one' ? 'One on One' : initialType === 'group' ? 'Group' : initialType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                    </div>
+                </div>
+
+                {/* Group capacity field */}
+                {initialType === 'group' && (
+                    <div className={styles.formGroup}>
+                        <label className={styles.label}>Max Attendees</label>
+                        <input
+                            type="number"
+                            className={styles.input}
+                            min="2"
+                            placeholder="e.g. 10"
+                            value={maxAttendees}
+                            onChange={e => setMaxAttendees(e.target.value)}
+                        />
+                        <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>Maximum number of people who can book this group session.</p>
+                    </div>
+                )}
             </div>
 
             <div className={styles.card}>
@@ -664,7 +703,7 @@ const CreateEventPage: React.FC = () => {
                         ))}
                     </select>
                     <button className={styles.actionBtn}>Edit Schedule</button>
-                    <button className={styles.actionBtn}>+ New Schedule</button>
+                    <button className={styles.actionBtn} type="button" onClick={() => {}}>+ New Schedule</button>
                 </div>
 
                 <p className={styles.sectionLabel}>Available Times</p>

@@ -79,7 +79,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const userId = req.user.id;
-        const { title, duration, type, description, slug, form_data, payment_data, locations, schedule_settings } = req.body;
+        const { title, duration, type, description, slug, form_data, payment_data, locations, schedule_settings, max_attendees } = req.body;
 
         if (!title || !duration || !type) {
             return res.status(400).json({ error: 'Title, duration, and type are required' });
@@ -91,8 +91,8 @@ router.post('/', async (req, res) => {
             `INSERT INTO Calendars 
                 (user_id, title, duration, type, description, slug, form_data,
                  payment_enabled, payment_gateway, prices, cancellation_policy, reschedule_policy,
-                 locations, schedule_settings) 
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) 
+                 locations, schedule_settings, max_attendees) 
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) 
              RETURNING *`,
             [
                 userId, title, duration, type, description, finalSlug,
@@ -103,7 +103,8 @@ router.post('/', async (req, res) => {
                 payment_data?.cancellation ? JSON.stringify(payment_data.cancellation) : null,
                 payment_data?.reschedule ? JSON.stringify(payment_data.reschedule) : null,
                 locations ? JSON.stringify(locations) : null,
-                schedule_settings ? JSON.stringify(schedule_settings) : null
+                schedule_settings ? JSON.stringify(schedule_settings) : null,
+                type === 'group' && max_attendees ? parseInt(max_attendees) : null
             ]
         );
 
@@ -120,7 +121,7 @@ router.put('/:id', async (req, res) => {
     try {
         const userId = req.user.id;
         const calendarId = req.params.id;
-        const { title, duration, type, description, slug, is_active, form_data, payment_data, locations, schedule_settings } = req.body;
+        const { title, duration, type, description, slug, is_active, form_data, payment_data, locations, schedule_settings, max_attendees } = req.body;
 
         const fields = [];
         const values = [];
@@ -136,6 +137,7 @@ router.put('/:id', async (req, res) => {
         if (slug !== undefined) add('slug', slug.startsWith('/') ? slug : `/${slug}`);
         if (locations !== undefined) add('locations', JSON.stringify(locations));
         if (schedule_settings !== undefined) add('schedule_settings', JSON.stringify(schedule_settings));
+        if (max_attendees !== undefined) add('max_attendees', max_attendees ? parseInt(max_attendees) : null);
 
         if (payment_data !== undefined) {
             add('payment_enabled', payment_data.acceptPayment || false);

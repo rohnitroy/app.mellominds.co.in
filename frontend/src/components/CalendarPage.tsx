@@ -19,6 +19,7 @@ interface Calendar {
   description: string;
   slug: string;
   is_active: boolean;
+  max_attendees?: number;
 }
 
 const CalendarPage: React.FC = () => {
@@ -80,25 +81,7 @@ const CalendarPage: React.FC = () => {
 
   // Menu State
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
-  const menuRef = React.useRef<HTMLDivElement>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-
-  // Click outside to close menu
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setActiveMenuId(null);
-      }
-    };
-
-    if (activeMenuId !== null) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [activeMenuId]);
 
   const openSlugModal = (calendar: Calendar) => {
     setSlugFormData({
@@ -298,7 +281,7 @@ const CalendarPage: React.FC = () => {
                       <label htmlFor={`toggle-${resource.id}`} className="switch"></label>
                     </div>
 
-                    <div className="menu-container" ref={menuRef}>
+                    <div className="menu-container">
                       <button className="menu-btn" onClick={() => toggleMenu(resource.id)}>
                         <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                           <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" />
@@ -339,6 +322,11 @@ const CalendarPage: React.FC = () => {
                   <div className="session-type tag">
                     <span>{formatType(resource.type)}</span>
                   </div>
+                  {resource.type === 'group' && resource.max_attendees && (
+                    <div className="session-type tag">
+                      <span>Max {resource.max_attendees} attendees</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="card-description" style={{ flex: 1 }}>
