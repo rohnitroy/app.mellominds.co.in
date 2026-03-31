@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import styles from './PaymentsInvoice.module.css';
 import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
@@ -8,9 +9,21 @@ import Loader from './components/Loader';
 import { exportToCSV } from './utils/exportCSV';
 import { useAuth } from './context/AuthContext';
 
+const TAB_SLUGS: Record<string, string> = {
+  'all-payments': 'All Payments',
+  'all-cancellations': 'All Cancellations',
+  'pending-payments': 'Pending Payments',
+};
+const TAB_TO_SLUG: Record<string, string> = Object.fromEntries(
+  Object.entries(TAB_SLUGS).map(([slug, tab]) => [tab, slug])
+);
+
 const PaymentsInvoice: React.FC = () => {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('All Payments');
+  const navigate = useNavigate();
+  const { tab: tabParam } = useParams<{ tab?: string }>();
+  const resolvedTab = (tabParam && TAB_SLUGS[tabParam]) || 'All Payments';
+  const [activeTab, setActiveTab] = useState<string>(resolvedTab);
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
@@ -21,6 +34,17 @@ const PaymentsInvoice: React.FC = () => {
   const receiptRef = useRef<HTMLDivElement>(null);
 
   const tabs = ['All Payments', 'All Cancellations', 'Pending Payments'];
+
+  // Sync URL param → tab
+  useEffect(() => {
+    const t = (tabParam && TAB_SLUGS[tabParam]) || 'All Payments';
+    setActiveTab(t);
+  }, [tabParam]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    navigate(`/payment-invoice/${TAB_TO_SLUG[tab]}`, { replace: true });
+  };
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -261,7 +285,7 @@ const PaymentsInvoice: React.FC = () => {
 
       <div className={styles.paymentsTabs}>
         {tabs.map(tab => (
-          <button key={tab} className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''}`} onClick={() => setActiveTab(tab)}>
+          <button key={tab} className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''}`} onClick={() => handleTabChange(tab)}>
             {tab}
           </button>
         ))}

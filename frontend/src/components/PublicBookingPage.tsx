@@ -327,9 +327,9 @@ const PublicBookingPage: React.FC = () => {
                 {calendar.payment_enabled && calendar.prices?.[0] && (
                     <div className="pbp-meta-row">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
                         </svg>
-                        <span>{calendar.prices[0].currency} {calendar.prices[0].amount}</span>
+                        <span>₹{calendar.prices[0].amount}{calendar.prices[0].label ? ` — ${calendar.prices[0].label}` : ''}</span>
                     </div>
                 )}
             </div>

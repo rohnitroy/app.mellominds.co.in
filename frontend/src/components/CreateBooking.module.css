@@ -196,6 +196,7 @@
   height: 20px;
   pointer-events: none;
   z-index: 1;
+  filter: brightness(0) saturate(100%) invert(70%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(90%) contrast(90%);
 }
 
 .selectContainer {

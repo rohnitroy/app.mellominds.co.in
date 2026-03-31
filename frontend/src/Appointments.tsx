@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import styles from './Appointments.module.css';
 import { Search } from 'react-iconly';
 import API_BASE_URL from './config/api';
@@ -13,9 +13,23 @@ import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
 import ConfirmModal from './components/ConfirmModal';
 
+const TAB_SLUGS: Record<string, string> = {
+  'upcoming': 'Upcoming',
+  'all-bookings': 'All Bookings',
+  'completed': 'Completed',
+  'pending-session-notes': 'Pending Session Notes',
+  'cancelled': 'Cancelled',
+  'no-show': 'No Show',
+};
+const TAB_TO_SLUG: Record<string, string> = Object.fromEntries(
+  Object.entries(TAB_SLUGS).map(([slug, tab]) => [tab, slug])
+);
+
 const Appointments: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<string>('Upcoming');
+  const { tab: tabParam } = useParams<{ tab?: string }>();
+  const resolvedTab = (tabParam && TAB_SLUGS[tabParam]) || 'Upcoming';
+  const [activeTab, setActiveTab] = useState<string>(resolvedTab);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
@@ -31,6 +45,17 @@ const Appointments: React.FC = () => {
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   // Confirm modal state
   const [confirmModal, setConfirmModal] = useState<{ id: number; action: string } | null>(null);
+
+  // Sync URL param → tab on navigation
+  useEffect(() => {
+    const t = (tabParam && TAB_SLUGS[tabParam]) || 'Upcoming';
+    setActiveTab(t);
+  }, [tabParam]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    navigate(`/bookings/${TAB_TO_SLUG[tab]}`, { replace: true });
+  };
 
   const tabs = ['Upcoming', 'All Bookings', 'Completed', 'Pending Session Notes', 'Cancelled', 'No Show'];
 
@@ -273,7 +298,7 @@ const Appointments: React.FC = () => {
           <button
             key={tab}
             className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''}`}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => handleTabChange(tab)}
           >
             {tab}
           </button>

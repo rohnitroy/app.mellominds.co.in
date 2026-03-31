@@ -840,11 +840,13 @@ body.pbp-page {
     border: none;
     background: #f3f4f6;
     cursor: pointer;
-    font-size: 15px;
     color: #444;
-    padding: 6px 10px;
+    padding: 6px 8px;
     border-radius: 6px;
     line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: background 0.15s;
 }
 .nav-btn:hover { background: #e5e7eb; color: #000; }

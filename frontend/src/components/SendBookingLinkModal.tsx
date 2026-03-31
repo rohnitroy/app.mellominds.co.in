@@ -3,6 +3,7 @@ import styles from './SendBookingLinkModal.module.css';
 import API_BASE_URL from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import Loader from './Loader';
 
 interface SendBookingLinkModalProps {
   isOpen: boolean;
@@ -170,7 +171,7 @@ const SendBookingLinkModal: React.FC<SendBookingLinkModalProps> = ({ isOpen, onC
 
         <div className={styles.modalBody}>
           {loading ? (
-            <p style={{ color: '#6E6E6E', fontSize: '14px', fontFamily: 'Urbanist' }}>Loading...</p>
+            <Loader />
           ) : calendars.length === 0 ? (
             <p style={{ color: '#6E6E6E', fontSize: '14px', fontFamily: 'Urbanist' }}>No calendars found. Create a calendar first.</p>
           ) : (

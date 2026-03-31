@@ -44,8 +44,9 @@ const AllClients: React.FC = () => {
   const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
-  const { clientId, tab } = useParams<{ clientId?: string; tab?: string }>();
-  const [activeTab, setActiveTab] = useState<'all' | 'transferred'>('all');
+  const { clientId, tab } = useParams<{ clientId?: string; tab?: string; listTab?: string }>();
+  const listTabParam = useParams<{ listTab?: string }>().listTab;
+  const [activeTab, setActiveTab] = useState<'all' | 'transferred'>(listTabParam === 'transferred' ? 'transferred' : 'all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [initialTab, setInitialTab] = useState<string | undefined>(undefined);
@@ -356,15 +357,18 @@ const AllClients: React.FC = () => {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', borderBottom: '1px solid #e0e0e0' }}>
-        {(['all', 'transferred'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} style={{
+        {(['all', 'transferred'] as const).map(t => (
+          <button key={t} onClick={() => {
+            setActiveTab(t);
+            navigate(t === 'all' ? '/clients' : '/clients/list/transferred', { replace: true });
+          }} style={{
             padding: '10px 20px', border: 'none', background: 'none', cursor: 'pointer',
             fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px',
-            color: activeTab === tab ? '#082421' : '#9CA3AF',
-            borderBottom: activeTab === tab ? '2px solid #082421' : '2px solid transparent',
+            color: activeTab === t ? '#082421' : '#9CA3AF',
+            borderBottom: activeTab === t ? '2px solid #082421' : '2px solid transparent',
             marginBottom: '-1px'
           }}>
-            {tab === 'all' ? 'All Clients' : 'Transferred'}
+            {t === 'all' ? 'All Clients' : 'Transferred'}
           </button>
         ))}
       </div>

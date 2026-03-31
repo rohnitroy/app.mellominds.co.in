@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../config/api';
 import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
+import Loader from './Loader';
 
 interface NoteField {
     id: number;
@@ -128,7 +129,7 @@ const ClientNotesTemplate: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
         }
     };
 
-    if (loading) return <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'Urbanist', color: '#6E6E6E' }}>Loading...</div>;
+    if (loading) return <Loader />;
 
     return (
         <div style={{ padding: '32px', maxWidth: '700px', margin: '0 auto', fontFamily: 'Urbanist', overflowY: 'auto', height: '100%', boxSizing: 'border-box' }}>

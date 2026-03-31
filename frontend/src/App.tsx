@@ -1094,13 +1094,16 @@ const AppContent: React.FC = () => {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardHome />} />
               <Route path="clients" element={<AllClients />} />
+              <Route path="clients/list/:listTab" element={<AllClients />} />
               <Route path="clients/:clientId" element={<AllClients />} />
               <Route path="clients/:clientId/:tab" element={<AllClients />} />
               <Route path="bookings" element={<Appointments />} />
+              <Route path="bookings/:tab" element={<Appointments />} />
               <Route path="my-calendar" element={<CalendarPage />} />
               <Route path="my-calendar/new" element={<CreateEventPage />} />
               <Route path="my-calendar/edit" element={<CreateEventPage />} />
               <Route path="payment-invoice" element={<PaymentsInvoice />} />
+              <Route path="payment-invoice/:tab" element={<PaymentsInvoice />} />
               <Route path="settings" element={<MySettings />} />
               <Route path="settings/my-profile" element={<MyProfile onBack={() => window.history.back()} />} />
               <Route path="settings/client-notes-template" element={<ClientNotesTemplate onBack={() => window.history.back()} />} />
