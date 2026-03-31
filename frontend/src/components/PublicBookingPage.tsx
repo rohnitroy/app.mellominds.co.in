@@ -645,7 +645,7 @@ const PublicBookingPage: React.FC = () => {
                             </div>
 
                             <div className="pbp-form-actions">
-                                <button type="submit" className="pbp-confirm-btn" disabled={submitting}>
+                                <button type="submit" className="pbp-confirm-btn" disabled={submitting || !termsAccepted}>
                                     <CalendarIcon />
                                     {submitting ? 'Confirming...' : calendar.payment_enabled && calendar.payment_gateway === 'cashfree' ? 'Pay & Confirm' : 'Confirm Booking'}
                                 </button>
