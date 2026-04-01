@@ -16,6 +16,7 @@ import notesRoutes from './routes/notes.js';
 import notificationsRoutes from './routes/notifications.js';
 import activitiesRoutes from './routes/activities.js';
 import cashfreeRoutes from './routes/cashfree.js';
+import enterpriseRoutes from './routes/enterprise.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -89,6 +90,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/cashfree', cashfreeRoutes);
+app.use('/api/enterprise', enterpriseRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

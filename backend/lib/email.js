@@ -31,7 +31,7 @@ if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.includes('localhost') &
  * Send an email.
  * @param {object} opts - { to, subject, html, text? }
  */
-export async function sendEmail({ to, subject, html, text }) {
+export async function sendEmail({ to, cc, subject, html, text }) {
     if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
         console.warn('Email not configured — skipping send.');
         return;
@@ -40,6 +40,7 @@ export async function sendEmail({ to, subject, html, text }) {
         await transporter.sendMail({
             from: `"MelloMinds" <${process.env.GMAIL_USER}>`,
             to,
+            ...(cc ? { cc } : {}),
             subject,
             html,
             text: text || html.replace(/<[^>]+>/g, ''),
@@ -254,6 +255,41 @@ export function forgotPasswordEmail({ tempPassword }) {
                 <p style="color: #555; font-size: 14px;">Please log in with this temporary password and change it immediately from your profile settings.</p>
                 <p style="color: #888; font-size: 13px; margin-top: 32px;">If you did not request this, please ignore this email. Your account is safe.</p>
                 <p style="color: #888; font-size: 13px;">— The MelloMinds Team</p>
+            </div>
+        </div>`
+    };
+}
+
+export function enterpriseLeadEmail({ name, phone, email, company_name, company_website, message }) {
+    const websiteRow = company_website
+        ? `<tr><td style="padding:8px 0;color:#555;font-size:14px;width:140px;font-weight:600;">Company Website</td><td style="padding:8px 0;color:#333;font-size:14px;"><a href="${company_website}" style="color:#2D7579;">${company_website}</a></td></tr>`
+        : '';
+    const messageRow = message
+        ? `<div style="margin-top:20px;background:#f4fffe;border-left:4px solid #2D7579;border-radius:8px;padding:16px 20px;">
+               <p style="margin:0 0 6px;color:#082421;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;">Message</p>
+               <p style="margin:0;color:#333;font-size:14px;line-height:1.6;">${message}</p>
+           </div>`
+        : '';
+    return {
+        subject: `🚀 New Enterprise Lead — ${company_name} (${name})`,
+        html: `
+        <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:580px;margin:0 auto;background:#f9f9f9;padding:32px;">
+            <div style="background:linear-gradient(135deg,#082421 0%,#2D7579 100%);border-radius:12px 12px 0 0;padding:24px 32px;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">New Enterprise Lead 🚀</h1>
+                <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:14px;">Someone is interested in MelloMinds Enterprise</p>
+            </div>
+            <div style="background:#fff;border-radius:0 0 12px 12px;padding:32px;border:1px solid #e0e0e0;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <tr><td style="padding:8px 0;color:#555;font-size:14px;width:140px;font-weight:600;">Name</td><td style="padding:8px 0;color:#333;font-size:14px;">${name}</td></tr>
+                    <tr style="border-top:1px solid #f0f0f0;"><td style="padding:8px 0;color:#555;font-size:14px;font-weight:600;">Email</td><td style="padding:8px 0;color:#333;font-size:14px;"><a href="mailto:${email}" style="color:#2D7579;">${email}</a></td></tr>
+                    <tr style="border-top:1px solid #f0f0f0;"><td style="padding:8px 0;color:#555;font-size:14px;font-weight:600;">Phone</td><td style="padding:8px 0;color:#333;font-size:14px;">${phone}</td></tr>
+                    <tr style="border-top:1px solid #f0f0f0;"><td style="padding:8px 0;color:#555;font-size:14px;font-weight:600;">Company</td><td style="padding:8px 0;color:#333;font-size:14px;">${company_name}</td></tr>
+                    ${websiteRow}
+                </table>
+                ${messageRow}
+                <div style="margin-top:28px;padding-top:20px;border-top:1px solid #eee;">
+                    <p style="margin:0;color:#888;font-size:12px;">Submitted via MelloMinds Enterprise enquiry form · ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
+                </div>
             </div>
         </div>`
     };
