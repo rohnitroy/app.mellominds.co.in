@@ -7,6 +7,8 @@ import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
 import Loader from './Loader';
 
+const BASE_URL = 'https://app.mellominds.co.in';
+
 interface Calendar {
     id: number;
     title: string;
@@ -106,6 +108,19 @@ const PublicBookingPage: React.FC = () => {
                         setFormData(prev => ({ ...prev, location: hasOnline ? 'google_meet' : 'in_person' }));
                     }
                     setCalendar(data);
+
+                    // Set dynamic SEO meta for this booking page
+                    const pageTitle = `Book ${data.title} with ${data.therapist_name} – MelloMinds`;
+                    const pageDesc = data.description
+                        ? `${data.description} — Book a ${data.duration} session with ${data.therapist_name} on MelloMinds.`
+                        : `Book a ${data.duration} session of ${data.title} with ${data.therapist_name} on MelloMinds.`;
+                    const canonicalPath = `/book/${userId}/${slug}`;
+
+                    document.title = pageTitle;
+                    const descEl = document.getElementById('meta-description') as HTMLMetaElement | null;
+                    if (descEl) descEl.content = pageDesc;
+                    const canonicalEl = document.getElementById('canonical-tag') as HTMLLinkElement | null;
+                    if (canonicalEl) canonicalEl.href = `${BASE_URL}${canonicalPath}`;
                 } else {
                     setError('Calendar event not found.');
                 }

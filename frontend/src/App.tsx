@@ -1043,30 +1043,62 @@ const DashboardHome: React.FC = () => {
   );
 };
 
+const BASE_URL = 'https://app.mellominds.co.in';
+const DEFAULT_DESCRIPTION = 'A Dashboard to streamline your mental health practice with MelloMinds. An all-in-one platform for appointments, billing, and therapy notes designed for therapists.';
+
+function setPageMeta(title: string, description: string, path: string) {
+  document.title = title;
+
+  const descEl = document.getElementById('meta-description') as HTMLMetaElement | null;
+  if (descEl) descEl.content = description;
+
+  const canonicalEl = document.getElementById('canonical-tag') as HTMLLinkElement | null;
+  if (canonicalEl) canonicalEl.href = `${BASE_URL}${path}`;
+}
+
 const PageTitle: React.FC = () => {
   const location = useLocation();
 
   useEffect(() => {
-    const titles: Record<string, string> = {
-      '/dashboard': 'Dashboard',
-      '/clients': 'All Clients',
-      '/bookings': 'Bookings',
-      '/my-calendar': 'My Calendars',
-      '/my-calendar/new': 'Create Event',
-      '/my-calendar/edit': 'Edit Event',
-      '/payment-invoice': 'Payments & Invoice',
-      '/settings': 'My Settings',
-      '/settings/my-profile': 'My Profile',
-      '/settings/client-notes-template': 'Client Notes Template',
-      '/notifications': 'Notifications',
-      '/login': 'Login',
-      '/signup': 'Sign Up',
+    type PageMeta = { title: string; description: string };
+    const pageMeta: Record<string, PageMeta> = {
+      '/login': {
+        title: 'Login – MelloMinds',
+        description: 'Sign in to your MelloMinds account to manage your therapy practice.',
+      },
+      '/signup': {
+        title: 'Sign Up – MelloMinds',
+        description: 'Create your MelloMinds account and start streamlining your mental health practice today.',
+      },
+      '/privacy-policy': {
+        title: 'Privacy Policy – MelloMinds',
+        description: 'Read the MelloMinds Privacy Policy to understand how we collect, use, and protect your data.',
+      },
+      '/terms-of-service': {
+        title: 'Terms of Service – MelloMinds',
+        description: 'Review the MelloMinds Terms of Service governing your use of our therapy practice management platform.',
+      },
+      '/dashboard': { title: 'Dashboard – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/clients': { title: 'All Clients – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/bookings': { title: 'Bookings – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/my-calendar': { title: 'My Calendars – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/my-calendar/new': { title: 'Create Event – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/my-calendar/edit': { title: 'Edit Event – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/payment-invoice': { title: 'Payments & Invoice – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/settings': { title: 'My Settings – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/settings/my-profile': { title: 'My Profile – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/settings/client-notes-template': { title: 'Client Notes Template – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/notifications': { title: 'Notifications – MelloMinds', description: DEFAULT_DESCRIPTION },
     };
 
-    const match = Object.keys(titles).find(path => location.pathname === path)
-      || Object.keys(titles).find(path => location.pathname.startsWith(path + '/'));
+    // Skip /book/ routes — PublicBookingPage sets its own meta after data loads
+    if (location.pathname.startsWith('/book/')) return;
 
-    document.title = match ? `${titles[match]} - MelloMinds` : 'MelloMinds';
+    const match = Object.keys(pageMeta).find(p => location.pathname === p)
+      || Object.keys(pageMeta).find(p => location.pathname.startsWith(p + '/'));
+
+    const meta = match ? pageMeta[match] : { title: 'MelloMinds', description: DEFAULT_DESCRIPTION };
+    setPageMeta(meta.title, meta.description, location.pathname);
 
     // Fire GA4 page view on route change
     if (typeof (window as any).gtag === 'function') {

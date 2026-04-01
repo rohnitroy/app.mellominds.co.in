@@ -1,0 +1,20 @@
+User-agent: *
+Allow: /
+
+# Public pages
+Allow: /book/
+Allow: /privacy-policy
+Allow: /terms-of-service
+
+# Block authenticated dashboard routes from indexing
+Disallow: /dashboard
+Disallow: /clients
+Disallow: /bookings
+Disallow: /my-calendar
+Disallow: /payment-invoice
+Disallow: /settings
+Disallow: /notifications
+Disallow: /booking-status
+Disallow: /manage-booking/
+
+Sitemap: https://app.mellominds.co.in/sitemap.xml
