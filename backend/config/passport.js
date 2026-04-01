@@ -2,6 +2,7 @@ import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import dotenv from 'dotenv';
 import pool from './database.js';
+import { sendEmail, newUserAlertEmail } from '../lib/email.js';
 
 import './env.js';
 
@@ -50,6 +51,11 @@ passport.use(
               [userName, email, googleId, 'google', profilePicture]
             );
             user = result.rows[0];
+
+            // Fire-and-forget: notify team of new Google signup
+            const alertEmail = newUserAlertEmail({ userName, email, authProvider: 'google' });
+            sendEmail({ to: 'sarafaastha13@gmail.com', cc: 'adosolve@gmail.com', ...alertEmail })
+              .catch(err => console.error('New user alert email failed:', err.message));
           }
         }
 

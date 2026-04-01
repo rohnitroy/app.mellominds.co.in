@@ -294,3 +294,43 @@ export function enterpriseLeadEmail({ name, phone, email, company_name, company_
         </div>`
     };
 }
+
+export function newUserAlertEmail({ userName, email, authProvider }) {
+    const providerLabel = authProvider === 'google' ? 'Google OAuth' : 'Email & Password';
+    const providerColor = authProvider === 'google' ? '#4285F4' : '#2D7579';
+    return {
+        subject: `🎉 New Therapist Joined — ${userName}`,
+        html: `
+        <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:560px;margin:0 auto;background:#f9f9f9;padding:32px;">
+            <div style="background:linear-gradient(135deg,#082421 0%,#2D7579 100%);border-radius:12px 12px 0 0;padding:24px 32px;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">New Therapist Joined 🎉</h1>
+                <p style="color:rgba(255,255,255,0.8);margin:6px 0 0;font-size:14px;">A new user has created an account on MelloMinds</p>
+            </div>
+            <div style="background:#fff;border-radius:0 0 12px 12px;padding:32px;border:1px solid #e0e0e0;">
+                <table style="width:100%;border-collapse:collapse;">
+                    <tr>
+                        <td style="padding:10px 0;color:#555;font-size:14px;width:130px;font-weight:600;">Name</td>
+                        <td style="padding:10px 0;color:#082421;font-size:14px;font-weight:700;">${userName}</td>
+                    </tr>
+                    <tr style="border-top:1px solid #f0f0f0;">
+                        <td style="padding:10px 0;color:#555;font-size:14px;font-weight:600;">Email</td>
+                        <td style="padding:10px 0;font-size:14px;"><a href="mailto:${email}" style="color:#2D7579;text-decoration:none;">${email}</a></td>
+                    </tr>
+                    <tr style="border-top:1px solid #f0f0f0;">
+                        <td style="padding:10px 0;color:#555;font-size:14px;font-weight:600;">Signed up via</td>
+                        <td style="padding:10px 0;">
+                            <span style="background:${providerColor};color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;">${providerLabel}</span>
+                        </td>
+                    </tr>
+                    <tr style="border-top:1px solid #f0f0f0;">
+                        <td style="padding:10px 0;color:#555;font-size:14px;font-weight:600;">Joined at</td>
+                        <td style="padding:10px 0;color:#333;font-size:14px;">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })} IST</td>
+                    </tr>
+                </table>
+                <div style="margin-top:24px;padding-top:20px;border-top:1px solid #eee;">
+                    <p style="margin:0;color:#888;font-size:12px;">MelloMinds platform · Auto-generated new user alert</p>
+                </div>
+            </div>
+        </div>`
+    };
+}

@@ -7,7 +7,7 @@ import cloudinary from '../config/cloudinary.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { sendEmail, forgotPasswordEmail } from '../lib/email.js';
+import { sendEmail, forgotPasswordEmail, newUserAlertEmail } from '../lib/email.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,6 +61,11 @@ router.post('/register', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, user_name, email`,
       [fullName, email, hashedPassword, phoneNumber || null, dateOfBirth || null, formattedGender, specialization || null, languages || null, country || null, state || null, city || null, pincode || null, address || null, 'email']
     );
+
+    // Fire-and-forget: notify team of new user signup
+    const alertEmail = newUserAlertEmail({ userName: fullName, email, authProvider: 'email' });
+    sendEmail({ to: 'sarafaastha13@gmail.com', cc: 'adosolve@gmail.com', ...alertEmail })
+      .catch(err => console.error('New user alert email failed:', err.message));
 
     res.status(201).json({ message: 'Registration successful', user: result.rows[0] });
   } catch (error) {
