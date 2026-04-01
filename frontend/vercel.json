@@ -19,6 +19,14 @@
       "dest": "/$1"
     },
     {
+      "src": "/sitemap\\.xml",
+      "dest": "/sitemap.xml"
+    },
+    {
+      "src": "/google[a-z0-9]+\\.html",
+      "dest": "/google00b74abc8be033ac.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
