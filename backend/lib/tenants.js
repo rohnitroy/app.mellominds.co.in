@@ -93,9 +93,17 @@ export function extractTenantContext(req, res, next) {
     // Simulate JWT parsing (in real app, use proper JWT library)
     const token = authHeader.split(' ')[1];
     
-    // For demo purposes, we'll extract tenant from a simple format
-    // Real implementation would validate JWT signature and extract claims
-    const decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    // SECURITY: This only decodes the payload without verifying the signature.
+    // This route (/api/v1/users) is a legacy SaaS scaffold and is NOT used by the
+    // main application. In production, replace this with proper JWT verification
+    // (e.g. jsonwebtoken.verify()) before enabling this route.
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return res.status(401).json({
+        error: { code: 'INVALID_TOKEN', message: 'Malformed JWT token' }
+      });
+    }
+    const decoded = JSON.parse(Buffer.from(parts[1], 'base64').toString());
     
     if (!decoded.tenantId) {
       return res.status(403).json({

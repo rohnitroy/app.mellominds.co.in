@@ -2,6 +2,8 @@ import './config/env.js'; // MUST be first
 import express from 'express';
 import session from 'express-session';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import passport from './config/passport.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
@@ -23,9 +25,24 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow /uploads to be served cross-origin
+  contentSecurityPolicy: false, // disable CSP here — frontend is a separate origin
+}));
+
+// Rate limiter for auth endpoints — 20 attempts per 15 minutes per IP
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again in 15 minutes.' },
+});
+
 // Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50kb' }));
+app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -59,8 +76,10 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Routes
-app.use('/auth', authRoutes);
-app.use('/api/v1/users', usersRoutes);
+app.use('/auth', authLimiter, authRoutes);
+// NOTE: /api/v1/users is disabled — uses unverified JWT (see lib/tenants.js)
+// Uncomment only after replacing extractTenantContext with proper JWT verification
+// app.use('/api/v1/users', usersRoutes);
 app.use('/api/calendars', calendarRoutes);
 app.use('/api/connect-calendar', connectCalendarRoutes);
 app.use('/api/bookings', bookingsRoutes);

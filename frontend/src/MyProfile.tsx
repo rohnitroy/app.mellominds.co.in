@@ -86,6 +86,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   };
 
   const fetchLocationByPincode = async (pincode: string) => {
+    if (!/^\d{6}$/.test(pincode)) return; // only valid 6-digit Indian pincodes
     try {
       // Using India Post API
       const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);

@@ -7,6 +7,7 @@ import cloudinary from '../config/cloudinary.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { sendEmail, forgotPasswordEmail } from '../lib/email.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -209,7 +210,11 @@ router.post('/forgot-password', async (req, res) => {
     const hashed = await bcrypt.hash(tempPassword, 10);
     await pool.query('UPDATE Users SET password = $1 WHERE id = $2', [hashed, user.id]);
 
-    res.json({ tempPassword });
+    // Email the temp password — never expose it in the API response
+    const emailContent = forgotPasswordEmail({ tempPassword });
+    await sendEmail({ to: email, ...emailContent });
+
+    res.json({ message: 'If this email is registered, a temporary password has been sent to your inbox.' });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ error: 'Failed to reset password' });

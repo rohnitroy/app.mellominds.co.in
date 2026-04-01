@@ -64,6 +64,15 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
+        // Verify the appointment belongs to this therapist
+        const ownerCheck = await client.query(
+            'SELECT id FROM Appointments WHERE id = $1 AND therapist_id = $2',
+            [appointment_id, therapist_id]
+        );
+        if (ownerCheck.rows.length === 0) {
+            return res.status(403).json({ error: 'Appointment not found or access denied' });
+        }
+
         const result = await client.query(
             `INSERT INTO SessionNotes (appointment_id, therapist_id, note_content)
              VALUES ($1, $2, $3)

@@ -232,6 +232,7 @@ const PublicBookingPage: React.FC = () => {
                     await new Promise<void>((resolve, reject) => {
                         const script = document.createElement('script');
                         script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+                        script.crossOrigin = 'anonymous';
                         script.onload = () => resolve();
                         script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
                         document.head.appendChild(script);

@@ -236,3 +236,25 @@ export function bookingLinkEmail({ clientName, therapistName, calendarTitle, cal
         </div>`
     };
 }
+
+export function forgotPasswordEmail({ tempPassword }) {
+    return {
+        subject: 'Your Temporary Password — MelloMinds',
+        html: `
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 560px; margin: 0 auto; background: #f9f9f9; padding: 32px;">
+            <div style="background: #082421; border-radius: 12px 12px 0 0; padding: 24px 32px;">
+                <h1 style="color: #fff; margin: 0; font-size: 22px;">Password Reset</h1>
+            </div>
+            <div style="background: #fff; border-radius: 0 0 12px 12px; padding: 32px; border: 1px solid #e0e0e0;">
+                <p style="color: #333; font-size: 15px;">You requested a password reset for your MelloMinds account.</p>
+                <p style="color: #333; font-size: 15px;">Your temporary password is:</p>
+                <div style="background: #f4fffe; border-left: 4px solid #2D7579; border-radius: 8px; padding: 16px 20px; margin: 24px 0; text-align: center;">
+                    <p style="margin: 0; color: #082421; font-weight: 700; font-size: 22px; letter-spacing: 2px;">${tempPassword}</p>
+                </div>
+                <p style="color: #555; font-size: 14px;">Please log in with this temporary password and change it immediately from your profile settings.</p>
+                <p style="color: #888; font-size: 13px; margin-top: 32px;">If you did not request this, please ignore this email. Your account is safe.</p>
+                <p style="color: #888; font-size: 13px;">— The MelloMinds Team</p>
+            </div>
+        </div>`
+    };
+}

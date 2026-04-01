@@ -197,35 +197,44 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             return res.json({ received: true });
         }
 
-        // Verify signature
+        // Always verify signature when headers are present
         const timestamp = req.headers['x-webhook-timestamp'];
         const signature = req.headers['x-webhook-signature'];
 
         if (timestamp && signature) {
-            // Get therapist credentials to verify — find appointment by cashfree_order_id
-            const apptRes = await pool.query(
-                `SELECT a.therapist_id FROM Appointments a WHERE a.cashfree_order_id = $1`,
+            // Look up therapist credentials by order ID prefix (mello_<calendarId>_<ts>)
+            const cfRes = await pool.query(
+                `SELECT ui.secret_key
+                 FROM UserIntegrations ui
+                 JOIN Calendars c ON c.user_id = ui.user_id
+                 WHERE ui.provider = 'cashfree'
+                   AND $1 LIKE 'mello_' || c.id || '_%'
+                 LIMIT 1`,
                 [orderId]
             );
 
-            if (apptRes.rows.length > 0) {
-                const cfRes = await pool.query(
-                    `SELECT secret_key FROM UserIntegrations WHERE user_id = $1 AND provider = 'cashfree'`,
-                    [apptRes.rows[0].therapist_id]
-                );
-
-                if (cfRes.rows.length > 0) {
-                    const expectedSig = crypto
-                        .createHmac('sha256', cfRes.rows[0].secret_key)
-                        .update(timestamp + rawBody)
-                        .digest('base64');
-
-                    if (expectedSig !== signature) {
-                        console.warn('Cashfree webhook signature mismatch');
-                        return res.status(400).json({ error: 'Invalid signature' });
-                    }
-                }
+            if (cfRes.rows.length === 0) {
+                // Can't verify — reject to be safe
+                console.warn('Cashfree webhook: no credentials found for order', orderId);
+                return res.status(400).json({ error: 'Cannot verify webhook signature' });
             }
+
+            const expectedSig = crypto
+                .createHmac('sha256', cfRes.rows[0].secret_key)
+                .update(timestamp + rawBody)
+                .digest('base64');
+
+            if (expectedSig !== signature) {
+                console.warn('Cashfree webhook signature mismatch for order', orderId);
+                return res.status(400).json({ error: 'Invalid signature' });
+            }
+        } else {
+            // No signature headers — only allow in sandbox/dev, reject in production
+            if (process.env.NODE_ENV === 'production') {
+                console.warn('Cashfree webhook: missing signature headers in production for order', orderId);
+                return res.status(400).json({ error: 'Webhook signature required in production' });
+            }
+            console.warn('Cashfree webhook: no signature headers (sandbox mode), processing anyway');
         }
 
         // Mark appointment as paid
