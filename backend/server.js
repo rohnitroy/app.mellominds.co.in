@@ -134,9 +134,35 @@ async function ensureCalendarsSchema() {
   }
 }
 
+// Auto-migrate Appointments table columns on startup
+async function ensureAppointmentsSchema() {
+  try {
+    await pool.query(`
+      ALTER TABLE Appointments
+      ADD COLUMN IF NOT EXISTS client_phone VARCHAR(20),
+      ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'Pending',
+      ADD COLUMN IF NOT EXISTS payment_amount DECIMAL(10, 2) DEFAULT 0.00,
+      ADD COLUMN IF NOT EXISTS form_responses JSONB DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS location_type VARCHAR(50) DEFAULT 'google_meet',
+      ADD COLUMN IF NOT EXISTS cancel_token VARCHAR(64) UNIQUE DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS cashfree_order_id VARCHAR(255) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS cashfree_payment_link TEXT DEFAULT NULL
+    `);
+    await pool.query(`
+      UPDATE Appointments
+      SET cancel_token = md5(id::text || random()::text || clock_timestamp()::text)
+      WHERE cancel_token IS NULL
+    `);
+    console.log('✅ Appointments schema verified');
+  } catch (err) {
+    console.error('⚠️  Appointments schema migration warning:', err.message);
+  }
+}
+
 // Start server
 app.listen(PORT, async () => {
   await ensureCalendarsSchema();
+  await ensureAppointmentsSchema();
   console.log(`🚀 Server running on port ${PORT}`);
 });
 

@@ -42,7 +42,7 @@ router.get('/transfers/outgoing', async (req, res) => {
                 c.name as client_name, c.email as client_email, c.phone as client_phone,
                 u.email as to_therapist_email,
                 COUNT(a.id) as sessions,
-                COALESCE(SUM(CASE WHEN a.payment_status = 'Paid' THEN a.payment_amount ELSE 0 END), 0) as revenue,
+                COALESCE(SUM(CASE WHEN a.payment_status IN ('Paid', 'Partial Refund') THEN a.payment_amount ELSE 0 END), 0) as revenue,
                 MAX(a.start_time) as last_session
              FROM ClientTransfers ct
              JOIN Clients c ON ct.client_id = c.id

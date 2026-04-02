@@ -40,7 +40,7 @@ router.post('/public', async (req, res) => {
 
         // 1. Fetch Calendar & Therapist Details
         const calendarRes = await client.query(
-            `SELECT c.*, u.id as user_id 
+            `SELECT c.*, u.id as user_id, u.email as therapist_email
              FROM Calendars c 
              JOIN Users u ON c.user_id = u.id 
              WHERE c.id = $1`,
@@ -91,7 +91,7 @@ router.post('/public', async (req, res) => {
 
             const event = {
                 summary: `${calendarService.title} with ${client_name}`,
-                description: `Booking for ${client_name} (${client_email})\n\n${calendarService.description || ''}`,
+                description: `Booking for ${client_name} (${client_email})${partner_name ? `\nPartner: ${partner_name} (${partner_email})` : ''}\n\n${calendarService.description || ''}`,
                 start: { dateTime: startTime.toISOString() },
                 end: { dateTime: endTime.toISOString() },
                 conferenceData: {
@@ -100,7 +100,10 @@ router.post('/public', async (req, res) => {
                         conferenceSolutionKey: { type: 'hangoutsMeet' }
                     }
                 },
-                attendees: [{ email: client_email }]
+                attendees: [
+                    { email: client_email },
+                    ...(partner_email ? [{ email: partner_email }] : [])
+                ]
             };
 
             try {
@@ -187,6 +190,27 @@ router.post('/public', async (req, res) => {
             frontendUrl: process.env.FRONTEND_URL
         });
         await sendEmail({ to: client_email, ...emailContent });
+
+        // Send confirmation email to therapist
+        if (calendarService.therapist_email) {
+            const therapistNotifContent = bookingConfirmationEmail({
+                clientName: calendarService.therapist_name || 'Therapist',
+                therapistName: client_name,
+                sessionTitle: calendarService.title,
+                startTime: startTime.toISOString(),
+                meetLink: meetLink,
+                locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet',
+                cancelToken: null,
+                frontendUrl: process.env.FRONTEND_URL
+            });
+            therapistNotifContent.subject = `New Booking — ${calendarService.title} with ${client_name}${partner_name ? ` & ${partner_name}` : ''}`;
+            therapistNotifContent.html = therapistNotifContent.html
+                .replace(
+                    `Your session has been confirmed with <strong>${client_name}</strong>`,
+                    `A new session has been booked by <strong>${client_name}</strong>${partner_name ? ` &amp; <strong>${partner_name}</strong>` : ''}`
+                );
+            await sendEmail({ to: calendarService.therapist_email, ...therapistNotifContent });
+        }
 
         // If couples session — upsert partner as client and send them a confirmation too
         if (partner_name && partner_email) {
@@ -519,7 +543,7 @@ router.get('/stats', async (req, res) => {
 
         // Calculate revenue
         const revenueRes = await client.query(
-            `SELECT COALESCE(SUM(payment_amount), 0) as total FROM Appointments WHERE therapist_id = $1 AND payment_status = 'Paid' AND status != 'cancelled'${dateFilter}`,
+            `SELECT COALESCE(SUM(payment_amount), 0) as total FROM Appointments WHERE therapist_id = $1 AND payment_status IN ('Paid', 'Partial Refund') AND status != 'cancelled'${dateFilter}`,
             params
         );
         const revenue = parseFloat(revenueRes.rows[0].total || 0);
@@ -588,9 +612,9 @@ router.get('/clients', async (req, res) => {
                 c.phone,
                 c.manually_added,
                 COUNT(a.id) as sessions,
-                COALESCE(SUM(CASE WHEN a.payment_status = 'Paid' AND a.status != 'cancelled' THEN a.payment_amount ELSE 0 END), 0) as total_revenue,
-                MAX(a.start_time) as last_session,
-                (SELECT status FROM Appointments a2 WHERE LOWER(a2.client_email) = LOWER(c.email) AND a2.therapist_id = c.therapist_id ORDER BY a2.start_time DESC LIMIT 1) as last_session_status,
+                COALESCE(SUM(CASE WHEN a.payment_status IN ('Paid', 'Partial Refund') AND a.status != 'cancelled' THEN a.payment_amount ELSE 0 END), 0) as total_revenue,
+                (SELECT start_time FROM Appointments a2 WHERE LOWER(a2.client_email) = LOWER(c.email) AND a2.therapist_id = c.therapist_id ORDER BY a2.created_at DESC LIMIT 1) as last_session,
+                (SELECT status FROM Appointments a2 WHERE LOWER(a2.client_email) = LOWER(c.email) AND a2.therapist_id = c.therapist_id ORDER BY a2.created_at DESC LIMIT 1) as last_session_status,
                 c.age,
                 c.occupation,
                 c.gender,
@@ -676,7 +700,7 @@ router.get('/', async (req, res) => {
             params.push(email);
         }
 
-        query += " GROUP BY a.id ORDER BY a.start_time DESC";
+        query += " GROUP BY a.id ORDER BY a.created_at DESC";
 
         const result = await client.query(query, params);
         res.json(result.rows);
