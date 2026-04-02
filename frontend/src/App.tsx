@@ -237,8 +237,18 @@ const defaultClientForm = {
 
 const AddClientModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const toast = useToast();
+  const { user } = useAuth();
   const [form, setForm] = useState({ ...defaultClientForm });
   const [saving, setSaving] = useState(false);
+  const [calendars, setCalendars] = useState<{ id: number; title: string; slug: string; duration: string; description?: string }[]>([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string>('');
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/calendars`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : [])
+      .then(setCalendars)
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,7 +259,10 @@ const AddClientModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          ...(selectedCalendarId ? { calendarId: parseInt(selectedCalendarId) } : {}),
+        }),
       });
       if (res.ok) {
         toast.success('Client added successfully!');
@@ -318,6 +331,23 @@ const AddClientModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <div><label style={lStyle}>Phone</label><input style={iStyle} type="tel" placeholder="+91 98765 43210" {...f('emergencyPhone')} /></div>
             <div><label style={lStyle}>Relation</label><input style={iStyle} type="text" placeholder="Spouse" {...f('emergencyRelation')} /></div>
           </div>
+          {calendars.length > 0 && (
+            <>
+              <p style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#2D7579', margin: '8px 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Send Booking Link (Optional)</p>
+              <div style={{ marginBottom: '28px' }}>
+                <label style={lStyle}>Select Calendar</label>
+                <select style={iStyle} value={selectedCalendarId} onChange={e => setSelectedCalendarId(e.target.value)}>
+                  <option value="">— Skip, don't send —</option>
+                  {calendars.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                </select>
+                {selectedCalendarId && (
+                  <p style={{ fontFamily: 'Urbanist', fontSize: '12px', color: '#6E6E6E', margin: '6px 0 0 0' }}>
+                    A welcome email with the booking link will be sent to the client.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
             <button type="button" onClick={onClose} disabled={saving}
               style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#333', cursor: 'pointer' }}>
@@ -468,8 +498,6 @@ const DashboardLayout: React.FC = () => {
 
       <div className="user-info">
         <QuickActionMenu
-          onCreateBooking={() => setShowCreateBookingModal(true)}
-          onSendBookingLink={() => setShowSendLinkModal(true)}
           onAddClient={() => setShowAddClientModal(true)}
         />
         <NotificationBell

@@ -15,6 +15,7 @@ interface Calendar {
     duration: string;
     description: string;
     slug: string;
+    type?: string;
     therapist_name: string;
     profile_picture?: string;
     price?: number;
@@ -23,6 +24,12 @@ interface Calendar {
     prices?: { amount: number; currency: string; label?: string }[];
     locations?: { type: string; address?: string }[];
     form_data?: { heading?: string; questions: any[] };
+    schedule_settings?: {
+        dateRangeType?: string;
+        dateRangeValue?: string;
+        dateRangeStart?: string;
+        dateRangeEnd?: string;
+    };
 }
 
 // Detect user timezone
@@ -76,6 +83,9 @@ const PublicBookingPage: React.FC = () => {
     const [formResponses, setFormResponses] = useState<Record<string, any>>({});
     const [termsAccepted, setTermsAccepted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    // Partner fields for couples therapy
+    const [partnerData, setPartnerData] = useState({ name: '', email: '', phone: '' });
 
     // Stored after successful booking to power the confirmation screen
     const [confirmedBooking, setConfirmedBooking] = useState<{
@@ -199,7 +209,14 @@ const PublicBookingPage: React.FC = () => {
                 });
             }
 
-            const payload = {
+            // Validate partner fields for couples calendars
+            const isCouples = calendar.type === 'couples';
+            if (isCouples) {
+                if (!partnerData.name.trim()) { toast.warning("Please enter your partner's name."); setSubmitting(false); return; }
+                if (!partnerData.email.trim()) { toast.warning("Please enter your partner's email."); setSubmitting(false); return; }
+            }
+
+            const payload: any = {
                 calendar_id: calendar.id,
                 start_time: selectedSlot,
                 client_name: formData.client_name,
@@ -207,6 +224,7 @@ const PublicBookingPage: React.FC = () => {
                 client_phone: formData.whatsapp_number,
                 location_type: formData.location,
                 form_responses: allFormResponses,
+                ...(isCouples ? { partner_name: partnerData.name, partner_email: partnerData.email, partner_phone: partnerData.phone } : {}),
             };
 
             if (calendar.payment_enabled && calendar.payment_gateway === 'cashfree') {
@@ -608,6 +626,39 @@ const PublicBookingPage: React.FC = () => {
                             {/* Render all questions from calendar form_data in order */}
                             {questions.map((q: any) => renderQuestion(q))}
 
+                            {/* Partner fields for couples therapy */}
+                            {calendar.type === 'couples' && (
+                                <div style={{ marginTop: '8px', paddingTop: '16px', borderTop: '1px solid #e0e0e0' }}>
+                                    <p style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#082421', marginBottom: '12px' }}>
+                                        Partner Details
+                                    </p>
+                                    <div className="pbp-form-group">
+                                        <label>Partner's Name <span className="pbp-required">*</span></label>
+                                        <input type="text" className="pbp-input" required
+                                            placeholder="Partner's full name"
+                                            value={partnerData.name}
+                                            onChange={e => setPartnerData(p => ({ ...p, name: e.target.value }))} />
+                                    </div>
+                                    <div className="pbp-form-group">
+                                        <label>Partner's Email <span className="pbp-required">*</span></label>
+                                        <input type="email" className="pbp-input" required
+                                            placeholder="partner@example.com"
+                                            value={partnerData.email}
+                                            onChange={e => setPartnerData(p => ({ ...p, email: e.target.value }))} />
+                                    </div>
+                                    <div className="pbp-form-group">
+                                        <label>Partner's Phone</label>
+                                        <div className="pbp-phone-group">
+                                            <span className="pbp-country-code">+91</span>
+                                            <input type="tel" className="pbp-input"
+                                                placeholder="Partner's phone number"
+                                                value={partnerData.phone}
+                                                onChange={e => setPartnerData(p => ({ ...p, phone: e.target.value }))} />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Session mode — always show, picker only if multiple modes */}
                             <div className="pbp-form-group">
                                 <label>Session Mode {showLocationPicker && <span className="pbp-required">*</span>}</label>
@@ -689,7 +740,31 @@ const PublicBookingPage: React.FC = () => {
                         <h2>Select a Date & Time</h2>
                         <div className="pbp-tz-pill"><GlobeIcon />{tzLabel}</div>
                     </div>
-                    <InlineCalendar selectedDate={selectedDate} onDateSelect={setSelectedDate} />
+                    <InlineCalendar selectedDate={selectedDate} onDateSelect={setSelectedDate} maxDate={(() => {
+                        if (!calendar.schedule_settings) return undefined;
+                        const { dateRangeType, dateRangeValue, dateRangeEnd } = calendar.schedule_settings;
+                        if (!dateRangeType || dateRangeType === 'indefinitely') return undefined;
+                        const days = parseInt(dateRangeValue || '60');
+                        if (dateRangeType === 'calendar_days') {
+                            const d = new Date();
+                            d.setDate(d.getDate() + days);
+                            return d.toISOString().split('T')[0];
+                        }
+                        if (dateRangeType === 'business_days') {
+                            let count = 0;
+                            const cursor = new Date();
+                            while (count < days) {
+                                cursor.setDate(cursor.getDate() + 1);
+                                const dow = cursor.getDay();
+                                if (dow !== 0 && dow !== 6) count++;
+                            }
+                            return cursor.toISOString().split('T')[0];
+                        }
+                        if (dateRangeType === 'range') {
+                            return dateRangeEnd || undefined;
+                        }
+                        return undefined;
+                    })()} />
                 </div>
 
                 <div className="pbp-col-slots">

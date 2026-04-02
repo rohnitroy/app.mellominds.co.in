@@ -4,9 +4,10 @@ import React, { useState } from 'react';
 interface InlineCalendarProps {
     onDateSelect: (date: string) => void;
     selectedDate: string; // YYYY-MM-DD
+    maxDate?: string; // YYYY-MM-DD — optional upper bound
 }
 
-const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDateSelect, selectedDate }) => {
+const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDateSelect, selectedDate, maxDate }) => {
     // Initialize with selected date or today
     const [currentMonth, setCurrentMonth] = useState(selectedDate ? new Date(selectedDate) : new Date());
 
@@ -24,24 +25,32 @@ const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDateSelect, selectedD
     };
 
     const handleNextMonth = () => {
-        setCurrentMonth(new Date(year, month + 1, 1));
+        const next = new Date(year, month + 1, 1);
+        if (maxDate) {
+            const max = new Date(maxDate + 'T00:00:00');
+            if (next.getFullYear() > max.getFullYear() ||
+                (next.getFullYear() === max.getFullYear() && next.getMonth() > max.getMonth())) {
+                return;
+            }
+        }
+        setCurrentMonth(next);
     };
 
     const handleDayClick = (day: number) => {
-        // Check if date is in the past
         const clickedDate = new Date(year, month, day);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         clickedDate.setHours(0, 0, 0, 0);
-        
-        // Don't allow selection of past dates
-        if (clickedDate < today) {
-            return;
+
+        if (clickedDate < today) return;
+
+        if (maxDate) {
+            const max = new Date(maxDate + 'T00:00:00');
+            max.setHours(0, 0, 0, 0);
+            if (clickedDate > max) return;
         }
-        
-        // Format as YYYY-MM-DD (local time)
+
         const date = new Date(year, month, day);
-        // Adjust for timezone offset to get correct YYYY-MM-DD string
         const offset = date.getTimezoneOffset();
         const localDate = new Date(date.getTime() - (offset * 60 * 1000));
         const dateString = localDate.toISOString().split('T')[0];
@@ -77,14 +86,19 @@ const InlineCalendar: React.FC<InlineCalendarProps> = ({ onDateSelect, selectedD
             dateToCheck.setHours(0, 0, 0, 0);
             const isPast = dateToCheck < today;
 
+            const isBeyondMax = maxDate
+                ? dateToCheck > new Date(new Date(maxDate + 'T00:00:00').setHours(0, 0, 0, 0))
+                : false;
+            const isDisabled = isPast || isBeyondMax;
+
             days.push(
                 <div
                     key={day}
-                    className={`calendar-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${isPast ? 'disabled' : ''}`}
+                    className={`calendar-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${isDisabled ? 'disabled' : ''}`}
                     onClick={() => handleDayClick(day)}
                     style={{ 
-                        cursor: isPast ? 'not-allowed' : 'pointer',
-                        opacity: isPast ? 0.4 : 1
+                        cursor: isDisabled ? 'not-allowed' : 'pointer',
+                        opacity: isDisabled ? 0.4 : 1
                     }}
                 >
                     {day}

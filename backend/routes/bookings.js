@@ -3,14 +3,9 @@ import { google } from 'googleapis';
 import pool from '../config/database.js';
 import { createNotification } from '../lib/notifications.js';
 import { sendEmail, bookingConfirmationEmail, cancellationEmail, rescheduleConfirmationEmail } from '../lib/email.js';
+import { getGoogleAuthClient } from '../lib/googleAuth.js';
 
 const router = express.Router();
-
-const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_CALLBACK_URL
-);
 
 // Middleware to ensure authentication
 const ensureAuthenticated = (req, res, next) => {
@@ -24,7 +19,7 @@ const ensureAuthenticated = (req, res, next) => {
 router.post('/public', async (req, res) => {
     const client = await pool.connect();
     try {
-        const { calendar_id, start_time, client_email, client_name, client_phone, form_responses, location_type, cashfree_order_id } = req.body;
+        const { calendar_id, start_time, client_email, client_name, client_phone, form_responses, location_type, cashfree_order_id, partner_name, partner_email, partner_phone } = req.body;
 
         if (!calendar_id || !start_time || !client_email || !client_name) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -74,24 +69,14 @@ router.post('/public', async (req, res) => {
         const startTime = new Date(start_time);
         const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
-        // 2. Fetch Google Tokens (for Therapist)
-        const tokenRes = await client.query(
-            "SELECT access_token, refresh_token, expiry_date FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
-            [userId]
-        );
+        // 2. Fetch Google Auth Client (handles token refresh automatically)
+        const googleAuthClient = await getGoogleAuthClient(userId);
 
         let googleEventId = null;
         let meetLink = null;
 
-        if (tokenRes.rows.length > 0) {
-            const tokens = tokenRes.rows[0];
-            oauth2Client.setCredentials({
-                access_token: tokens.access_token,
-                refresh_token: tokens.refresh_token,
-                expiry_date: tokens.expiry_date
-            });
-
-            const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+        if (googleAuthClient) {
+            const calendar = google.calendar({ version: 'v3', auth: googleAuthClient });
 
             const event = {
                 summary: `${calendarService.title} with ${client_name}`,
@@ -192,6 +177,35 @@ router.post('/public', async (req, res) => {
         });
         await sendEmail({ to: client_email, ...emailContent });
 
+        // If couples session — upsert partner as client and send them a confirmation too
+        if (partner_name && partner_email) {
+            try {
+                await pool.query(
+                    `INSERT INTO Clients (therapist_id, name, email, phone)
+                     VALUES ($1, $2, $3, $4)
+                     ON CONFLICT (therapist_id, email)
+                     DO UPDATE SET
+                        name = EXCLUDED.name,
+                        phone = COALESCE(EXCLUDED.phone, Clients.phone),
+                        updated_at = CURRENT_TIMESTAMP`,
+                    [userId, partner_name, partner_email.trim().toLowerCase(), partner_phone || null]
+                );
+            } catch (partnerErr) {
+                console.error('Failed to upsert partner client:', partnerErr.message);
+            }
+            const partnerEmailContent = bookingConfirmationEmail({
+                clientName: partner_name,
+                therapistName: calendarService.therapist_name || 'your therapist',
+                sessionTitle: calendarService.title,
+                startTime: startTime.toISOString(),
+                meetLink: meetLink,
+                locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet',
+                cancelToken: insertRes.rows[0].cancel_token,
+                frontendUrl: process.env.FRONTEND_URL
+            });
+            await sendEmail({ to: partner_email, ...partnerEmailContent });
+        }
+
         res.status(201).json(insertRes.rows[0]);
 
     } catch (error) {
@@ -270,14 +284,23 @@ router.post('/manage/:token/cancel', async (req, res) => {
             }
         }
 
+        // Determine payment status based on refund policy
+        const refundType = policy?.enabled ? (policy.refundType || 'full') : 'full';
+        let newPaymentStatus;
+        if (refundType === 'none') {
+            // No refund — keep as Paid, just mark cancelled
+            newPaymentStatus = `CASE WHEN payment_status = 'Paid' THEN 'Paid' WHEN payment_status = 'Pending' THEN 'Cancelled' ELSE payment_status END`;
+        } else if (refundType === 'partial') {
+            newPaymentStatus = `CASE WHEN payment_status = 'Paid' THEN 'Partial Refund' WHEN payment_status = 'Pending' THEN 'Cancelled' ELSE payment_status END`;
+        } else {
+            // Full refund (default)
+            newPaymentStatus = `CASE WHEN payment_status = 'Paid' THEN 'Refunded' WHEN payment_status = 'Pending' THEN 'Cancelled' ELSE payment_status END`;
+        }
+
         await dbClient.query(
             `UPDATE Appointments SET
                status = 'cancelled',
-               payment_status = CASE
-                 WHEN payment_status = 'Paid'    THEN 'Refunded'
-                 WHEN payment_status = 'Pending' THEN 'Cancelled'
-                 ELSE payment_status
-               END
+               payment_status = ${newPaymentStatus}
              WHERE id = $1`,
             [appt.id]
         );
@@ -352,8 +375,13 @@ router.post('/manage/:token/reschedule', async (req, res) => {
 
         if (appt.status === 'cancelled') return res.status(400).json({ error: 'Cannot reschedule a cancelled booking' });
 
-        // Check reschedule window
+        // Check if rescheduling is allowed by policy
         const policy = appt.reschedule_policy;
+        if (policy && policy.enabled === false) {
+            return res.status(400).json({ error: 'Rescheduling is not allowed for this booking.' });
+        }
+
+        // Check reschedule window
         if (policy?.enabled && policy?.window) {
             const windowMs = parseInt(policy.window) * (policy.unit === 'days' ? 86400000 : policy.unit === 'hours' ? 3600000 : 60000);
             const timeUntilSession = new Date(appt.start_time).getTime() - Date.now();
@@ -371,17 +399,19 @@ router.post('/manage/:token/reschedule', async (req, res) => {
 
         // Update Google Calendar event if connected
         let newMeetLink = appt.meet_link;
-        if (appt.access_token && appt.google_event_id) {
-            try {
-                oauth2Client.setCredentials({ access_token: appt.access_token, refresh_token: appt.refresh_token, expiry_date: appt.expiry_date });
-                const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-                await calendar.events.patch({
-                    calendarId: 'primary',
-                    eventId: appt.google_event_id,
-                    resource: { start: { dateTime: newStart.toISOString() }, end: { dateTime: newEnd.toISOString() } }
-                });
-            } catch (gErr) {
-                console.error('Google Calendar update failed:', gErr.message);
+        if (appt.google_event_id) {
+            const rescheduleAuth = await getGoogleAuthClient(appt.therapist_id);
+            if (rescheduleAuth) {
+                try {
+                    const calendar = google.calendar({ version: 'v3', auth: rescheduleAuth });
+                    await calendar.events.patch({
+                        calendarId: 'primary',
+                        eventId: appt.google_event_id,
+                        resource: { start: { dateTime: newStart.toISOString() }, end: { dateTime: newEnd.toISOString() } }
+                    });
+                } catch (gErr) {
+                    console.error('Google Calendar update failed:', gErr.message);
+                }
             }
         }
 
@@ -681,27 +711,15 @@ router.post('/', async (req, res) => {
         const startTime = new Date(start_time);
         const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
-        // 2. Fetch Google Tokens
-        const tokenRes = await client.query(
-            "SELECT access_token, refresh_token, expiry_date FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
-            [userId]
-        );
+        // 2. Fetch Google Auth Client (handles token refresh automatically)
+        const googleAuthClient2 = await getGoogleAuthClient(userId);
 
         let googleEventId = null;
         let meetLink = null;
 
-        if (tokenRes.rows.length > 0) {
-            const tokens = tokenRes.rows[0];
-
-            // Set credentials
-            oauth2Client.setCredentials({
-                access_token: tokens.access_token,
-                refresh_token: tokens.refresh_token,
-                expiry_date: tokens.expiry_date
-            });
-
+        if (googleAuthClient2) {
             // 3. Create Google Calendar Event
-            const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+            const calendar = google.calendar({ version: 'v3', auth: googleAuthClient2 });
 
             const event = {
                 summary: `${calendarService.title} with ${client_name || 'Client'}`,
@@ -728,8 +746,6 @@ router.post('/', async (req, res) => {
                 meetLink = googleRes.data.hangoutLink;
             } catch (gError) {
                 console.error('Google Calendar Sync Failed:', gError);
-                // We continue to save local appointment even if sync fails, but warn user?
-                // For now, proceed.
             }
         }
 
@@ -880,24 +896,22 @@ router.patch('/:id/reschedule', async (req, res) => {
         const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
 
         // Update Google Calendar event if connected
-        if (appt.access_token && appt.google_event_id) {
-            try {
-                oauth2Client.setCredentials({
-                    access_token: appt.access_token,
-                    refresh_token: appt.refresh_token,
-                    expiry_date: appt.expiry_date
-                });
-                const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-                await calendar.events.patch({
-                    calendarId: 'primary',
-                    eventId: appt.google_event_id,
-                    resource: {
-                        start: { dateTime: newStart.toISOString() },
-                        end: { dateTime: newEnd.toISOString() }
-                    }
-                });
-            } catch (gErr) {
-                console.error('Google Calendar update failed:', gErr.message);
+        if (appt.google_event_id) {
+            const therapistAuth = await getGoogleAuthClient(userId);
+            if (therapistAuth) {
+                try {
+                    const calendar = google.calendar({ version: 'v3', auth: therapistAuth });
+                    await calendar.events.patch({
+                        calendarId: 'primary',
+                        eventId: appt.google_event_id,
+                        resource: {
+                            start: { dateTime: newStart.toISOString() },
+                            end: { dateTime: newEnd.toISOString() }
+                        }
+                    });
+                } catch (gErr) {
+                    console.error('Google Calendar update failed:', gErr.message);
+                }
             }
         }
 
@@ -969,21 +983,15 @@ router.patch('/:id/status', async (req, res) => {
 
         // When cancelled: delete Google Calendar event to free the slot
         if (status === 'cancelled' && appt.google_event_id) {
-            try {
-                const tokenRes = await client.query(
-                    "SELECT access_token, refresh_token, expiry_date FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
-                    [userId]
-                );
-                if (tokenRes.rows.length > 0) {
-                    oauth2Client.setCredentials(tokenRes.rows[0]);
-                    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+            const cancelAuth = await getGoogleAuthClient(userId);
+            if (cancelAuth) {
+                try {
+                    const calendar = google.calendar({ version: 'v3', auth: cancelAuth });
                     await calendar.events.delete({ calendarId: 'primary', eventId: appt.google_event_id });
-                    // Clear the google_event_id so we don't try to delete again
                     await client.query('UPDATE Appointments SET google_event_id = NULL WHERE id = $1', [appt.id]);
+                } catch (gErr) {
+                    console.error('Google Calendar event deletion failed:', gErr.message);
                 }
-            } catch (gErr) {
-                console.error('Google Calendar event deletion failed:', gErr.message);
-                // Non-fatal — booking is still cancelled in our system
             }
         }
 

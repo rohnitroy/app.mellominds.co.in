@@ -4,6 +4,7 @@ import styles from './CreateEventPage.module.css';
 import { useAuth } from '../context/AuthContext';
 import AddLocationModal from './AddLocationModal';
 import QuestionModal from './QuestionModal';
+import AvailabilityModal from './AvailabilityModal';
 import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
 
@@ -24,6 +25,7 @@ const CreateEventPage: React.FC = () => {
     // In edit mode, slug is already set so allow editing immediately
     const [isSlugEdited, setIsSlugEdited] = useState(isEditMode);
     const [showAddLocationModal, setShowAddLocationModal] = useState(false);
+    const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
     // Group calendar capacity
     const [maxAttendees, setMaxAttendees] = useState<string>(
@@ -108,11 +110,14 @@ const CreateEventPage: React.FC = () => {
         durationUnit: parsedDuration.durationUnit,
         dateRangeType: existingCalendar?.schedule_settings?.dateRangeType || 'calendar_days',
         dateRangeValue: existingCalendar?.schedule_settings?.dateRangeValue || '60',
+        dateRangeStart: existingCalendar?.schedule_settings?.dateRangeStart || '',
+        dateRangeEnd: existingCalendar?.schedule_settings?.dateRangeEnd || '',
         selectedSchedule: 'default',
-        slotInterval: existingCalendar?.schedule_settings?.slotInterval || '30',
+        slotInterval: '30',
         bufferType: existingCalendar?.schedule_settings?.bufferType || 'after_event',
         bufferTime: existingCalendar?.schedule_settings?.bufferTime || '0',
-        minNotice: existingCalendar?.schedule_settings?.minNotice || '0'
+        minNotice: existingCalendar?.schedule_settings?.minNotice || '0',
+        minNoticeUnit: existingCalendar?.schedule_settings?.minNoticeUnit || 'Minutes'
     });
 
     interface FormQuestion {
@@ -333,7 +338,7 @@ const CreateEventPage: React.FC = () => {
         if (locationData.type === 'google_meet') {
             const hasGoogleMeet = eventData.locations.some(loc => loc.type === 'google_meet');
             if (hasGoogleMeet) {
-                toast.warning('Google Meet is already selected as a location.');
+                toast.warning('Google Meet is already selected as a session mode.');
                 return;
             }
         }
@@ -384,12 +389,6 @@ const CreateEventPage: React.FC = () => {
         window.open(url, '_blank');
     };
 
-    const [showEmbedModal, setShowEmbedModal] = useState(false);
-    const getEmbedCode = () => {
-        const url = getBookingUrl();
-        return `<iframe src="${url}" width="100%" height="700" frameborder="0"></iframe>`;
-    };
-
     const handleSave = async () => {
         if (!eventData.name.trim()) {
             toast.error('Event Name is required.');
@@ -424,10 +423,13 @@ const CreateEventPage: React.FC = () => {
                 schedule_settings: {
                     dateRangeType: scheduleData.dateRangeType,
                     dateRangeValue: scheduleData.dateRangeValue,
+                    dateRangeStart: scheduleData.dateRangeStart,
+                    dateRangeEnd: scheduleData.dateRangeEnd,
                     slotInterval: scheduleData.slotInterval,
                     bufferType: scheduleData.bufferType,
                     bufferTime: scheduleData.bufferTime,
                     minNotice: scheduleData.minNotice,
+                    minNoticeUnit: scheduleData.minNoticeUnit,
                 },
                 form_data: formData,
                 payment_data: paymentData
@@ -452,7 +454,13 @@ const CreateEventPage: React.FC = () => {
                 navigate('/my-calendar');
             } else {
                 const errorData = await response.json();
-                toast.error(`Failed to save calendar: ${errorData.error}`);
+                if (response.status === 409) {
+                    toast.error('This slug is already used by one of your calendars. Please choose a different one.');
+                    setActiveTab('basic');
+                    setIsSlugEdited(true);
+                } else {
+                    toast.error(`Failed to save calendar: ${errorData.error}`);
+                }
             }
         } catch (error) {
             console.error('Error saving event:', error);
@@ -534,24 +542,6 @@ const CreateEventPage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Calendar type badge */}
-                <div className={styles.formGroup}>
-                    <label className={styles.label}>Calendar Type</label>
-                    <div className={styles.input} style={{ background: '#f8f9fa', color: '#666', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {initialType === 'one_on_one' && (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-                            </svg>
-                        )}
-                        {initialType === 'group' && (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="9" cy="7" r="3"/><circle cx="15" cy="7" r="3"/><path d="M3 21v-1a6 6 0 0 1 6-6h6a6 6 0 0 1 6 6v1"/>
-                            </svg>
-                        )}
-                        {initialType === 'one_on_one' ? 'One on One' : initialType === 'group' ? 'Group' : initialType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                    </div>
-                </div>
-
                 {/* Group capacity field */}
                 {initialType === 'group' && (
                     <div className={styles.formGroup}>
@@ -571,7 +561,7 @@ const CreateEventPage: React.FC = () => {
 
             <div className={styles.card}>
                 <div className={styles.formGroup}>
-                    <label className={styles.label}>Location</label>
+                    <label className={styles.label}>Session Mode</label>
                     {eventData.locations.map((loc, index) => (
                         <div key={index} className={styles.locationChip} style={{ marginBottom: '8px' }}>
                             {loc.type === 'google_meet' && (
@@ -593,7 +583,7 @@ const CreateEventPage: React.FC = () => {
                     ))}
                     <div>
                         <button className={styles.actionBtn} style={{ maxWidth: '200px', marginBottom: '8px' }} onClick={() => setShowAddLocationModal(true)}>
-                            + Select a Location
+                            + Select a Session Mode
                         </button>
                     </div>
                     <p style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
@@ -652,6 +642,7 @@ const CreateEventPage: React.FC = () => {
                                 value={scheduleData.dateRangeValue}
                                 onChange={(e) => setScheduleData({ ...scheduleData, dateRangeValue: e.target.value })}
                             />
+                            <span style={{ fontSize: '13px', color: '#666', marginLeft: '8px' }}>days</span>
                         </div>
                     )}
 
@@ -664,6 +655,27 @@ const CreateEventPage: React.FC = () => {
                         />
                         <span>Business days into the future</span>
                     </label>
+                    {scheduleData.dateRangeType === 'business_days' && (
+                        <div className={styles.subInputContainer}>
+                            <input
+                                type="number"
+                                className={styles.smallInput}
+                                value={scheduleData.dateRangeValue}
+                                onChange={(e) => setScheduleData({ ...scheduleData, dateRangeValue: e.target.value })}
+                            />
+                            <span style={{ fontSize: '13px', color: '#666', marginLeft: '8px' }}>business days (Mon–Fri)</span>
+                        </div>
+                    )}
+
+                    <label className={styles.radioOption}>
+                        <input
+                            type="radio"
+                            name="dateRange"
+                            checked={scheduleData.dateRangeType === 'indefinitely'}
+                            onChange={() => setScheduleData({ ...scheduleData, dateRangeType: 'indefinitely' })}
+                        />
+                        <span>None (no restriction)</span>
+                    </label>
 
                     <label className={styles.radioOption}>
                         <input
@@ -674,16 +686,33 @@ const CreateEventPage: React.FC = () => {
                         />
                         <span>Within a date range</span>
                     </label>
+                    {scheduleData.dateRangeType === 'range' && (
+                        <div className={styles.subInputContainer} style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <div>
+                                <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>From</label>
+                                <input
+                                    type="date"
+                                    className={styles.smallInput}
+                                    style={{ width: 'auto' }}
+                                    value={scheduleData.dateRangeStart}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => setScheduleData({ ...scheduleData, dateRangeStart: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '12px', color: '#666', display: 'block', marginBottom: '4px' }}>To</label>
+                                <input
+                                    type="date"
+                                    className={styles.smallInput}
+                                    style={{ width: 'auto' }}
+                                    value={scheduleData.dateRangeEnd}
+                                    min={scheduleData.dateRangeStart || new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => setScheduleData({ ...scheduleData, dateRangeEnd: e.target.value })}
+                                />
+                            </div>
+                        </div>
+                    )}
 
-                    <label className={styles.radioOption}>
-                        <input
-                            type="radio"
-                            name="dateRange"
-                            checked={scheduleData.dateRangeType === 'indefinitely'}
-                            onChange={() => setScheduleData({ ...scheduleData, dateRangeType: 'indefinitely' })}
-                        />
-                        <span>Any date into the future</span>
-                    </label>
                 </div>
             </div>
 
@@ -702,8 +731,7 @@ const CreateEventPage: React.FC = () => {
                             <option key={sch.id} value={sch.id}>{sch.name}</option>
                         ))}
                     </select>
-                    <button className={styles.actionBtn}>Edit Schedule</button>
-                    <button className={styles.actionBtn} type="button" onClick={() => {}}>+ New Schedule</button>
+                    <button className={styles.actionBtn} onClick={() => setShowAvailabilityModal(true)} type="button">Edit Schedule</button>
                 </div>
 
                 <p className={styles.sectionLabel}>Available Times</p>
@@ -714,24 +742,6 @@ const CreateEventPage: React.FC = () => {
                             <span>{slot.time}</span>
                         </div>
                     ))}
-                </div>
-            </div>
-
-            {/* Slots Generator */}
-            <div className={styles.scheduleSection}>
-                <h3>Slots Generator</h3>
-                <p>Generate slot times in increments of X minutes instead of using the event duration.</p>
-                <div className={styles.rowInputs}>
-                    <input
-                        type="number"
-                        className={styles.smallInput}
-                        style={{ width: '100px' }}
-                        value={scheduleData.slotInterval}
-                        onChange={(e) => setScheduleData({ ...scheduleData, slotInterval: e.target.value })}
-                    />
-                    <select className={styles.selectInput}>
-                        <option value="Minutes">Minutes</option>
-                    </select>
                 </div>
             </div>
 
@@ -784,7 +794,7 @@ const CreateEventPage: React.FC = () => {
                         value={scheduleData.minNotice}
                         onChange={(e) => setScheduleData({ ...scheduleData, minNotice: e.target.value })}
                     />
-                    <select className={styles.selectInput}>
+                    <select className={styles.selectInput} value={scheduleData.minNoticeUnit} onChange={(e) => setScheduleData({ ...scheduleData, minNoticeUnit: e.target.value })}>
                         <option value="Minutes">Minutes</option>
                         <option value="Hours">Hours</option>
                         <option value="Days">Days</option>
@@ -1329,9 +1339,6 @@ const CreateEventPage: React.FC = () => {
                     <button className={styles.actionBtn} onClick={handlePreview}>
                         Preview
                     </button>
-                    <button className={styles.actionBtn} onClick={() => setShowEmbedModal(true)}>
-                        {'< >'} Embed
-                    </button>
                     <button className={`${styles.actionBtn} ${styles.saveBtn}`} onClick={handleSave}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
@@ -1372,29 +1379,11 @@ const CreateEventPage: React.FC = () => {
                 isGoogleConnected={isGoogleConnected}
                 onConnectGoogle={handleConnectGoogle}
             />
+            <AvailabilityModal
+                isOpen={showAvailabilityModal}
+                onClose={() => { setShowAvailabilityModal(false); fetchAvailability(); }}
+            />
 
-            {showEmbedModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    onClick={() => setShowEmbedModal(false)}>
-                    <div style={{ background: '#fff', borderRadius: '12px', padding: '28px', width: '560px', maxWidth: '90vw' }}
-                        onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                          <h3 style={{ margin: 0, fontFamily: 'Urbanist', fontWeight: 700 }}>Embed Calendar</h3>
-                          <button onClick={() => setShowEmbedModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
-                        </div>
-                        <p style={{ fontSize: '13px', color: '#666', marginBottom: '16px' }}>Copy and paste this code into your website to embed the booking page.</p>
-                        <textarea
-                            readOnly
-                            value={getEmbedCode()}
-                            style={{ width: '100%', height: '100px', fontFamily: 'monospace', fontSize: '12px', padding: '10px', borderRadius: '8px', border: '1px solid #ddd', resize: 'none', boxSizing: 'border-box' }}
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
-                            <button className={styles.actionBtn} onClick={() => setShowEmbedModal(false)}>Close</button>
-                            <button className={`${styles.actionBtn} ${styles.saveBtn}`} onClick={() => { navigator.clipboard.writeText(getEmbedCode()); toast.success('Embed code copied!'); }}>Copy Code</button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div >
     );
 };

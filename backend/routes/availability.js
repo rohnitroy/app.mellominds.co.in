@@ -1,14 +1,9 @@
 import express from 'express';
 import { google } from 'googleapis';
 import pool from '../config/database.js';
+import { getGoogleAuthClient } from '../lib/googleAuth.js';
 
 const router = express.Router();
-
-const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_CALLBACK_URL
-);
 
 // Middleware
 const ensureAuthenticated = (req, res, next) => {
@@ -82,12 +77,54 @@ router.get('/slots', async (req, res) => {
             return res.status(400).json({ error: 'Date and calendar_id are required' });
         }
 
-        // 1. Get Calendar & Therapist Info
-        const calRes = await client.query('SELECT user_id, duration FROM Calendars WHERE id = $1', [calId]);
+        // 1. Get Calendar & Therapist Info (including schedule_settings for date range)
+        const calRes = await client.query('SELECT user_id, duration, schedule_settings FROM Calendars WHERE id = $1', [calId]);
         if (calRes.rows.length === 0) return res.status(404).json({ error: 'Calendar not found' });
 
-        const { user_id: therapistId, duration } = calRes.rows[0];
+        const { user_id: therapistId, duration, schedule_settings } = calRes.rows[0];
         const durationMinutes = parseInt((duration || '60').match(/\d+/)[0]) || 60;
+
+        // Enforce date range from schedule_settings
+        const settings = schedule_settings || {};
+        const dateRangeType = settings.dateRangeType || 'calendar_days';
+        const dateRangeValue = parseInt(settings.dateRangeValue || '60');
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const requestedDate = new Date(date + 'T00:00:00');
+        requestedDate.setHours(0, 0, 0, 0);
+
+        if (dateRangeType === 'calendar_days') {
+            const maxDate = new Date(today);
+            maxDate.setDate(today.getDate() + dateRangeValue);
+            if (requestedDate > maxDate) return res.json([]);
+
+        } else if (dateRangeType === 'business_days') {
+            // Walk forward counting only Mon–Fri
+            let count = 0;
+            const cursor = new Date(today);
+            while (count < dateRangeValue) {
+                cursor.setDate(cursor.getDate() + 1);
+                const dow = cursor.getDay();
+                if (dow !== 0 && dow !== 6) count++;
+            }
+            if (requestedDate > cursor) return res.json([]);
+
+        } else if (dateRangeType === 'range') {
+            // Specific start–end date window
+            const rangeStart = settings.dateRangeStart ? new Date(settings.dateRangeStart + 'T00:00:00') : today;
+            const rangeEnd = settings.dateRangeEnd ? new Date(settings.dateRangeEnd + 'T00:00:00') : null;
+            rangeStart.setHours(0, 0, 0, 0);
+            if (requestedDate < rangeStart) return res.json([]);
+            if (rangeEnd) {
+                rangeEnd.setHours(0, 0, 0, 0);
+                if (requestedDate > rangeEnd) return res.json([]);
+            }
+        }
+        // 'indefinitely' — no upper bound, allow any future date
+        else if (dateRangeType === 'indefinitely') {
+            // no restriction
+        }
 
         // 2. Determine Day of Week in the therapist's timezone (IST)
         const [dy, dm, dd] = date.split('-').map(Number);
@@ -107,20 +144,15 @@ router.get('/slots', async (req, res) => {
         );
 
         if (availRes.rows.length === 0) {
-            return res.json({ slots: [] });
+            return res.json([]);
         }
 
-        // 4. Fetch Google Calendar busy times (optional)
+        // 4. Fetch Google Calendar busy times (optional — gracefully skipped if not connected or token invalid)
         let busySlots = [];
-        const tokenRes = await client.query(
-            "SELECT access_token, refresh_token, expiry_date FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
-            [therapistId]
-        );
-
-        if (tokenRes.rows.length > 0) {
+        const authClient = await getGoogleAuthClient(therapistId);
+        if (authClient) {
             try {
-                oauth2Client.setCredentials(tokenRes.rows[0]);
-                const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
+                const calendar = google.calendar({ version: 'v3', auth: authClient });
                 const timeMin = new Date(date + 'T00:00:00').toISOString();
                 const timeMax = new Date(date + 'T23:59:59').toISOString();
                 const fbRes = await calendar.freebusy.query({
@@ -129,6 +161,7 @@ router.get('/slots', async (req, res) => {
                 busySlots = fbRes.data.calendars.primary.busy || [];
             } catch (gErr) {
                 console.error('Google FreeBusy Error:', gErr.message);
+                // Non-fatal — continue without Google busy times
             }
         }
 
@@ -172,10 +205,24 @@ router.get('/slots', async (req, res) => {
             return `${hour}:${minute}${dayPeriod}`;
         };
 
+        // Extract buffer settings
+        const bufferType = settings.bufferType || 'after_event';
+        const bufferMinutes = parseInt(settings.bufferTime || '0') || 0;
+        const bufferMs = bufferMinutes * 60000;
+
+        // Compute minimum notice cutoff — slots before this timestamp are hidden
+        const rawMinNotice = parseInt(settings.minNotice || '0') || 0;
+        const minNoticeUnit = settings.minNoticeUnit || 'Minutes';
+        const minNoticeMs = minNoticeUnit === 'Days'
+            ? rawMinNotice * 24 * 60 * 60000
+            : minNoticeUnit === 'Hours'
+                ? rawMinNotice * 60 * 60000
+                : rawMinNotice * 60000;
+        // Always enforce at least 0 ms (no hardcoded 30-min floor — minNotice replaces it)
+        const noticeCutoff = Date.now() + Math.max(minNoticeMs, 0);
+
         const availableSlots = [];
         const istMidnight = toISTMidnight(date);
-        // Don't show slots that have already passed (with 30-min buffer for today)
-        const nowWithBuffer = Date.now() + 30 * 60000;
 
         for (const window of availRes.rows) {
             const [h1, m1] = window.start_time.split(':').map(Number);
@@ -187,14 +234,27 @@ router.get('/slots', async (req, res) => {
 
             while (slotStartMs + durationMinutes * 60000 <= windowEndMs) {
                 const slotEndMs = slotStartMs + durationMinutes * 60000;
-                const isBusy = allBusy.some(b => slotStartMs < b.end && slotEndMs > b.start);
-                const isPast = slotStartMs < nowWithBuffer;
+
+                // Expand the busy-check window based on buffer type
+                const checkStart = bufferType === 'before_event'
+                    ? slotStartMs - bufferMs
+                    : slotStartMs;
+                const checkEnd = bufferType === 'after_event'
+                    ? slotEndMs + bufferMs
+                    : slotEndMs;
+
+                const isBusy = allBusy.some(b => checkStart < b.end && checkEnd > b.start);
+                const isPast = slotStartMs < noticeCutoff;
+
                 if (!isBusy && !isPast) availableSlots.push(formatSlot(slotStartMs));
-                slotStartMs += 30 * 60000;
+
+                // Advance: duration + after_event buffer (before_event buffer doesn't shift the step)
+                const stepMs = durationMinutes * 60000 + (bufferType === 'after_event' ? bufferMs : 0);
+                slotStartMs += Math.max(stepMs, 30 * 60000); // minimum 30-min step to avoid infinite loop
             }
         }
 
-        res.json({ slots: availableSlots });
+        res.json(availableSlots);
 
     } catch (error) {
         console.error('Error calculating slots:', error);

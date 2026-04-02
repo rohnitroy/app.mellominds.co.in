@@ -39,7 +39,7 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({ isOpen, onClose, on
         <div className={styles.overlay} onClick={onClose}>
             <div className={styles.modal} onClick={e => e.stopPropagation()}>
                 <div className={styles.header}>
-                    <h2 className={styles.title}>Add Custom Location</h2>
+                    <h2 className={styles.title}>Session Mode</h2>
                     <button className={styles.closeButton} onClick={onClose}>×</button>
                 </div>
 
@@ -63,7 +63,7 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({ isOpen, onClose, on
                                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                                 <circle cx="12" cy="10" r="3" />
                             </svg>
-                            <span className={styles.tabLabel}>Physical<br />Location</span>
+                            <span className={styles.tabLabel}>In-Person</span>
                         </div>
                     </div>
 
@@ -177,7 +177,7 @@ const AddLocationModal: React.FC<AddLocationModalProps> = ({ isOpen, onClose, on
                 {activeTab === 'physical' && (
                     <div className={styles.footer}>
                         <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
-                        <button className={styles.addBtn} onClick={handlePhysicalSubmit}>Add Location</button>
+                        <button className={styles.addBtn} onClick={handlePhysicalSubmit}>Save</button>
                     </div>
                 )}
             </div>

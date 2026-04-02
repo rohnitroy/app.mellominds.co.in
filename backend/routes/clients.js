@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../config/database.js';
-import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail, transferCancelledEmail } from '../lib/email.js';
+import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail, transferCancelledEmail, bookingLinkEmail } from '../lib/email.js';
 import { createNotification } from '../lib/notifications.js';
 
 const router = express.Router();
@@ -282,7 +282,7 @@ router.post('/', async (req, res) => {
     try {
         const userId = req.user.id;
         const { name, phone, email, age, occupation, gender, maritalStatus,
-                emergencyName, emergencyPhone, emergencyRelation } = req.body;
+                emergencyName, emergencyPhone, emergencyRelation, calendarId } = req.body;
 
         if (!name || !name.trim() || !email || !email.trim()) {
             return res.status(400).json({ error: 'Name and email are required' });
@@ -305,6 +305,36 @@ router.post('/', async (req, res) => {
         }
 
         const row = result.rows[0];
+
+        // Send welcome email with booking link if a calendar was selected
+        if (calendarId) {
+            try {
+                const calResult = await pool.query(
+                    'SELECT title, slug, duration, description FROM Calendars WHERE id = $1 AND user_id = $2 AND is_active = true',
+                    [calendarId, userId]
+                );
+                if (calResult.rows.length > 0) {
+                    const cal = calResult.rows[0];
+                    const therapistName = req.user.user_name || req.user.email;
+                    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+                    const slug = cal.slug.replace(/^\//, '');
+                    const bookingLink = `${frontendUrl}/book/${userId}/${slug}`;
+                    const emailContent = bookingLinkEmail({
+                        clientName: name.trim(),
+                        therapistName,
+                        calendarTitle: cal.title,
+                        calendarDescription: cal.description || '',
+                        duration: cal.duration,
+                        bookingLink,
+                    });
+                    await sendEmail({ to: email.trim().toLowerCase(), ...emailContent });
+                }
+            } catch (emailErr) {
+                console.error('Failed to send welcome email:', emailErr.message);
+                // Non-fatal — client was still created
+            }
+        }
+
         res.status(201).json({
             id: row.id, name: row.name, phone: row.phone || '', email: row.email,
             sessions: '0', revenue: '₹0', lastSession: '—',

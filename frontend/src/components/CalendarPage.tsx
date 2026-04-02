@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import './CalendarPage.css';
 import AvailabilityModal from './AvailabilityModal';
-import CreateCalendarModal from './CreateCalendarModal';
 import CustomDropdown from './CustomDropdown';
 import CreateBooking from './CreateBooking';
 import ConfirmModal from './ConfirmModal';
-import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
 import Loader from './Loader';
 
@@ -43,14 +42,11 @@ const CalendarPage: React.FC = () => {
   const [createBookingCalendarId, setCreateBookingCalendarId] = useState<string>('');
 
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-
-  // Check for openModal query parameter and open resource type modal
   useEffect(() => {
     if (searchParams.get('openModal') === 'true') {
-      setShowResourceTypeModal(true);
-      // Remove the query parameter
       searchParams.delete('openModal');
       setSearchParams(searchParams);
+      navigate('/my-calendar/new');
     }
   }, [searchParams, setSearchParams]);
 
@@ -168,17 +164,10 @@ const CalendarPage: React.FC = () => {
     setEditingId(null);
   };
 
-  const [showResourceTypeModal, setShowResourceTypeModal] = useState(false);
 
-  // ...
   const openCreateModal = () => {
     resetForm();
-    setShowResourceTypeModal(true);
-  };
-
-  const handleTypeSelect = (type: string) => {
-    setShowResourceTypeModal(false);
-    navigate('/my-calendar/new', { state: { type } });
+    navigate('/my-calendar/new');
   };
 
 
@@ -485,11 +474,6 @@ const CalendarPage: React.FC = () => {
         </div>
       )}
       <AvailabilityModal isOpen={showAvailabilityModal} onClose={() => setShowAvailabilityModal(false)} />
-      <CreateCalendarModal
-        isOpen={showResourceTypeModal}
-        onClose={() => setShowResourceTypeModal(false)}
-        onSelectType={handleTypeSelect}
-      />
       <ConfirmModal
         isOpen={deleteConfirmId !== null}
         title="Delete Calendar"

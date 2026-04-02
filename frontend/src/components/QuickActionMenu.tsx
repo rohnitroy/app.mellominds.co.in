@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import styles from './QuickActionMenu.module.css';
 
 interface QuickActionMenuProps {
-  onCreateBooking: () => void;
-  onSendBookingLink: () => void;
   onAddClient: () => void;
 }
+
 
 const CalendarIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -38,7 +37,7 @@ const AddClientIcon = () => (
   </svg>
 );
 
-const QuickActionMenu: React.FC<QuickActionMenuProps> = ({ onCreateBooking, onSendBookingLink, onAddClient }) => {
+const QuickActionMenu: React.FC<QuickActionMenuProps> = ({ onAddClient }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -59,18 +58,6 @@ const QuickActionMenu: React.FC<QuickActionMenuProps> = ({ onCreateBooking, onSe
       description: 'Add new resource and connect it with your calendar',
       icon: <CalendarIcon />,
       onClick: () => { navigate('/my-calendar?openModal=true'); setOpen(false); },
-    },
-    {
-      label: 'Create a Booking',
-      description: 'Schedule a session for your client manually',
-      icon: <BookingIcon />,
-      onClick: () => { onCreateBooking(); setOpen(false); },
-    },
-    {
-      label: 'Send Booking Link',
-      description: 'Share booking link to client to schedule a session',
-      icon: <LinkIcon />,
-      onClick: () => { onSendBookingLink(); setOpen(false); },
     },
     {
       label: 'Add Client',
