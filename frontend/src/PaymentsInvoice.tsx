@@ -18,6 +18,20 @@ const TAB_TO_SLUG: Record<string, string> = Object.fromEntries(
   Object.entries(TAB_SLUGS).map(([slug, tab]) => [tab, slug])
 );
 
+// Consistent payment status badge colors including Partial Refund
+const PAYMENT_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
+  Paid:            { bg: '#e8f5e9', color: '#2e7d32' },
+  Pending:         { bg: '#fff3e0', color: '#e65100' },
+  Refunded:        { bg: '#fdecea', color: '#c62828' },
+  'Partial Refund':{ bg: '#fce4ec', color: '#880e4f' },
+  Cancelled:       { bg: '#f5f5f5', color: '#6E6E6E' },
+};
+
+function derivePaymentDisplay(paymentStatus: string, bookingStatus: string): string {
+  if (bookingStatus === 'cancelled' && paymentStatus === 'Pending') return 'Cancelled';
+  return paymentStatus || 'Pending';
+}
+
 const PaymentsInvoice: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -26,10 +40,12 @@ const PaymentsInvoice: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>(resolvedTab);
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [receiptBooking, setReceiptBooking] = useState<any | null>(null);
+  const [refundingId, setRefundingId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
 
@@ -43,6 +59,7 @@ const PaymentsInvoice: React.FC = () => {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
+    setSearchQuery('');
     navigate(`/payment-invoice/${TAB_TO_SLUG[tab]}`, { replace: true });
   };
 
@@ -83,11 +100,12 @@ const PaymentsInvoice: React.FC = () => {
     });
   };
 
-  const filteredPayments = useMemo(() => {
+  // Tab filter — "All Cancellations" uses booking status as the source of truth
+  const tabFiltered = useMemo(() => {
     return bookings.filter(b => {
       switch (activeTab) {
         case 'All Cancellations':
-          return b.status === 'cancelled' || b.payment_status === 'Refunded' || b.payment_status === 'Cancelled';
+          return b.status === 'cancelled';
         case 'Pending Payments':
           return b.payment_status === 'Pending' && b.status !== 'cancelled';
         default:
@@ -96,25 +114,81 @@ const PaymentsInvoice: React.FC = () => {
     });
   }, [bookings, activeTab]);
 
+  // Search filter on top of tab filter
+  const filteredPayments = useMemo(() => {
+    if (!searchQuery.trim()) return tabFiltered;
+    const q = searchQuery.toLowerCase();
+    return tabFiltered.filter(b =>
+      (b.client_name || '').toLowerCase().includes(q) ||
+      (b.client_phone || '').toLowerCase().includes(q) ||
+      (b.client_email || '').toLowerCase().includes(q) ||
+      (b.title || '').toLowerCase().includes(q)
+    );
+  }, [tabFiltered, searchQuery]);
+
   const menuItemStyle: React.CSSProperties = {
     display: 'block', width: '100%', padding: '10px 16px', border: 'none',
     background: 'none', textAlign: 'left', fontFamily: 'Urbanist', fontWeight: 500,
     fontSize: '13px', color: '#082421', cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
   };
 
-  const handleRefund = async (bookingId: number) => {
+  // Attempt a real Cashfree refund; fall back to marking manually if not a Cashfree booking
+  const handleRefund = async (bookingId: number, partial = false) => {
+    setRefundingId(bookingId);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/payment`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ payment_status: 'Refunded' }),
-      });
-      if (res.ok) {
-        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, payment_status: 'Refunded' } : b));
+      const booking = bookings.find(b => b.id === bookingId);
+      const hasCashfreeOrder = !!booking?.cashfree_order_id;
+
+      if (hasCashfreeOrder) {
+        // Real Cashfree refund
+        const refundAmount = partial
+          ? parseFloat(prompt(`Enter partial refund amount (max ₹${parseFloat(booking.payment_amount).toFixed(2)}):`) || '0')
+          : undefined;
+
+        if (partial && (!refundAmount || refundAmount <= 0)) {
+          setRefundingId(null);
+          return;
+        }
+
+        const res = await fetch(`${API_BASE_URL}/api/cashfree/refund`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            booking_id: bookingId,
+            ...(partial && refundAmount ? { refund_amount: refundAmount } : {}),
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setBookings(prev => prev.map(b =>
+            b.id === bookingId ? { ...b, payment_status: data.status } : b
+          ));
+        } else {
+          alert(data.error || 'Refund failed. Please try again.');
+        }
+      } else {
+        // Manual label update (no Cashfree order — offline payment)
+        const newStatus = partial ? 'Partial Refund' : 'Refunded';
+        const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/payment`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ payment_status: newStatus }),
+        });
+        if (res.ok) {
+          setBookings(prev => prev.map(b =>
+            b.id === bookingId ? { ...b, payment_status: newStatus } : b
+          ));
+        } else {
+          alert('Failed to update payment status.');
+        }
       }
     } catch (e) {
       console.error('Failed to process refund:', e);
+      alert('Network error. Please try again.');
+    } finally {
+      setRefundingId(null);
     }
   };
 
@@ -128,7 +202,10 @@ const PaymentsInvoice: React.FC = () => {
     setTimeout(() => { win.print(); win.close(); }, 500);
   };
 
-  const buildReceiptHTML = (b: any) => `
+  const buildReceiptHTML = (b: any) => {
+    const display = derivePaymentDisplay(b.payment_status || 'Pending', b.status);
+    const sc = PAYMENT_STATUS_COLORS[display] || PAYMENT_STATUS_COLORS.Pending;
+    return `
     <!DOCTYPE html><html><head><title>Receipt #${b.id}</title>
     <style>
       body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 40px; color: #1a1a1a; max-width: 600px; margin: 0 auto; }
@@ -142,9 +219,7 @@ const PaymentsInvoice: React.FC = () => {
       .row .label { color: #555; }
       .row .value { font-weight: 600; }
       .total-row { display: flex; justify-content: space-between; padding: 12px 0; font-size: 16px; font-weight: 700; border-top: 2px solid #082421; margin-top: 8px; }
-      .status-badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
-        background: ${b.payment_status === 'Paid' ? '#e8f5e9' : b.payment_status === 'Refunded' ? '#fdecea' : '#fff3e0'};
-        color: ${b.payment_status === 'Paid' ? '#2e7d32' : b.payment_status === 'Refunded' ? '#c62828' : '#e65100'}; }
+      .status-badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: ${sc.bg}; color: ${sc.color}; }
       .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 16px; }
       @media print { body { padding: 20px; } }
     </style></head><body>
@@ -172,12 +247,13 @@ const PaymentsInvoice: React.FC = () => {
     </div>
     <div class="section">
       <div class="section-title">Payment</div>
-      <div class="row"><span class="label">Payment Status</span><span class="value"><span class="status-badge">${b.payment_status || 'Pending'}</span></span></div>
+      <div class="row"><span class="label">Payment Status</span><span class="value"><span class="status-badge">${display}</span></span></div>
       <div class="total-row"><span>Total Amount</span><span>₹${parseFloat(b.payment_amount || 0).toFixed(2)}</span></div>
     </div>
     <div class="footer">Thank you for choosing ${user?.user_name || 'MelloMinds'}. For queries, contact ${user?.email || 'support@mellominds.co.in'}</div>
     </body></html>
   `;
+  };
 
   const columns: ColumnDef<any, any>[] = useMemo(() => [
     {
@@ -209,20 +285,10 @@ const PaymentsInvoice: React.FC = () => {
       accessorKey: 'payment_status',
       header: 'Payment Status',
       cell: ({ getValue, row }) => {
-        // Derive effective payment status
-        const ps = getValue() || 'Pending';
-        const bookingStatus = row.original.status;
-        // If booking cancelled and payment was pending → show Cancelled
-        const display = (bookingStatus === 'cancelled' && ps === 'Pending') ? 'Cancelled' : ps;
-        const colors: Record<string, { bg: string; color: string }> = {
-          Paid:      { bg: '#e8f5e9', color: '#2e7d32' },
-          Pending:   { bg: '#fff3e0', color: '#e65100' },
-          Refunded:  { bg: '#fdecea', color: '#c62828' },
-          Cancelled: { bg: '#f5f5f5', color: '#6E6E6E' },
-        };
-        const style = colors[display] || colors.Pending;
+        const display = derivePaymentDisplay(getValue() || 'Pending', row.original.status);
+        const c = PAYMENT_STATUS_COLORS[display] || PAYMENT_STATUS_COLORS.Pending;
         return (
-          <span style={{ background: style.bg, color: style.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>
+          <span style={{ background: c.bg, color: c.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>
             {display}
           </span>
         );
@@ -239,9 +305,9 @@ const PaymentsInvoice: React.FC = () => {
           completed:  { bg: '#e3f2fd', color: '#1565c0' },
           noshow:     { bg: '#fff3e0', color: '#e65100' },
         };
-        const style = colors[s] || colors.scheduled;
+        const c = colors[s] || colors.scheduled;
         return (
-          <span style={{ background: style.bg, color: style.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, textTransform: 'capitalize' }}>
+          <span style={{ background: c.bg, color: c.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, textTransform: 'capitalize' }}>
             {s}
           </span>
         );
@@ -297,7 +363,12 @@ const PaymentsInvoice: React.FC = () => {
             <circle cx="11" cy="11" r="8" stroke="#6E6E6E" strokeWidth="2" />
             <path d="m21 21-4.35-4.35" stroke="#6E6E6E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          <input type="text" placeholder="Search users by name, or phone no" />
+          <input
+            type="text"
+            placeholder="Search by name, phone, email or session type"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+          />
         </div>
         <button className={styles.exportBtn} onClick={() => {
           const toExport = selectedRows.length > 0 ? selectedRows : filteredPayments;
@@ -321,23 +392,41 @@ const PaymentsInvoice: React.FC = () => {
       {activeMenuId !== null && menuPos && (() => {
         const booking = bookings.find(b => b.id === activeMenuId);
         if (!booking) return null;
-        const canRefund = booking.payment_status === 'Paid' && booking.status === 'cancelled';
+        const isPaid = booking.payment_status === 'Paid';
+        const isCancelled = booking.status === 'cancelled';
+        const canFullRefund = isPaid && isCancelled;
+        const canPartialRefund = isPaid && isCancelled && !!booking.cashfree_order_id;
+        const isProcessing = refundingId === booking.id;
+
         return createPortal(
           <div ref={menuRef} style={{
             position: 'absolute', top: menuPos.top, right: menuPos.right,
             background: '#fff', border: '1px solid #e9ecef', borderRadius: '10px',
             boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999,
-            minWidth: '170px', overflow: 'hidden'
+            minWidth: '180px', overflow: 'hidden'
           }} onClick={e => e.stopPropagation()}>
             <button onClick={() => { setReceiptBooking(booking); setActiveMenuId(null); setMenuPos(null); }} style={menuItemStyle}>
               View Receipt
             </button>
-            <button onClick={() => { handleDownloadReceipt(booking); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, borderBottom: canRefund ? '1px solid #f5f5f5' : 'none' }}>
+            <button onClick={() => { handleDownloadReceipt(booking); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, borderBottom: canFullRefund ? '1px solid #f5f5f5' : 'none' }}>
               Download Receipt
             </button>
-            {canRefund && (
-              <button onClick={() => { handleRefund(booking.id); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, color: '#c62828', borderBottom: 'none' }}>
-                Mark as Refunded
+            {canFullRefund && (
+              <button
+                disabled={isProcessing}
+                onClick={() => { handleRefund(booking.id, false); setActiveMenuId(null); setMenuPos(null); }}
+                style={{ ...menuItemStyle, color: '#c62828', borderBottom: canPartialRefund ? '1px solid #f5f5f5' : 'none', opacity: isProcessing ? 0.6 : 1 }}
+              >
+                {isProcessing ? 'Processing...' : 'Full Refund'}
+              </button>
+            )}
+            {canPartialRefund && (
+              <button
+                disabled={isProcessing}
+                onClick={() => { handleRefund(booking.id, true); setActiveMenuId(null); setMenuPos(null); }}
+                style={{ ...menuItemStyle, color: '#880e4f', borderBottom: 'none', opacity: isProcessing ? 0.6 : 1 }}
+              >
+                Partial Refund
               </button>
             )}
           </div>,
@@ -351,7 +440,6 @@ const PaymentsInvoice: React.FC = () => {
           onClick={() => setReceiptBooking(null)}>
           <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}
             onClick={e => e.stopPropagation()}>
-            {/* Receipt header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #eee' }}>
               <h2 style={{ margin: 0, fontFamily: 'Urbanist', fontWeight: 700, fontSize: '18px' }}>Receipt #{receiptBooking.id}</h2>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -363,9 +451,7 @@ const PaymentsInvoice: React.FC = () => {
               </div>
             </div>
 
-            {/* Receipt body */}
             <div ref={receiptRef} style={{ padding: '24px', fontFamily: 'Urbanist' }}>
-              {/* Brand */}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', paddingBottom: '16px', borderBottom: '2px solid #082421' }}>
                 <div>
                   <div style={{ fontSize: '20px', fontWeight: 700, color: '#082421' }}>{user?.user_name || 'MelloMinds'}</div>
@@ -377,7 +463,6 @@ const PaymentsInvoice: React.FC = () => {
                 </div>
               </div>
 
-              {/* Client */}
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Client Details</div>
                 {[['Name', receiptBooking.client_name], ['Email', receiptBooking.client_email], ['Phone', receiptBooking.client_phone]].map(([l, v]) => (
@@ -387,7 +472,6 @@ const PaymentsInvoice: React.FC = () => {
                 ))}
               </div>
 
-              {/* Session */}
               <div style={{ marginBottom: '20px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Session Details</div>
                 {[
@@ -401,20 +485,14 @@ const PaymentsInvoice: React.FC = () => {
                 ))}
               </div>
 
-              {/* Payment */}
               <div>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Payment</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f5f5f5', fontSize: '14px' }}>
                   <span style={{ color: '#555' }}>Status</span>
                   <span>
                     {(() => {
-                      const ps = receiptBooking.payment_status || 'Pending';
-                      const display = (receiptBooking.status === 'cancelled' && ps === 'Pending') ? 'Cancelled' : ps;
-                      const colors: Record<string, { bg: string; color: string }> = {
-                        Paid: { bg: '#e8f5e9', color: '#2e7d32' }, Pending: { bg: '#fff3e0', color: '#e65100' },
-                        Refunded: { bg: '#fdecea', color: '#c62828' }, Cancelled: { bg: '#f5f5f5', color: '#6E6E6E' },
-                      };
-                      const c = colors[display] || colors.Pending;
+                      const display = derivePaymentDisplay(receiptBooking.payment_status || 'Pending', receiptBooking.status);
+                      const c = PAYMENT_STATUS_COLORS[display] || PAYMENT_STATUS_COLORS.Pending;
                       return <span style={{ background: c.bg, color: c.color, padding: '3px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>{display}</span>;
                     })()}
                   </span>

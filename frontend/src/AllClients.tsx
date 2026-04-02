@@ -65,6 +65,12 @@ const AllClients: React.FC = () => {
   const [addForm, setAddForm] = useState({ ...defaultForm });
   const [saving, setSaving] = useState(false);
 
+  // Bulk send booking link state
+  const [showBulkSendModal, setShowBulkSendModal] = useState(false);
+  const [calendars, setCalendars] = useState<{ id: number; title: string; duration: string; slug: string }[]>([]);
+  const [selectedCalendarId, setSelectedCalendarId] = useState<string>('');
+  const [bulkSending, setBulkSending] = useState(false);
+
   const fetchClients = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/bookings/clients`, { credentials: 'include' });
@@ -76,6 +82,41 @@ const AllClients: React.FC = () => {
       console.error('Failed to fetch clients:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCalendars = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/calendars`, { credentials: 'include' });
+      if (res.ok) setCalendars(await res.json());
+    } catch { /* silent */ }
+  };
+
+  const handleBulkSend = async () => {
+    if (!selectedCalendarId) { toast.warning('Please select a calendar.'); return; }
+    setBulkSending(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/send-link/bulk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          calendar_id: parseInt(selectedCalendarId),
+          clients: selectedRows.map(c => ({ name: c.name, email: c.email })),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Booking link sent to ${data.sent} client${data.sent !== 1 ? 's' : ''}${data.failed > 0 ? ` (${data.failed} failed)` : ''}.`);
+        setShowBulkSendModal(false);
+        setSelectedCalendarId('');
+      } else {
+        toast.error(data.error || 'Failed to send booking links.');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setBulkSending(false);
     }
   };
 
@@ -419,6 +460,18 @@ const AllClients: React.FC = () => {
             <img src="/Upload.svg" alt="" />
             {selectedRows.length > 0 ? `Export ${selectedRows.length} Selected` : 'Export to CSV'}
           </button>
+          {selectedRows.length > 0 && (
+            <button
+              className={styles.exportBtn}
+              onClick={() => { fetchCalendars(); setShowBulkSendModal(true); }}
+              style={{ background: '#082421', color: '#fff', borderRadius: '8px', padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+              </svg>
+              Send Booking Link ({selectedRows.length})
+            </button>
+          )}
         </div>
         {loading ? (
           <Loader />
@@ -431,8 +484,74 @@ const AllClients: React.FC = () => {
             enableSelection
             onSelectionChange={setSelectedRows}
           />
-      )}
+        )}
       </>
+      )}
+
+      {/* Bulk Send Booking Link Modal */}
+      {showBulkSendModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          onClick={() => !bulkSending && setShowBulkSendModal(false)}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '480px' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+              <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px', margin: 0 }}>Send Booking Link</h2>
+              <button onClick={() => setShowBulkSendModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+            </div>
+            <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>
+              Sending to <strong>{selectedRows.length}</strong> client{selectedRows.length !== 1 ? 's' : ''}:&nbsp;
+              {selectedRows.slice(0, 3).map(c => c.name).join(', ')}{selectedRows.length > 3 ? ` +${selectedRows.length - 3} more` : ''}
+            </p>
+
+            {/* Client chips */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px', maxHeight: '100px', overflowY: 'auto' }}>
+              {selectedRows.map(c => (
+                <span key={c.id} style={{ background: '#f0faf9', border: '1px solid #b2dfdb', borderRadius: '20px', padding: '4px 12px', fontSize: '13px', fontFamily: 'Urbanist', color: '#082421' }}>
+                  {c.name}
+                </span>
+              ))}
+            </div>
+
+            <label style={labelStyle}>Select Calendar *</label>
+            {calendars.length === 0 ? (
+              <p style={{ fontFamily: 'Urbanist', fontSize: '13px', color: '#c62828', marginBottom: '24px' }}>No calendars found. Please create a calendar first.</p>
+            ) : (
+              <select
+                style={{ ...inputStyle, marginBottom: '24px' }}
+                value={selectedCalendarId}
+                onChange={e => setSelectedCalendarId(e.target.value)}
+              >
+                <option value="">— Choose a calendar —</option>
+                {calendars.map(c => (
+                  <option key={c.id} value={c.id}>{c.title} ({c.duration})</option>
+                ))}
+              </select>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => { setShowBulkSendModal(false); setSelectedCalendarId(''); }}
+                disabled={bulkSending}
+                style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#333', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkSend}
+                disabled={bulkSending || !selectedCalendarId || calendars.length === 0}
+                style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#082421', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: (bulkSending || !selectedCalendarId) ? 'not-allowed' : 'pointer', opacity: (bulkSending || !selectedCalendarId) ? 0.7 : 1 }}
+              >
+                {bulkSending ? 'Sending...' : `Send to ${selectedRows.length} Client${selectedRows.length !== 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Add Client Modal */}

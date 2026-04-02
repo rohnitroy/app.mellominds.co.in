@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import API_BASE_URL from '../config/api';
 import Loader from './Loader';
@@ -8,8 +8,13 @@ const BookingStatus: React.FC = () => {
     const [searchParams] = useSearchParams();
     const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
     const [message, setMessage] = useState('');
+    const hasFired = useRef(false);
 
     useEffect(() => {
+        // Prevent double-fire on StrictMode / re-render
+        if (hasFired.current) return;
+        hasFired.current = true;
+
         const orderId = searchParams.get('order_id');
         const calendarId = searchParams.get('calendar_id');
         const startTime = searchParams.get('start_time');
@@ -20,6 +25,13 @@ const BookingStatus: React.FC = () => {
         if (!orderId || !calendarId || !startTime || !clientName || !clientEmail) {
             setStatus('failed');
             setMessage('Missing booking information. Please try again.');
+            return;
+        }
+
+        // Idempotency: if we already confirmed this order in this browser session, show success
+        const sessionKey = `booking_confirmed_${orderId}`;
+        if (sessionStorage.getItem(sessionKey) === 'true') {
+            setStatus('success');
             return;
         }
 
@@ -39,6 +51,8 @@ const BookingStatus: React.FC = () => {
                 });
 
                 if (response.ok) {
+                    // Mark as confirmed so page refresh doesn't re-create
+                    sessionStorage.setItem(sessionKey, 'true');
                     setStatus('success');
                 } else {
                     const err = await response.json();

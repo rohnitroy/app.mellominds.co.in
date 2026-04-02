@@ -25,6 +25,17 @@ router.post('/public', async (req, res) => {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
+        // Idempotency: if a booking already exists for this cashfree_order_id, return it directly
+        if (cashfree_order_id) {
+            const existing = await client.query(
+                `SELECT * FROM Appointments WHERE cashfree_order_id = $1 LIMIT 1`,
+                [cashfree_order_id]
+            );
+            if (existing.rows.length > 0) {
+                return res.status(200).json(existing.rows[0]);
+            }
+        }
+
         await client.query('BEGIN');
 
         // 1. Fetch Calendar & Therapist Details
@@ -304,6 +315,20 @@ router.post('/manage/:token/cancel', async (req, res) => {
              WHERE id = $1`,
             [appt.id]
         );
+
+        // Delete Google Calendar event to free the slot (non-fatal)
+        if (appt.google_event_id) {
+            try {
+                const cancelAuth = await getGoogleAuthClient(appt.therapist_id);
+                if (cancelAuth) {
+                    const cal = google.calendar({ version: 'v3', auth: cancelAuth });
+                    await cal.events.delete({ calendarId: 'primary', eventId: appt.google_event_id });
+                    await dbClient.query('UPDATE Appointments SET google_event_id = NULL WHERE id = $1', [appt.id]);
+                }
+            } catch (gErr) {
+                console.error('Google Calendar event deletion failed on client cancel:', gErr.message);
+            }
+        }
 
         // Notify therapist
         await createNotification({
@@ -1024,7 +1049,7 @@ router.patch('/:id/payment', async (req, res) => {
         const { id } = req.params;
         const { payment_status, payment_amount } = req.body;
 
-        const allowedStatuses = ['Pending', 'Paid', 'Refunded', 'Cancelled'];
+        const allowedStatuses = ['Pending', 'Paid', 'Refunded', 'Cancelled', 'Partial Refund'];
         if (payment_status && !allowedStatuses.includes(payment_status)) {
             return res.status(400).json({ error: `Invalid payment_status. Must be one of: ${allowedStatuses.join(', ')}` });
         }
@@ -1101,6 +1126,59 @@ router.post('/send-link', async (req, res) => {
     } catch (error) {
         console.error('Error sending booking link:', error);
         res.status(500).json({ error: 'Failed to send booking link' });
+    }
+});
+
+// POST /api/bookings/send-link/bulk - Send booking link to multiple clients
+router.post('/send-link/bulk', async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { clients, calendar_id } = req.body;
+        // clients: [{ name, email }]
+
+        if (!Array.isArray(clients) || clients.length === 0 || !calendar_id) {
+            return res.status(400).json({ error: 'clients array and calendar_id are required' });
+        }
+        if (clients.length > 100) {
+            return res.status(400).json({ error: 'Cannot send to more than 100 clients at once' });
+        }
+
+        const calRes = await pool.query(
+            `SELECT c.*, u.user_name as therapist_name
+             FROM Calendars c JOIN Users u ON c.user_id = u.id
+             WHERE c.id = $1 AND c.user_id = $2`,
+            [calendar_id, userId]
+        );
+        if (calRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Calendar not found' });
+        }
+        const cal = calRes.rows[0];
+        const bookingLink = `${process.env.FRONTEND_URL}/book/${userId}/${cal.slug?.replace(/^\//, '')}`;
+        const { bookingLinkEmail } = await import('../lib/email.js');
+
+        const results = await Promise.allSettled(
+            clients.map(({ name, email }) =>
+                sendEmail({
+                    to: email,
+                    ...bookingLinkEmail({
+                        clientName: name,
+                        therapistName: cal.therapist_name,
+                        calendarTitle: cal.title,
+                        calendarDescription: cal.description || '',
+                        duration: cal.duration,
+                        bookingLink,
+                    }),
+                })
+            )
+        );
+
+        const sent = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+
+        res.json({ sent, failed, total: clients.length });
+    } catch (error) {
+        console.error('Error sending bulk booking links:', error);
+        res.status(500).json({ error: 'Failed to send booking links' });
     }
 });
 

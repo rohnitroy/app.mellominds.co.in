@@ -161,7 +161,6 @@ const ManageBooking: React.FC = () => {
     const cancelConfirmMessage = [
         'Are you sure you want to cancel this session?',
         refundText ? `Refund policy: ${refundText}.` : null,
-        cancelWindowText && withinWindow ? `⚠️ You are within the ${cancelWindowText} cancellation window — cancellation may not be allowed.` : null,
         'A confirmation email will be sent to you.',
     ].filter(Boolean).join(' ');
 
@@ -273,10 +272,15 @@ const ManageBooking: React.FC = () => {
                                         {refundText && <> Refund: <strong>{refundText}</strong>.</>}
                                     </div>
                                 )}
+                                {withinWindow && (
+                                    <div style={{ background: '#fdecea', border: '1px solid #ef9a9a', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', color: '#c62828', fontFamily: 'Urbanist' }}>
+                                        ⚠️ You are within the {cancelWindowText} cancellation window. Cancellation is no longer allowed.
+                                    </div>
+                                )}
                                 <button
                                     onClick={() => setShowCancelConfirm(true)}
-                                    disabled={submitting}
-                                    style={{ padding: '14px', background: '#fff', color: '#c62828', border: '1px solid #fca5a5', borderRadius: '10px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '15px', cursor: submitting ? 'not-allowed' : 'pointer' }}>
+                                    disabled={submitting || withinWindow}
+                                    style={{ padding: '14px', background: '#fff', color: withinWindow ? '#9CA3AF' : '#c62828', border: `1px solid ${withinWindow ? '#e5e7eb' : '#fca5a5'}`, borderRadius: '10px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '15px', cursor: (submitting || withinWindow) ? 'not-allowed' : 'pointer', opacity: withinWindow ? 0.6 : 1 }}>
                                     Cancel Session
                                 </button>
                             </>
