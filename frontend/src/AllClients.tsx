@@ -64,6 +64,7 @@ const AllClients: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState({ ...defaultForm });
   const [saving, setSaving] = useState(false);
+  const [addClientCalendarId, setAddClientCalendarId] = useState<string>('');
 
   // Bulk send booking link state
   const [showBulkSendModal, setShowBulkSendModal] = useState(false);
@@ -176,7 +177,10 @@ const AllClients: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(addForm),
+        body: JSON.stringify({
+          ...addForm,
+          ...(addClientCalendarId ? { calendarId: parseInt(addClientCalendarId) } : {}),
+        }),
       });
 
       if (response.ok) {
@@ -184,6 +188,7 @@ const AllClients: React.FC = () => {
         setClients(prev => [newClient, ...prev]);
         setShowAddModal(false);
         setAddForm({ ...defaultForm });
+        setAddClientCalendarId('');
         toast.success('Client added successfully!');
         // Open the new client's view immediately
         setSelectedClient(newClient);
@@ -393,7 +398,7 @@ const AllClients: React.FC = () => {
           <h1>All Clients</h1>
           <p>View Client Details, Sessions and more...</p>
         </div>
-        <button className={styles.addClientBtn} onClick={() => setShowAddModal(true)}>+ Add Client</button>
+        <button className={styles.addClientBtn} onClick={() => { fetchCalendars(); setShowAddModal(true); }}>+ Add Client</button>
       </div>
 
       {/* Tabs */}
@@ -572,7 +577,7 @@ const AllClients: React.FC = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
               <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '22px', margin: 0 }}>Add New Client</h2>
-              <button onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+              <button onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); setAddClientCalendarId(''); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
             </div>
             <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>Fill in the client's details below</p>
 
@@ -637,10 +642,29 @@ const AllClients: React.FC = () => {
                 </div>
               </div>
 
+              {/* Send Booking Link */}
+              {calendars.length > 0 && (
+                <>
+                  <p style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#2D7579', margin: '8px 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Send Booking Link (Optional)</p>
+                  <div style={{ marginBottom: '28px' }}>
+                    <label style={labelStyle}>Select Calendar</label>
+                    <select style={inputStyle} value={addClientCalendarId} onChange={e => setAddClientCalendarId(e.target.value)}>
+                      <option value="">— Skip, don't send —</option>
+                      {calendars.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                    </select>
+                    {addClientCalendarId && (
+                      <p style={{ fontFamily: 'Urbanist', fontSize: '12px', color: '#6E6E6E', margin: '6px 0 0 0' }}>
+                        A welcome email with the booking link will be sent to the client.
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
-                  onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); }}
+                  onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); setAddClientCalendarId(''); }}
                   disabled={saving}
                   style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#333', cursor: 'pointer' }}
                 >
