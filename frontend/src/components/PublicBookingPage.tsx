@@ -237,6 +237,7 @@ const PublicBookingPage: React.FC = () => {
                         client_email: formData.client_email,
                         client_phone: formData.whatsapp_number,
                         start_time: selectedSlot,
+                        form_responses: allFormResponses,
                     }),
                 });
                 if (!orderRes.ok) {

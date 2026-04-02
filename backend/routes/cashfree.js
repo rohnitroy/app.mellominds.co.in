@@ -97,7 +97,7 @@ router.delete('/disconnect', ensureAuthenticated, async (req, res) => {
 // POST /api/cashfree/create-order
 // Called from PublicBookingPage after slot selection, before booking is confirmed
 router.post('/create-order', async (req, res) => {
-    const { calendar_id, client_name, client_email, client_phone, start_time } = req.body;
+    const { calendar_id, client_name, client_email, client_phone, start_time, form_responses } = req.body;
 
     if (!calendar_id || !client_email || !client_name || !start_time) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -157,7 +157,7 @@ router.post('/create-order', async (req, res) => {
                 customer_phone: client_phone || '9999999999',
             },
             order_meta: {
-                return_url: `${process.env.FRONTEND_URL}/booking-status?order_id={order_id}&calendar_id=${calendar_id}&start_time=${encodeURIComponent(start_time)}&client_name=${encodeURIComponent(client_name)}&client_email=${encodeURIComponent(client_email)}&client_phone=${encodeURIComponent(client_phone || '')}`,
+                return_url: `${process.env.FRONTEND_URL}/booking-status?order_id={order_id}&calendar_id=${calendar_id}&start_time=${encodeURIComponent(start_time)}&client_name=${encodeURIComponent(client_name)}&client_email=${encodeURIComponent(client_email)}&client_phone=${encodeURIComponent(client_phone || '')}${form_responses ? `&form_responses=${encodeURIComponent(JSON.stringify(form_responses))}` : ''}`,
                 notify_url: `${process.env.BACKEND_URL || process.env.FRONTEND_URL?.replace('3000', '3001')}/api/cashfree/webhook`,
             },
             order_note: `Booking: ${calendar.title}`,

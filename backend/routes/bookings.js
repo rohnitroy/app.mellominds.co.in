@@ -241,6 +241,41 @@ router.post('/public', async (req, res) => {
             await sendEmail({ to: partner_email, ...partnerEmailContent });
         }
 
+        // Send confirmation to any additional email-type fields captured in the form
+        // (e.g. "Second Email", "Guardian Email", etc.) — works for any calendar type
+        try {
+            const formQuestions = calendarService.form_data?.questions || [];
+            const parsedResponses = form_responses
+                ? (typeof form_responses === 'string' ? JSON.parse(form_responses) : form_responses)
+                : {};
+
+            // Find all questions with type 'email' that are NOT the primary email field
+            const extraEmailQuestions = formQuestions.filter(
+                (q) => q.type === 'email' && q.key !== 'email'
+            );
+
+            for (const q of extraEmailQuestions) {
+                const extraEmail = parsedResponses[String(q.id)]?.trim();
+                if (!extraEmail || extraEmail.toLowerCase() === client_email.toLowerCase()) continue;
+                // Basic email format check
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(extraEmail)) continue;
+
+                const extraEmailContent = bookingConfirmationEmail({
+                    clientName: client_name,
+                    therapistName: calendarService.therapist_name || 'your therapist',
+                    sessionTitle: calendarService.title,
+                    startTime: startTime.toISOString(),
+                    meetLink: meetLink,
+                    locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet',
+                    cancelToken: insertRes.rows[0].cancel_token,
+                    frontendUrl: process.env.FRONTEND_URL
+                });
+                await sendEmail({ to: extraEmail, ...extraEmailContent });
+            }
+        } catch (extraEmailErr) {
+            console.error('Failed to send extra email confirmations:', extraEmailErr.message);
+        }
+
         res.status(201).json(insertRes.rows[0]);
 
     } catch (error) {

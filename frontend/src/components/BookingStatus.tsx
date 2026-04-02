@@ -21,6 +21,7 @@ const BookingStatus: React.FC = () => {
         const clientName = searchParams.get('client_name');
         const clientEmail = searchParams.get('client_email');
         const clientPhone = searchParams.get('client_phone');
+        const formResponsesRaw = searchParams.get('form_responses');
 
         if (!orderId || !calendarId || !startTime || !clientName || !clientEmail) {
             setStatus('failed');
@@ -47,6 +48,7 @@ const BookingStatus: React.FC = () => {
                         client_email: clientEmail,
                         client_phone: clientPhone || '',
                         cashfree_order_id: orderId,
+                        ...(formResponsesRaw ? (() => { try { return { form_responses: JSON.parse(formResponsesRaw) }; } catch { return {}; } })() : {}),
                     }),
                 });
 
