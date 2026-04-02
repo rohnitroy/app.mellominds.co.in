@@ -674,7 +674,8 @@ router.get('/', async (req, res) => {
 
         let query = `
             SELECT 
-                a.*, 
+                a.*,
+                COALESCE(a.client_phone, cl.phone) as client_phone,
                 COALESCE(
                     json_agg(
                         json_build_object(
@@ -686,6 +687,7 @@ router.get('/', async (req, res) => {
                     '[]'
                 ) as notes
             FROM Appointments a
+            LEFT JOIN Clients cl ON LOWER(a.client_email) = LOWER(cl.email) AND cl.therapist_id = a.therapist_id
             LEFT JOIN SessionNotes sn ON a.id = sn.appointment_id AND sn.therapist_id = $1
             WHERE a.therapist_id = $1
         `;
@@ -700,7 +702,7 @@ router.get('/', async (req, res) => {
             params.push(email);
         }
 
-        query += " GROUP BY a.id ORDER BY a.created_at DESC";
+        query += " GROUP BY a.id, cl.phone ORDER BY a.created_at DESC";
 
         const result = await client.query(query, params);
         res.json(result.rows);
@@ -810,6 +812,13 @@ router.post('/', async (req, res) => {
             [userId, client_name, client_email, req.body.client_phone || null]
         );
 
+        // Resolve phone: use submitted value, or fall back to what's stored in Clients table
+        const resolvedPhoneRes = await client.query(
+            `SELECT phone FROM Clients WHERE therapist_id = $1 AND LOWER(email) = LOWER($2) LIMIT 1`,
+            [userId, client_email]
+        );
+        const resolvedPhone = req.body.client_phone || resolvedPhoneRes.rows[0]?.phone || null;
+
         // 5. Create Appointment in DB
         const insertRes = await client.query(
             `INSERT INTO Appointments 
@@ -826,7 +835,7 @@ router.post('/', async (req, res) => {
                 meetLink,
                 client_email,
                 client_name,
-                req.body.client_phone || null,
+                resolvedPhone,
                 payment_amount || 0,
                 payment_status || 'Pending',
                 location_type || 'google_meet'

@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './ClientView.module.css';
-import { Delete, EditSquare, Call, Message, Calendar, ArrowLeft, ChevronDown } from 'react-iconly';
-import CustomDropdown from './components/CustomDropdown';
+import { Call, Message, Calendar, ArrowLeft, ChevronDown, Delete } from 'react-iconly';
 import { useToast } from './context/ToastContext';
 import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
 import CreateBooking from './components/CreateBooking';
+import ConfirmModal from './components/ConfirmModal';
+import InlineCalendar from './components/InlineCalendar';
+import TimeSlotList from './components/TimeSlotList';
 import { ColumnDef } from '@tanstack/react-table';
 
 interface Client {
@@ -187,12 +190,28 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [bookingStatusUpdating, setBookingStatusUpdating] = useState<number | null>(null);
   const [openActionMenu, setOpenActionMenu] = useState<number | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Reschedule modal state
+  const [rescheduleAppt, setRescheduleAppt] = useState<any | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState(new Date().toISOString().split('T')[0]);
+  const [rescheduleSlot, setRescheduleSlot] = useState<string | null>(null);
+  const [rescheduling, setRescheduling] = useState(false);
+
+  // Confirm modal state (cancel / noshow)
+  const [confirmModal, setConfirmModal] = useState<{ id: number; action: string } | null>(null);
 
   useEffect(() => {
     if (openActionMenu === null) return;
-    const close = () => setOpenActionMenu(null);
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenActionMenu(null);
+        setMenuPos(null);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
   }, [openActionMenu]);
 
   const handleActivitySubmit = async () => {
@@ -532,6 +551,39 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     finally { setBookingStatusUpdating(null); }
   };
 
+  const sendReminder = async (bookingId: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/reminder`, {
+        method: 'POST', credentials: 'include'
+      });
+      if (res.ok) toast.success('Reminder sent!');
+      else toast.error('Failed to send reminder');
+    } catch { toast.error('Error sending reminder'); }
+  };
+
+  const handleReschedule = async () => {
+    if (!rescheduleAppt || !rescheduleSlot) return;
+    setRescheduling(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${rescheduleAppt.id}/reschedule`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ new_start_time: rescheduleSlot }),
+      });
+      if (res.ok) {
+        toast.success('Booking rescheduled!');
+        setRescheduleAppt(null);
+        setRescheduleSlot(null);
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to reschedule');
+      }
+    } catch { toast.error('Network error'); }
+    finally { setRescheduling(false); }
+  };
+
   const formatDateTime = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleString('en-US', {
@@ -588,20 +640,24 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       cell: ({ row }: any) => {
         const appt = row.original;
         const isUpdating = bookingStatusUpdating === appt.id;
-        if (appt.status === 'cancelled') return <span style={{ color: '#ccc', fontSize: '12px' }}>—</span>;
+        const isCancelledOrNoshow = appt.status === 'cancelled' || appt.status === 'noshow';
+        if (isCancelledOrNoshow) return <span style={{ color: '#ccc', fontSize: '12px' }}>—</span>;
 
+        const isPast = new Date(appt.start_time) < new Date();
+        const isScheduled = appt.status === 'scheduled';
         const isOpen = openActionMenu === appt.id;
-        const menuItems = [
-          appt.status !== 'completed' && { label: 'Mark Complete', color: '#1565c0', status: 'completed' },
-          appt.status !== 'noshow'    && { label: 'Mark No Show', color: '#e65100', status: 'noshow' },
-          { label: 'Cancel Booking',  color: '#c62828', status: 'cancelled' },
-        ].filter(Boolean) as { label: string; color: string; status: string }[];
 
         return (
           <div style={{ position: 'relative', display: 'inline-block' }}>
             <button
               disabled={isUpdating}
-              onClick={(e) => { e.stopPropagation(); setOpenActionMenu(isOpen ? null : appt.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isOpen) { setOpenActionMenu(null); setMenuPos(null); return; }
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setMenuPos({ top: rect.bottom + window.scrollY + 4, right: window.innerWidth - rect.right });
+                setOpenActionMenu(appt.id);
+              }}
               style={{
                 width: '30px', height: '30px', borderRadius: '6px', border: '1px solid #e0e0e0',
                 background: isOpen ? '#f5f5f5' : '#fff', cursor: 'pointer',
@@ -612,32 +668,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
             >
               {isUpdating ? '…' : '···'}
             </button>
-            {isOpen && (
-              <div
-                style={{
-                  position: 'absolute', right: 0, top: '34px', zIndex: 100,
-                  background: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: '150px', overflow: 'hidden',
-                }}
-                onClick={e => e.stopPropagation()}
-              >
-                {menuItems.map(item => (
-                  <div
-                    key={item.status}
-                    onClick={() => { setOpenActionMenu(null); handleUpdateBookingStatus(appt.id, item.status); }}
-                    style={{
-                      padding: '9px 14px', fontSize: '13px', fontFamily: 'Urbanist',
-                      fontWeight: 600, color: item.color, cursor: 'pointer',
-                      borderBottom: '1px solid #f5f5f5',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#fafafa')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    {item.label}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         );
       },
@@ -1426,6 +1456,120 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
           </div>
         </div>
       )}
+
+      {/* Portal action dropdown for booking rows */}
+      {openActionMenu !== null && menuPos && (() => {
+        const appt = appointments.find(a => a.id === openActionMenu);
+        if (!appt) return null;
+        const isPast = new Date(appt.start_time) < new Date();
+        const isScheduled = appt.status === 'scheduled';
+        const menuItemStyle: React.CSSProperties = {
+          display: 'block', width: '100%', padding: '10px 16px', border: 'none',
+          background: 'none', textAlign: 'left', fontFamily: 'Urbanist', fontWeight: 500,
+          fontSize: '13px', color: '#082421', cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
+        };
+        return createPortal(
+          <div
+            ref={menuRef}
+            style={{
+              position: 'absolute', top: menuPos.top, right: menuPos.right,
+              background: '#fff', border: '1px solid #e9ecef', borderRadius: '10px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 9999,
+              minWidth: '180px', overflow: 'hidden',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Send Reminder — only for upcoming scheduled sessions */}
+            {isScheduled && !isPast && (
+              <button style={menuItemStyle} onClick={() => { sendReminder(appt.id); setOpenActionMenu(null); setMenuPos(null); }}>
+                Send Reminder
+              </button>
+            )}
+            {/* Reschedule — only for upcoming scheduled sessions */}
+            {isScheduled && !isPast && (
+              <button style={menuItemStyle} onClick={() => { setRescheduleAppt(appt); setRescheduleDate(new Date().toISOString().split('T')[0]); setRescheduleSlot(null); setOpenActionMenu(null); setMenuPos(null); }}>
+                Reschedule
+              </button>
+            )}
+            {/* Mark as Complete — past scheduled or any non-completed/non-cancelled */}
+            {appt.status !== 'completed' && (
+              <button style={{ ...menuItemStyle, color: '#1565c0' }} onClick={() => { handleUpdateBookingStatus(appt.id, 'completed'); setOpenActionMenu(null); setMenuPos(null); }}>
+                Mark as Completed
+              </button>
+            )}
+            {/* Mark No Show — past sessions */}
+            {isScheduled && isPast && (
+              <button style={{ ...menuItemStyle, color: '#e65100' }} onClick={() => { setConfirmModal({ id: appt.id, action: 'noshow' }); setOpenActionMenu(null); setMenuPos(null); }}>
+                Mark as No Show
+              </button>
+            )}
+            {/* Cancel */}
+            {isScheduled && (
+              <button style={{ ...menuItemStyle, color: '#c62828', borderBottom: 'none' }} onClick={() => { setConfirmModal({ id: appt.id, action: 'cancel' }); setOpenActionMenu(null); setMenuPos(null); }}>
+                Cancel Booking
+              </button>
+            )}
+          </div>,
+          document.body
+        );
+      })()}
+
+      {/* Reschedule Modal */}
+      {rescheduleAppt && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 24px', overflowY: 'auto' }}
+          onClick={() => setRescheduleAppt(null)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '760px' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px' }}>Reschedule Session</h2>
+                <p style={{ margin: '4px 0 0', fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E' }}>{rescheduleAppt.title} — {client.name}</p>
+              </div>
+              <button onClick={() => setRescheduleAppt(null)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666' }}>×</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+              <InlineCalendar selectedDate={rescheduleDate} onDateSelect={setRescheduleDate} />
+              <TimeSlotList
+                calendarId={rescheduleAppt.calendar_id}
+                selectedDate={rescheduleDate}
+                selectedSlot={rescheduleSlot}
+                onSlotSelect={setRescheduleSlot}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button onClick={() => setRescheduleAppt(null)}
+                style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleReschedule} disabled={!rescheduleSlot || rescheduling}
+                style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#082421', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: (!rescheduleSlot || rescheduling) ? 'not-allowed' : 'pointer', opacity: (!rescheduleSlot || rescheduling) ? 0.6 : 1 }}>
+                {rescheduling ? 'Rescheduling...' : 'Confirm Reschedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm modal for Cancel / No Show */}
+      <ConfirmModal
+        isOpen={!!confirmModal}
+        title={confirmModal?.action === 'noshow' ? 'Mark as No Show' : 'Cancel Booking'}
+        message={
+          confirmModal?.action === 'noshow'
+            ? 'Mark this session as a no show? The client did not attend.'
+            : 'Are you sure you want to cancel this booking? This action cannot be undone.'
+        }
+        confirmLabel={confirmModal?.action === 'noshow' ? 'Yes, Mark No Show' : 'Yes, Cancel Booking'}
+        cancelLabel={confirmModal?.action === 'noshow' ? 'Go Back' : 'Keep Booking'}
+        danger
+        onConfirm={() => {
+          if (confirmModal) {
+            handleUpdateBookingStatus(confirmModal.id, confirmModal.action === 'noshow' ? 'noshow' : 'cancelled');
+            setConfirmModal(null);
+          }
+        }}
+        onCancel={() => setConfirmModal(null)}
+      />
     </div>
   );
 };
