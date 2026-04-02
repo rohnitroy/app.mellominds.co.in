@@ -647,11 +647,11 @@ router.get('/', async (req, res) => {
         }
 
         if (email) {
-            query += " AND a.client_email = $2"; // Note the table alias 'a'
+            query += " AND LOWER(a.client_email) = LOWER($2)";
             params.push(email);
         }
 
-        query += " GROUP BY a.id ORDER BY a.start_time ASC";
+        query += " GROUP BY a.id ORDER BY a.start_time DESC";
 
         const result = await client.query(query, params);
         res.json(result.rows);

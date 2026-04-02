@@ -4,8 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import './CalendarPage.css';
 import AvailabilityModal from './AvailabilityModal';
-import CustomDropdown from './CustomDropdown';
-import CreateBooking from './CreateBooking';
 import ConfirmModal from './ConfirmModal';
 import API_BASE_URL from '../config/api';
 import Loader from './Loader';
@@ -25,172 +23,85 @@ const CalendarPage: React.FC = () => {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    duration: '60 m',
-    type: 'one_on_one',
-    description: '',
-    slug: ''
-  });
-
-  // State for Create Booking Modal (full CreateBooking component)
-  const [showCreateBookingModal, setShowCreateBookingModal] = useState(false);
-  const [createBookingCalendarId, setCreateBookingCalendarId] = useState<string>('');
+  const [fetchError, setFetchError] = useState(false);
 
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+
+  // 3-dot menu
+  const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
+
+  // Delete confirm
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
+  // Toggle loading guard (prevents race conditions on rapid clicks)
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+
+  // Slug edit modal
+  const [showSlugModal, setShowSlugModal] = useState(false);
+  const [slugFormData, setSlugFormData] = useState({ id: 0, slug: '' });
+  const [slugSaving, setSlugSaving] = useState(false);
+
+
+  // Handle ?openModal=true — just navigate, no redundant setSearchParams
   useEffect(() => {
     if (searchParams.get('openModal') === 'true') {
-      searchParams.delete('openModal');
-      setSearchParams(searchParams);
       navigate('/my-calendar/new');
     }
-  }, [searchParams, setSearchParams]);
+  }, []);
 
   const fetchCalendars = async () => {
+    setFetchError(false);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/calendars`, {
-        credentials: 'include'
-      });
+      const response = await fetch(`${API_BASE_URL}/api/calendars`, { credentials: 'include' });
       if (response.ok) {
-        const data = await response.json();
-        setCalendars(data);
+        setCalendars(await response.json());
+      } else {
+        setFetchError(true);
       }
-    } catch (error) {
-      console.error('Error fetching calendars:', error);
+    } catch {
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => { fetchCalendars(); }, []);
 
+  // Close 3-dot menu on outside click
   useEffect(() => {
-    fetchCalendars();
-  }, []);
-
-  // Slug Modal State
-  const [showSlugModal, setShowSlugModal] = useState(false);
-  const [slugFormData, setSlugFormData] = useState({ id: 0, slug: '' });
-
-  // Menu State
-  const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-
-  const openSlugModal = (calendar: Calendar) => {
-    setSlugFormData({
-      id: calendar.id,
-      slug: calendar.slug.startsWith('/') ? calendar.slug.slice(1) : calendar.slug
-    });
-    setShowSlugModal(true);
-  };
-
-  const handleSlugUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/calendars/${slugFormData.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ slug: slugFormData.slug })
-      });
-
-      if (response.ok) {
-        setShowSlugModal(false);
-        fetchCalendars();
-      } else {
-        const err = await response.json();
-        toast.error(`Error: ${err.error}`);
-      }
-    } catch (error) {
-      console.error('Error updating slug:', error);
-      toast.error('Error updating slug');
-    }
-  };
-
-  const toggleMenu = (id: number) => {
-    setActiveMenuId(activeMenuId === id ? null : id);
-  };
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (activeMenuId && !(event.target as Element).closest('.menu-container')) {
-        setActiveMenuId(null);
-      }
+    if (!activeMenuId) return;
+    const handler = (e: MouseEvent) => {
+      if (!(e.target as Element).closest('.menu-container')) setActiveMenuId(null);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, [activeMenuId]);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
-
-  const handleCreateOrUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const url = editingId
-      ? `${API_BASE_URL}/api/calendars/${editingId}`
-      : `${API_BASE_URL}/api/calendars`;
-
-    const method = editingId ? 'PUT' : 'POST';
-
-    try {
-      const response = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData)
-      });
-
-      if (response.ok) {
-        setShowModal(false);
-        fetchCalendars();
-        resetForm();
-      } else {
-        const err = await response.json();
-        toast.error(`Error: ${err.error}`);
-      }
-    } catch (error) {
-      console.error('Error saving calendar:', error);
-      toast.error('Error saving calendar');
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({ title: '', duration: '60 m', type: 'one_on_one', description: '', slug: '' });
-    setEditingId(null);
-  };
-
-
-  const openCreateModal = () => {
-    resetForm();
-    navigate('/my-calendar/new');
-  };
-
-
-
-  const openEditModal = (calendar: Calendar) => {
-    // Navigate to CreateEventPage with calendar data for editing
-    navigate('/my-calendar/edit', { state: { calendar, isEditing: true } });
-  };
+  const toggleMenu = (id: number) => setActiveMenuId(prev => prev === id ? null : id);
 
   const handleToggleActive = async (id: number, currentStatus: boolean) => {
+    if (togglingId === id) return;
+    setTogglingId(id);
     try {
       const response = await fetch(`${API_BASE_URL}/api/calendars/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ is_active: !currentStatus })
+        body: JSON.stringify({ is_active: !currentStatus }),
       });
-
       if (response.ok) {
+        toast.success(`Calendar ${!currentStatus ? 'activated' : 'deactivated'}.`);
         fetchCalendars();
+      } else {
+        toast.error('Failed to update calendar status.');
       }
-    } catch (error) {
-      console.error('Error updating calendar:', error);
+    } catch {
+      toast.error('Error updating calendar status.');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -198,39 +109,65 @@ const CalendarPage: React.FC = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/calendars/${id}`, {
         method: 'DELETE',
-        credentials: 'include'
+        credentials: 'include',
       });
-
       if (response.ok) {
+        toast.success('Calendar deleted.');
         setDeleteConfirmId(null);
         fetchCalendars();
       } else {
         const err = await response.json();
         toast.error(`Failed to delete: ${err.error}`);
       }
-    } catch (error) {
-      console.error('Error deleting calendar:', error);
-      toast.error('Error deleting calendar');
+    } catch {
+      toast.error('Error deleting calendar.');
     }
   };
 
-  const handleCreateBookingForCalendar = (calendarId: number) => {
-    setCreateBookingCalendarId(calendarId.toString());
-    setShowCreateBookingModal(true);
+  const openSlugModal = (calendar: Calendar) => {
+    setSlugFormData({
+      id: calendar.id,
+      slug: calendar.slug.startsWith('/') ? calendar.slug.slice(1) : calendar.slug,
+    });
+    setShowSlugModal(true);
+    setActiveMenuId(null);
+  };
+
+  const handleSlugUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSlugSaving(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/calendars/${slugFormData.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ slug: slugFormData.slug }),
+      });
+      if (response.ok) {
+        toast.success('Slug updated.');
+        setShowSlugModal(false);
+        fetchCalendars();
+      } else {
+        const err = await response.json();
+        toast.error(`Error: ${err.error}`);
+      }
+    } catch {
+      toast.error('Error updating slug.');
+    } finally {
+      setSlugSaving(false);
+    }
   };
 
   const handleCopyLink = (slug: string) => {
     if (!user) return;
     const cleanSlug = slug.startsWith('/') ? slug.slice(1) : slug;
-    const link = `${window.location.origin}/book/${user.id}/${cleanSlug}`;
-    navigator.clipboard.writeText(link);
+    navigator.clipboard.writeText(`${window.location.origin}/book/${user.id}/${cleanSlug}`);
     toast.success('Link copied!');
   };
 
-  const formatType = (type: string) => {
-    // Basic formatting, could be improved
-    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
+  const formatType = (type: string) =>
+    type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
 
   return (
     <div className="calendar-page">
@@ -240,19 +177,36 @@ const CalendarPage: React.FC = () => {
           <p className="page-subtitle">Manage your booking calendar across all pages</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="create-calendar-btn" onClick={() => setShowAvailabilityModal(true)} style={{ backgroundColor: '#fff', color: '#333', border: '1px solid #ccc' }}>
+          <button
+            className="create-calendar-btn"
+            onClick={() => setShowAvailabilityModal(true)}
+            style={{ backgroundColor: '#fff', color: '#333', border: '1px solid #ccc' }}
+          >
             Available Hours
           </button>
-          <button className="create-calendar-btn" onClick={openCreateModal}>+ Create Calendar</button>
+          <button className="create-calendar-btn" onClick={() => navigate('/my-calendar/new')}>
+            + Create Calendar
+          </button>
         </div>
       </div>
-
 
       <div className="calendar-content">
         {loading ? (
           <Loader />
+        ) : fetchError ? (
+          <div style={{ textAlign: 'center', marginTop: '40px', color: '#c62828', fontFamily: 'Urbanist', fontSize: '14px' }}>
+            Failed to load calendars.{' '}
+            <span
+              style={{ cursor: 'pointer', textDecoration: 'underline' }}
+              onClick={() => { setLoading(true); fetchCalendars(); }}
+            >
+              Retry
+            </span>
+          </div>
         ) : calendars.length === 0 ? (
-          <div style={{ textAlign: 'center', marginTop: '40px', color: '#666' }}>No calendars found. Create one to get started!</div>
+          <div style={{ textAlign: 'center', marginTop: '40px', color: '#666' }}>
+            No calendars found. Create one to get started!
+          </div>
         ) : (
           <div className="calendar-grid">
             {calendars.map((resource) => (
@@ -260,16 +214,17 @@ const CalendarPage: React.FC = () => {
                 <div className="card-header">
                   <h3 className="card-title">{resource.title}</h3>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <div className="toggle-switch" onClick={() => handleToggleActive(resource.id, resource.is_active)} style={{ marginRight: '8px' }}>
-                      <input
-                        type="checkbox"
-                        id={`toggle-${resource.id}`}
-                        checked={resource.is_active}
-                        readOnly
-                      />
+                    {/* Active toggle */}
+                    <div
+                      className="toggle-switch"
+                      onClick={() => handleToggleActive(resource.id, resource.is_active)}
+                      style={{ marginRight: '8px', opacity: togglingId === resource.id ? 0.5 : 1, pointerEvents: togglingId === resource.id ? 'none' : 'auto' }}
+                    >
+                      <input type="checkbox" id={`toggle-${resource.id}`} checked={resource.is_active} readOnly />
                       <label htmlFor={`toggle-${resource.id}`} className="switch"></label>
                     </div>
 
+                    {/* 3-dot menu */}
                     <div className="menu-container">
                       <button className="menu-btn" onClick={() => toggleMenu(resource.id)}>
                         <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
@@ -279,13 +234,23 @@ const CalendarPage: React.FC = () => {
                       {activeMenuId === resource.id && (
                         <div className="calendar-dropdown-menu">
                           <button
-                            onClick={() => { openEditModal(resource); setActiveMenuId(null); }}
+                            onClick={() => { navigate('/my-calendar/edit', { state: { calendar: resource, isEditing: true } }); setActiveMenuId(null); }}
                             className="calendar-dropdown-item"
                           >
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: '8px' }}>
                               <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
                             </svg>
                             Edit Details
+                          </button>
+                          <button
+                            onClick={() => openSlugModal(resource)}
+                            className="calendar-dropdown-item"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                            </svg>
+                            Edit Slug
                           </button>
                           <button
                             onClick={() => { setDeleteConfirmId(resource.id); setActiveMenuId(null); }}
@@ -319,11 +284,12 @@ const CalendarPage: React.FC = () => {
                 </div>
 
                 <div className="card-description" style={{ flex: 1 }}>
-                  <p style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{resource.description}</p>
+                  <p style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {resource.description}
+                  </p>
                 </div>
 
                 <div className="card-footer">
-                  {/* Booking link row */}
                   <div className="card-link-row">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -337,15 +303,6 @@ const CalendarPage: React.FC = () => {
                       </svg>
                     </button>
                   </div>
-                  {/* Create Booking button */}
-                  <div className="card-footer-actions">
-                    <button
-                      className="book-btn"
-                      onClick={() => handleCreateBookingForCalendar(resource.id)}
-                    >
-                      + Create Booking
-                    </button>
-                  </div>
                 </div>
               </div>
             ))}
@@ -353,86 +310,10 @@ const CalendarPage: React.FC = () => {
         )}
       </div>
 
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2 className="modal-title">{editingId ? 'Edit Calendar' : 'Create New Calendar'}</h2>
-              <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
-            </div>
-            <form onSubmit={handleCreateOrUpdate}>
-              <div className="form-group">
-                <label className="form-label">Title</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  required
-                  value={formData.title}
-                  onChange={e => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="e.g. Individual Therapy Session"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Duration</label>
-                <CustomDropdown
-                  options={[
-                    { value: '15 m', label: '15 minutes' },
-                    { value: '30 m', label: '30 minutes' },
-                    { value: '45 m', label: '45 minutes' },
-                    { value: '50 m', label: '50 minutes' },
-                    { value: '60 m', label: '60 minutes' },
-                    { value: '90 m', label: '90 minutes' }
-                  ]}
-                  value={formData.duration}
-                  onChange={(value) => setFormData({ ...formData, duration: value })}
-                  placeholder="Select duration"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Type</label>
-                <CustomDropdown
-                  options={[
-                    { value: 'one_on_one', label: 'One on One' },
-                    { value: 'group', label: 'Group' },
-                    { value: 'couples', label: 'Couples' }
-                  ]}
-                  value={formData.type}
-                  onChange={(value) => setFormData({ ...formData, type: value })}
-                  placeholder="Select type"
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea
-                  className="form-textarea"
-                  rows={3}
-                  value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe your session..."
-                ></textarea>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Custom Slug (Optional)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.slug}
-                  onChange={e => setFormData({ ...formData, slug: e.target.value })}
-                  placeholder="e.g. discovery-call"
-                />
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="cancel-btn" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="submit-btn">{editingId ? 'Save Changes' : 'Create Calendar'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      {/* Slug Edit Modal */}
       {showSlugModal && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '400px' }}>
+        <div className="modal-overlay" onClick={() => !slugSaving && setShowSlugModal(false)}>
+          <div className="modal-content" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">Edit Slug</h2>
               <button className="close-btn" onClick={() => setShowSlugModal(false)}>×</button>
@@ -448,32 +329,21 @@ const CalendarPage: React.FC = () => {
                     value={slugFormData.slug}
                     onChange={e => setSlugFormData({ ...slugFormData, slug: e.target.value })}
                     placeholder="my-calendar-slug"
+                    required
                   />
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="cancel-btn" onClick={() => setShowSlugModal(false)}>Cancel</button>
-                <button type="submit" className="submit-btn">Update Slug</button>
+                <button type="button" className="cancel-btn" onClick={() => setShowSlugModal(false)} disabled={slugSaving}>Cancel</button>
+                <button type="submit" className="submit-btn" disabled={slugSaving}>{slugSaving ? 'Saving...' : 'Update Slug'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {showCreateBookingModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
-          onClick={() => setShowCreateBookingModal(false)}>
-          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '860px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}
-            onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowCreateBookingModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', zIndex: 1 }}>×</button>
-            <CreateBooking
-              prefillCalendarId={createBookingCalendarId}
-              onBack={() => setShowCreateBookingModal(false)}
-            />
-          </div>
-        </div>
-      )}
       <AvailabilityModal isOpen={showAvailabilityModal} onClose={() => setShowAvailabilityModal(false)} />
+
       <ConfirmModal
         isOpen={deleteConfirmId !== null}
         title="Delete Calendar"

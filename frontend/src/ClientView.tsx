@@ -68,6 +68,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
 
   // Real data state
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
+  const [appointmentsError, setAppointmentsError] = useState(false);
   const [stats, setStats] = useState({
     sessions: '0',
     revenue: '₹0',
@@ -100,6 +102,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [transferCutoffDate, setTransferCutoffDate] = useState<Date | null>(propCutoffDate || null);
   const [pendingTransfer, setPendingTransfer] = useState<{ id: number } | null>(null);
   const [showCancelTransferModal, setShowCancelTransferModal] = useState(false);
+  const [activityToDelete, setActivityToDelete] = useState<number | null>(null);
 
   // Note template state
   const [noteTemplate, setNoteTemplate] = useState<any[]>([]);
@@ -183,6 +186,14 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [noteContent, setNoteContent] = useState<string>('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [bookingStatusUpdating, setBookingStatusUpdating] = useState<number | null>(null);
+  const [openActionMenu, setOpenActionMenu] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (openActionMenu === null) return;
+    const close = () => setOpenActionMenu(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openActionMenu]);
 
   const handleActivitySubmit = async () => {
     if (!activityForm.name.trim()) { toast.warning('Activity name is required.'); return; }
@@ -205,13 +216,15 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const handleDeleteActivity = async (id: number) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/activities/${id}`, { method: 'DELETE', credentials: 'include' });
-      if (res.ok) { toast.success('Activity removed.'); fetchActivities(); }
+      if (res.ok) { toast.success('Activity removed.'); setActivityToDelete(null); fetchActivities(); }
       else toast.error('Failed to delete activity.');
     } catch (e) { toast.error('Error deleting activity.'); }
   };
 
   const fetchClientData = async () => {
     if (!client.email) return;
+    setAppointmentsLoading(true);
+    setAppointmentsError(false);
     try {
       const response = await fetch(`${API_BASE_URL}/api/bookings?email=${encodeURIComponent(client.email)}`, {
         credentials: 'include'
@@ -248,7 +261,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         const noShow = filtered.filter((app: any) => app.status === 'noshow').length;
 
         const now = new Date();
-        const upcoming = data
+        const upcoming = (selectedDate === 'all' ? data : filtered)
           .filter((app: any) => new Date(app.start_time) > now && app.status !== 'cancelled')
           .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())[0];
 
@@ -266,15 +279,18 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       }
     } catch (error) {
       console.error('Failed to fetch client appointments:', error);
+      setAppointmentsError(true);
+    } finally {
+      setAppointmentsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchClientData();
-  }, [client.email, refreshTrigger, selectedDate]);
+  }, [client.email, refreshTrigger, selectedDate, transferCutoffDate]);
 
   const handleNoteSubmit = async () => {
-    if (!selectedAppointmentId) {
+    if (!selectedAppointmentId && !editingNote) {
       toast.warning('Please select a booking.');
       return;
     }
@@ -335,6 +351,14 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       setNoteContent(typeof note.content === 'object' ? note.content?.text || '' : note.content || '');
     }
     setShowAddNotesModal(true);
+  };
+
+  const handleDeleteNote = async (noteId: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) { toast.success('Note deleted.'); setRefreshTrigger(prev => prev + 1); }
+      else toast.error('Failed to delete note.');
+    } catch { toast.error('Error deleting note.'); }
   };
 
   const handleEditClient = () => {
@@ -559,41 +583,66 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     },
     ...(!(isTransferredClient && transferCutoffDate) ? [{
       id: 'actions',
-      header: 'Actions',
+      header: '',
       enableSorting: false,
       cell: ({ row }: any) => {
         const appt = row.original;
         const isUpdating = bookingStatusUpdating === appt.id;
         if (appt.status === 'cancelled') return <span style={{ color: '#ccc', fontSize: '12px' }}>—</span>;
+
+        const isOpen = openActionMenu === appt.id;
+        const menuItems = [
+          appt.status !== 'completed' && { label: 'Mark Complete', color: '#1565c0', status: 'completed' },
+          appt.status !== 'noshow'    && { label: 'Mark No Show', color: '#e65100', status: 'noshow' },
+          { label: 'Cancel Booking',  color: '#c62828', status: 'cancelled' },
+        ].filter(Boolean) as { label: string; color: string; status: string }[];
+
         return (
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            {appt.status !== 'completed' && (
-              <button
-                disabled={isUpdating}
-                onClick={() => handleUpdateBookingStatus(appt.id, 'completed')}
-                style={{ padding: '3px 10px', fontSize: '12px', fontFamily: 'Urbanist', fontWeight: 600, border: '1px solid #1565c0', borderRadius: '6px', background: '#fff', color: '#1565c0', cursor: 'pointer', opacity: isUpdating ? 0.6 : 1 }}>
-                Complete
-              </button>
-            )}
-            {appt.status !== 'noshow' && (
-              <button
-                disabled={isUpdating}
-                onClick={() => handleUpdateBookingStatus(appt.id, 'noshow')}
-                style={{ padding: '3px 10px', fontSize: '12px', fontFamily: 'Urbanist', fontWeight: 600, border: '1px solid #e65100', borderRadius: '6px', background: '#fff', color: '#e65100', cursor: 'pointer', opacity: isUpdating ? 0.6 : 1 }}>
-                No Show
-              </button>
-            )}
+          <div style={{ position: 'relative', display: 'inline-block' }}>
             <button
               disabled={isUpdating}
-              onClick={() => handleUpdateBookingStatus(appt.id, 'cancelled')}
-              style={{ padding: '3px 10px', fontSize: '12px', fontFamily: 'Urbanist', fontWeight: 600, border: '1px solid #c62828', borderRadius: '6px', background: '#fff', color: '#c62828', cursor: 'pointer', opacity: isUpdating ? 0.6 : 1 }}>
-              Cancel
+              onClick={(e) => { e.stopPropagation(); setOpenActionMenu(isOpen ? null : appt.id); }}
+              style={{
+                width: '30px', height: '30px', borderRadius: '6px', border: '1px solid #e0e0e0',
+                background: isOpen ? '#f5f5f5' : '#fff', cursor: 'pointer',
+                fontSize: '16px', fontWeight: 700, color: '#555', lineHeight: 1,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: isUpdating ? 0.5 : 1,
+              }}
+            >
+              {isUpdating ? '…' : '···'}
             </button>
+            {isOpen && (
+              <div
+                style={{
+                  position: 'absolute', right: 0, top: '34px', zIndex: 100,
+                  background: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: '150px', overflow: 'hidden',
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                {menuItems.map(item => (
+                  <div
+                    key={item.status}
+                    onClick={() => { setOpenActionMenu(null); handleUpdateBookingStatus(appt.id, item.status); }}
+                    style={{
+                      padding: '9px 14px', fontSize: '13px', fontFamily: 'Urbanist',
+                      fontWeight: 600, color: item.color, cursor: 'pointer',
+                      borderBottom: '1px solid #f5f5f5',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#fafafa')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       },
     }] as ColumnDef<any, any>[] : []),
-  ], [isTransferredClient, transferCutoffDate, bookingStatusUpdating]);
+  ], [isTransferredClient, transferCutoffDate, bookingStatusUpdating, openActionMenu]);
 
   return (
     <div className={styles.clientView}>
@@ -791,12 +840,21 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                       </button>
                     )}
                   </div>
-                  <DataTable
-                    data={appointments}
-                    columns={bookingColumns}
-                    pageSize={3}
-                    emptyMessage="No bookings found"
-                  />
+                  {appointmentsLoading ? (
+                    <div style={{ padding: '32px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px', fontFamily: 'Urbanist' }}>Loading bookings...</div>
+                  ) : appointmentsError ? (
+                    <div style={{ padding: '32px', textAlign: 'center', color: '#c62828', fontSize: '14px', fontFamily: 'Urbanist' }}>
+                      Failed to load bookings.{' '}
+                      <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => setRefreshTrigger(p => p + 1)}>Retry</span>
+                    </div>
+                  ) : (
+                    <DataTable
+                      data={appointments}
+                      columns={bookingColumns}
+                      pageSize={5}
+                      emptyMessage="No bookings found"
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -804,7 +862,9 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
             {activeTab === 'Session Notes' && (
               <>
                 <div className={styles.sessionList}>
-                  {appointments.length === 0 && (
+                  {appointmentsLoading ? (
+                    <div style={{ padding: '32px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px', fontFamily: 'Urbanist' }}>Loading...</div>
+                  ) : appointments.length === 0 && (
                     <div style={{ padding: '32px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px', fontFamily: 'Urbanist' }}>No bookings found for this client.</div>
                   )}
                   {appointments.map((app, i) => (
@@ -840,9 +900,14 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                                   {new Date(note.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </span>
                                 {!(isTransferredClient && transferCutoffDate) && (
-                                  <button className={styles.noteEditBtn} onClick={() => handleEditNote(note, app.id.toString())}>
-                                    Edit
-                                  </button>
+                                  <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button className={styles.noteEditBtn} onClick={() => handleEditNote(note, app.id.toString())}>
+                                      Edit
+                                    </button>
+                                    <button className={styles.noteEditBtn} style={{ color: '#c62828', borderColor: '#c62828' }} onClick={() => handleDeleteNote(note.id)}>
+                                      Delete
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                               {noteTemplate.length > 0 && note.content && typeof note.content === 'object' && !note.content.text ? (
@@ -938,7 +1003,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                             {new Date(act.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
                         </div>
-                        <button className={styles.deleteBtn} onClick={() => handleDeleteActivity(act.id)}>
+                        <button className={styles.deleteBtn} onClick={() => setActivityToDelete(act.id)}>
                           <Delete size="small" primaryColor="#dc3545" />
                         </button>
                       </div>
@@ -1300,6 +1365,30 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
               onBack={() => { setShowCreateBookingModal(false); setRefreshTrigger(prev => prev + 1); }}
               prefillClient={{ name: editData.name, email: editData.email, phone: editData.phone }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Activity Delete Confirmation Modal */}
+      {activityToDelete !== null && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          onClick={() => setActivityToDelete(null)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '380px', fontFamily: 'Urbanist' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '17px', fontWeight: 700, color: '#1a1a1a' }}>Delete Activity?</h3>
+            <p style={{ margin: '0 0 24px', fontSize: '14px', color: '#6E6E6E', lineHeight: 1.6 }}>
+              This activity suggestion will be permanently removed.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setActivityToDelete(null)}
+                style={{ padding: '9px 18px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={() => handleDeleteActivity(activityToDelete)}
+                style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#e53935', color: '#fff', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}>
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

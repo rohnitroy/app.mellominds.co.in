@@ -8,7 +8,6 @@ import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
 import { exportToCSV } from './utils/exportCSV';
-import CreateBooking from './components/CreateBooking';
 import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
 import ConfirmModal from './components/ConfirmModal';
@@ -33,7 +32,6 @@ const Appointments: React.FC = () => {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
-  const [showCreateBooking, setShowCreateBooking] = useState(false);
 
   // Reschedule modal state
   const [rescheduleAppt, setRescheduleAppt] = useState<any | null>(null);
@@ -285,12 +283,6 @@ const Appointments: React.FC = () => {
           <h1>Bookings</h1>
           <p>View Recently Booked Sessions, Send Invite and more...</p>
         </div>
-        <button
-          onClick={() => setShowCreateBooking(true)}
-          style={{ padding: '10px 20px', background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', cursor: 'pointer' }}
-        >
-          + Create Booking
-        </button>
       </div>
 
       <div className={styles.appointmentsTabs}>
@@ -400,16 +392,6 @@ const Appointments: React.FC = () => {
           document.body
         );
       })()}
-      {showCreateBooking && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
-          onClick={() => setShowCreateBooking(false)}>
-          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}
-            onClick={e => e.stopPropagation()}>
-            <button onClick={() => setShowCreateBooking(false)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', zIndex: 1 }}>×</button>
-            <CreateBooking onBack={() => { setShowCreateBooking(false); fetchAppointments(); }} />
-          </div>
-        </div>
-      )}
 
       {/* Reschedule Modal */}
       {rescheduleAppt && (

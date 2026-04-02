@@ -113,6 +113,22 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+// DELETE /api/notes/:id - Delete a note
+router.delete('/:id', async (req, res) => {
+    try {
+        const therapist_id = req.user.id;
+        const result = await pool.query(
+            'DELETE FROM SessionNotes WHERE id = $1 AND therapist_id = $2 RETURNING id',
+            [req.params.id, therapist_id]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Note not found' });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting note:', error);
+        res.status(500).json({ error: 'Failed to delete note' });
+    }
+});
+
 // GET /api/notes/:appointmentId - Get notes for an appointment
 router.get('/:appointmentId', async (req, res) => {
     const client = await pool.connect();
