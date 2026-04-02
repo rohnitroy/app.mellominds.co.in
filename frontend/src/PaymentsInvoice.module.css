@@ -1,5 +1,6 @@
 .paymentsPage {
   flex: 1;
+  min-height: 0;
   background: #f8f9fa;
   padding: 32px;
   overflow-y: auto;

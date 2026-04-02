@@ -85,6 +85,7 @@ function DataTable<T>({
 
   return (
     <div className={styles.wrapper}>
+      <div className={styles.tableScroll}>
       <table className={styles.table}>
         <thead className={styles.thead}>
           {table.getHeaderGroups().map(hg => (
@@ -129,6 +130,7 @@ function DataTable<T>({
           )}
         </tbody>
       </table>
+      </div>
 
       <div className={styles.footer}>
         <span className={styles.footerInfo}>

@@ -1,7 +1,9 @@
 .clientsContent {
   flex: 1;
+  min-height: 0;
   padding: 32px;
   background: #f8f9fa;
+  overflow-y: auto;
 }
 
 .pageHeader {

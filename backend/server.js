@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from './config/passport.js';
+import pool from './config/database.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import calendarRoutes from './routes/calendars.js';
@@ -112,8 +113,30 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
 });
 
+// Auto-migrate Calendars table columns on startup
+async function ensureCalendarsSchema() {
+  try {
+    await pool.query(`
+      ALTER TABLE Calendars
+      ADD COLUMN IF NOT EXISTS form_data JSONB DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS payment_enabled BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS payment_gateway VARCHAR(50) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS prices JSONB DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS cancellation_policy JSONB DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS reschedule_policy JSONB DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS locations JSONB DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS schedule_settings JSONB DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS max_attendees INT DEFAULT NULL
+    `);
+    console.log('✅ Calendars schema verified');
+  } catch (err) {
+    console.error('⚠️  Calendars schema migration warning:', err.message);
+  }
+}
+
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await ensureCalendarsSchema();
   console.log(`🚀 Server running on port ${PORT}`);
 });
 

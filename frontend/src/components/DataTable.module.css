@@ -5,6 +5,11 @@
   overflow: hidden;
 }
 
+.tableScroll {
+  overflow-x: auto;
+  width: 100%;
+}
+
 /* Table */
 .table {
   width: 100%;
