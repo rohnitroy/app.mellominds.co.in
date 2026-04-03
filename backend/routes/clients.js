@@ -138,6 +138,14 @@ router.post('/transfers/:transferId/approve', async (req, res) => {
              `Your transfer request for client "${transfer.name}" has been approved.`, transferId]
         );
 
+        // Also notify the receiving therapist that the transfer is complete
+        await dbClient.query(
+            `INSERT INTO Notifications (user_id, type, title, description, related_id)
+             VALUES ($1, 'transfer_success', $2, $3, $4)`,
+            [toTherapistId, 'Client Transfer Successful',
+             `Client "${transfer.name}" has been successfully transferred to your account.`, transferId]
+        );
+
         await dbClient.query('COMMIT');
 
         // Send email to Therapist A
@@ -343,6 +351,15 @@ router.post('/', async (req, res) => {
             emergencyName: row.emergency_name || '', emergencyPhone: row.emergency_phone || '',
             emergencyRelation: row.emergency_relation || '', manually_added: true
         });
+
+        // Notify therapist of new manually added client (fire-and-forget)
+        createNotification({
+            userId,
+            type: 'new_client',
+            title: 'New Client Added',
+            description: `Client "${name.trim()}" has been added to your client list.`,
+            relatedId: row.id
+        }).catch(() => {});
     } catch (error) {
         console.error('Error creating client:', error);
         res.status(500).json({ error: error.message || 'Failed to create client' });

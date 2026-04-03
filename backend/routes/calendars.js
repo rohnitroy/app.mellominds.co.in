@@ -79,23 +79,23 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
     try {
         const userId = req.user.id;
-        const { title, duration, type, description, slug, form_data, payment_data, locations, schedule_settings, max_attendees } = req.body;
+        const { title, duration, description, slug, form_data, payment_data, locations, schedule_settings, max_attendees } = req.body;
 
-        if (!title || !duration || !type) {
-            return res.status(400).json({ error: 'Title, duration, and type are required' });
+        if (!title || !duration) {
+            return res.status(400).json({ error: 'Title and duration are required' });
         }
 
         const finalSlug = slug || `/${title.toLowerCase().replace(/ /g, '-')}-${Date.now()}`;
 
         const result = await pool.query(
             `INSERT INTO Calendars 
-                (user_id, title, duration, type, description, slug, form_data,
+                (user_id, title, duration, description, slug, form_data,
                  payment_enabled, payment_gateway, prices, cancellation_policy, reschedule_policy,
-                 locations, schedule_settings, max_attendees) 
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) 
+                 locations, schedule_settings) 
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) 
              RETURNING *`,
             [
-                userId, title, duration, type, description, finalSlug,
+                userId, title, duration, description, finalSlug,
                 form_data ? JSON.stringify(form_data) : null,
                 payment_data?.acceptPayment || false,
                 payment_data?.paymentGateways?.[0] || null,
@@ -104,7 +104,6 @@ router.post('/', async (req, res) => {
                 payment_data?.reschedule ? JSON.stringify(payment_data.reschedule) : null,
                 locations ? JSON.stringify(locations) : null,
                 schedule_settings ? JSON.stringify(schedule_settings) : null,
-                type === 'group' && max_attendees ? parseInt(max_attendees) : null
             ]
         );
 
@@ -121,7 +120,7 @@ router.put('/:id', async (req, res) => {
     try {
         const userId = req.user.id;
         const calendarId = req.params.id;
-        const { title, duration, type, description, slug, is_active, form_data, payment_data, locations, schedule_settings, max_attendees } = req.body;
+        const { title, duration, description, slug, is_active, form_data, payment_data, locations, schedule_settings, max_attendees } = req.body;
 
         const fields = [];
         const values = [];
@@ -130,7 +129,6 @@ router.put('/:id', async (req, res) => {
 
         if (title !== undefined) add('title', title);
         if (duration !== undefined) add('duration', duration);
-        if (type !== undefined) add('type', type);
         if (description !== undefined) add('description', description);
         if (is_active !== undefined) add('is_active', is_active);
         if (form_data !== undefined) add('form_data', JSON.stringify(form_data));

@@ -12,7 +12,6 @@ interface Calendar {
   id: number;
   title: string;
   duration: string;
-  type: string;
   description: string;
   slug: string;
   is_active: boolean;
@@ -165,10 +164,6 @@ const CalendarPage: React.FC = () => {
     toast.success('Link copied!');
   };
 
-  const formatType = (type: string) =>
-    type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-
   return (
     <div className="calendar-page">
       <div className="page-header">
@@ -273,14 +268,6 @@ const CalendarPage: React.FC = () => {
                     <img src="/Calendar.svg" alt="" style={{ width: '14px', marginRight: '5px' }} />
                     <span>{resource.duration}</span>
                   </div>
-                  <div className="session-type tag">
-                    <span>{formatType(resource.type)}</span>
-                  </div>
-                  {resource.type === 'group' && resource.max_attendees && (
-                    <div className="session-type tag">
-                      <span>Max {resource.max_attendees} attendees</span>
-                    </div>
-                  )}
                 </div>
 
                 <div className="card-description" style={{ flex: 1 }}>

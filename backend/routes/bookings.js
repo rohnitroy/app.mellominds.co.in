@@ -1026,6 +1026,15 @@ router.patch('/:id/reschedule', async (req, res) => {
             sendEmail({ to: appt.client_email, ...emailContent }).catch(() => {});
         }
 
+        // Notify therapist of their own reschedule action
+        createNotification({
+            userId,
+            type: 'reschedule',
+            title: 'Session Rescheduled',
+            description: `You rescheduled "${appt.title}" with ${appt.client_name || 'client'} to ${newStart.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' })}.`,
+            relatedId: appt.id
+        }).catch(() => {});
+
         res.json(updated.rows[0]);
     } catch (err) {
         console.error('Error rescheduling booking:', err);
@@ -1098,6 +1107,17 @@ router.patch('/:id/status', async (req, res) => {
                 cancelledBy: 'your therapist'
             });
             sendEmail({ to: appt.client_email, ...emailContent }).catch(() => {});
+        }
+
+        // Notify therapist of their own cancellation action
+        if (status === 'cancelled') {
+            createNotification({
+                userId,
+                type: 'cancellation',
+                title: 'Session Cancelled',
+                description: `You cancelled the session "${appt.title}" with ${appt.client_name || 'client'}.`,
+                relatedId: appt.id
+            }).catch(() => {});
         }
 
         res.json(appt);
@@ -1247,6 +1267,119 @@ router.post('/send-link/bulk', async (req, res) => {
     } catch (error) {
         console.error('Error sending bulk booking links:', error);
         res.status(500).json({ error: 'Failed to send booking links' });
+    }
+});
+
+// POST /api/bookings/:id/send-invoice - Email invoice to client
+router.post('/:id/send-invoice', async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const bookingId = parseInt(req.params.id);
+
+        const result = await pool.query(
+            `SELECT a.*, u.user_name as therapist_name, u.email as therapist_email
+             FROM Appointments a
+             JOIN Users u ON a.therapist_id = u.id
+             WHERE a.id = $1 AND a.therapist_id = $2`,
+            [bookingId, userId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
+
+        const b = result.rows[0];
+
+        if (!b.client_email) {
+            return res.status(400).json({ error: 'Client has no email address on record' });
+        }
+
+        const PAYMENT_STATUS_COLORS = {
+            Paid:             { bg: '#e8f5e9', color: '#2e7d32' },
+            Pending:          { bg: '#fff3e0', color: '#e65100' },
+            Refunded:         { bg: '#fdecea', color: '#c62828' },
+            'Partial Refund': { bg: '#fce4ec', color: '#880e4f' },
+            Cancelled:        { bg: '#f5f5f5', color: '#6E6E6E' },
+        };
+
+        const display = (b.status === 'cancelled' && b.payment_status === 'Pending')
+            ? 'Cancelled'
+            : (b.payment_status || 'Pending');
+        const sc = PAYMENT_STATUS_COLORS[display] || PAYMENT_STATUS_COLORS.Pending;
+
+        const dateStr = new Date(b.start_time).toLocaleString('en-IN', {
+            weekday: 'short', month: 'short', day: 'numeric',
+            year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true,
+            timeZone: 'Asia/Kolkata'
+        });
+
+        const html = `
+        <!DOCTYPE html>
+        <html><head><meta charset="utf-8"></head>
+        <body style="font-family:'Helvetica Neue',Arial,sans-serif;padding:32px;color:#1a1a1a;max-width:600px;margin:0 auto;background:#f9f9f9;">
+          <div style="background:#082421;border-radius:12px 12px 0 0;padding:24px 32px;">
+            <h1 style="color:#fff;margin:0;font-size:22px;">Payment Receipt</h1>
+          </div>
+          <div style="background:#fff;border-radius:0 0 12px 12px;padding:32px;border:1px solid #e0e0e0;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #082421;">
+              <div>
+                <div style="font-size:20px;font-weight:700;color:#082421;">${b.therapist_name}</div>
+                <div style="font-size:12px;color:#999;margin-top:2px;">Payment Receipt</div>
+              </div>
+              <div style="text-align:right;font-size:13px;color:#555;">
+                <div><strong>Receipt #${b.id}</strong></div>
+                <div>${new Date(b.start_time).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+              <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Client Details</div>
+              ${[['Name', b.client_name], ['Email', b.client_email], ['Phone', b.client_phone || '—']].map(([l, v]) =>
+                `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:14px;">
+                  <span style="color:#555;">${l}</span><span style="font-weight:600;">${v}</span>
+                </div>`).join('')}
+            </div>
+
+            <div style="margin-bottom:20px;">
+              <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Session Details</div>
+              ${[
+                ['Service', b.title || '—'],
+                ['Date & Time', dateStr],
+                ['Mode', b.location_type === 'in_person' ? 'In-person' : 'Online (Google Meet)'],
+              ].map(([l, v]) =>
+                `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:14px;">
+                  <span style="color:#555;">${l}</span><span style="font-weight:600;">${v}</span>
+                </div>`).join('')}
+            </div>
+
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Payment</div>
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f5f5f5;font-size:14px;">
+                <span style="color:#555;">Status</span>
+                <span style="background:${sc.bg};color:${sc.color};padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;">${display}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:12px 0;font-size:16px;font-weight:700;border-top:2px solid #082421;margin-top:8px;">
+                <span>Total Amount</span>
+                <span>₹${parseFloat(b.payment_amount || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div style="margin-top:24px;text-align:center;font-size:12px;color:#999;border-top:1px solid #eee;padding-top:16px;">
+              Thank you for choosing ${b.therapist_name}. For queries, contact ${b.therapist_email}
+            </div>
+          </div>
+        </body></html>`;
+
+        await sendEmail({
+            to: b.client_email,
+            subject: `Invoice for your session — ${b.title} (#${b.id})`,
+            html,
+        });
+
+        res.json({ message: 'Invoice sent successfully' });
+    } catch (error) {
+        console.error('Error sending invoice:', error);
+        res.status(500).json({ error: 'Failed to send invoice' });
     }
 });
 

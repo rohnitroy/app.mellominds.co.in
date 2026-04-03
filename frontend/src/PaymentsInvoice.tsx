@@ -8,6 +8,7 @@ import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
 import { exportToCSV } from './utils/exportCSV';
 import { useAuth } from './context/AuthContext';
+import { useToast } from './context/ToastContext';
 
 const TAB_SLUGS: Record<string, string> = {
   'all-payments': 'All Payments',
@@ -34,6 +35,7 @@ function derivePaymentDisplay(paymentStatus: string, bookingStatus: string): str
 
 const PaymentsInvoice: React.FC = () => {
   const { user } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const { tab: tabParam } = useParams<{ tab?: string }>();
   const resolvedTab = (tabParam && TAB_SLUGS[tabParam]) || 'All Payments';
@@ -45,6 +47,7 @@ const PaymentsInvoice: React.FC = () => {
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [receiptBooking, setReceiptBooking] = useState<any | null>(null);
+  const [sendingInvoiceId, setSendingInvoiceId] = useState<number | null>(null);
   const [refundingId, setRefundingId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
@@ -200,6 +203,26 @@ const PaymentsInvoice: React.FC = () => {
     win.document.close();
     win.focus();
     setTimeout(() => { win.print(); win.close(); }, 500);
+  };
+
+  const handleSendInvoice = async (bookingId: number) => {
+    setSendingInvoiceId(bookingId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${bookingId}/send-invoice`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('Invoice sent to client successfully');
+      } else {
+        toast.error(data.error || 'Failed to send invoice');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setSendingInvoiceId(null);
+    }
   };
 
   const buildReceiptHTML = (b: any) => {
@@ -411,6 +434,13 @@ const PaymentsInvoice: React.FC = () => {
             <button onClick={() => { handleDownloadReceipt(booking); setActiveMenuId(null); setMenuPos(null); }} style={{ ...menuItemStyle, borderBottom: canFullRefund ? '1px solid #f5f5f5' : 'none' }}>
               Download Receipt
             </button>
+            <button
+              disabled={sendingInvoiceId === booking.id}
+              onClick={() => { handleSendInvoice(booking.id); setActiveMenuId(null); setMenuPos(null); }}
+              style={{ ...menuItemStyle, borderBottom: canFullRefund ? '1px solid #f5f5f5' : 'none', opacity: sendingInvoiceId === booking.id ? 0.6 : 1 }}
+            >
+              {sendingInvoiceId === booking.id ? 'Sending...' : 'Send Invoice'}
+            </button>
             {canFullRefund && (
               <button
                 disabled={isProcessing}
@@ -443,6 +473,12 @@ const PaymentsInvoice: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #eee' }}>
               <h2 style={{ margin: 0, fontFamily: 'Urbanist', fontWeight: 700, fontSize: '18px' }}>Receipt #{receiptBooking.id}</h2>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button
+                  onClick={() => handleSendInvoice(receiptBooking.id)}
+                  disabled={sendingInvoiceId === receiptBooking.id}
+                  style={{ padding: '7px 16px', background: '#2D7579', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: sendingInvoiceId === receiptBooking.id ? 0.6 : 1 }}>
+                  {sendingInvoiceId === receiptBooking.id ? 'Sending...' : 'Send Invoice'}
+                </button>
                 <button onClick={() => handleDownloadReceipt(receiptBooking)}
                   style={{ padding: '7px 16px', background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
                   Download

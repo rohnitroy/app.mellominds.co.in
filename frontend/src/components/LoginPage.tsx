@@ -21,12 +21,13 @@ const LoginPage: React.FC = () => {
   const detailsParam = searchParams.get('details')
   const toast = useToast()
 
-  // Show error if redirected back with one
+  // Show error if redirected back from Google OAuth
   React.useEffect(() => {
     if (errorParam) {
-      toast.error(`Login Failed: ${errorParam}${detailsParam ? `\nDetails: ${detailsParam}` : ''}`);
+      toast.error('Google login failed. Please try again or use email/password.');
     }
-  }, [errorParam, detailsParam, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [errorParam]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
