@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../config/database.js';
+import { sendEmail, activityNotificationEmail } from '../lib/email.js';
 
 const router = express.Router();
 
@@ -27,16 +28,34 @@ router.get('/:clientId', async (req, res) => {
 // POST /api/activities
 router.post('/', async (req, res) => {
     try {
-        const { client_id, name, description, visible_to_client } = req.body;
+        const { client_id, name, description, notify_client, reminder_count, reminder_interval_days } = req.body;
         if (!client_id || !name) {
             return res.status(400).json({ error: 'client_id and name are required' });
         }
+
+        const shouldNotify = !!notify_client;
+        const count = shouldNotify ? Math.max(1, parseInt(reminder_count) || 1) : 0;
+        const intervalDays = shouldNotify ? Math.max(1, parseInt(reminder_interval_days) || 1) : 1;
+
+        // Calculate first reminder time (interval days from now)
+        const nextReminderAt = shouldNotify && count > 0
+            ? new Date(Date.now() + intervalDays * 24 * 60 * 60 * 1000)
+            : null;
+
         const result = await pool.query(
-            `INSERT INTO ClientActivities (client_id, therapist_id, name, description, visible_to_client)
-             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [client_id, req.user.id, name, description || null, visible_to_client || false]
+            `INSERT INTO ClientActivities
+                (client_id, therapist_id, name, description, notify_client, reminder_count, reminder_interval_days, reminders_sent, next_reminder_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8) RETURNING *`,
+            [client_id, req.user.id, name, description || null, shouldNotify, count, intervalDays, nextReminderAt]
         );
+
         res.status(201).json(result.rows[0]);
+
+        // Send immediate notification email (fire-and-forget)
+        if (shouldNotify) {
+            sendImmediateActivityEmail(client_id, req.user.id, name, description).catch(() => {});
+        }
+
     } catch (error) {
         console.error('Error creating activity:', error);
         res.status(500).json({ error: 'Failed to create activity' });
@@ -57,5 +76,28 @@ router.delete('/:id', async (req, res) => {
         res.status(500).json({ error: 'Failed to delete activity' });
     }
 });
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+async function sendImmediateActivityEmail(clientId, therapistId, activityName, activityDescription) {
+    const clientRes = await pool.query(
+        'SELECT name, email FROM Clients WHERE id = $1 AND therapist_id = $2',
+        [clientId, therapistId]
+    );
+    if (!clientRes.rows.length || !clientRes.rows[0].email) return;
+
+    const therapistRes = await pool.query('SELECT user_name FROM Users WHERE id = $1', [therapistId]);
+    const therapistName = therapistRes.rows[0]?.user_name || 'Your therapist';
+    const client = clientRes.rows[0];
+
+    const emailContent = activityNotificationEmail({
+        clientName: client.name,
+        therapistName,
+        activityName,
+        activityDescription,
+        isReminder: false
+    });
+    await sendEmail({ to: client.email, ...emailContent });
+}
 
 export default router;

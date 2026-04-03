@@ -99,7 +99,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [editData, setEditData] = useState({ ...savedData });
 
   const [activities, setActivities] = useState<any[]>([]);
-  const [activityForm, setActivityForm] = useState({ name: '', description: '', visible_to_client: false });
+  const [activityForm, setActivityForm] = useState({ name: '', description: '', notify_client: false, reminder_count: 2, reminder_interval_days: 1 });
   const [transferInfo, setTransferInfo] = useState<{ transferred: boolean; from_therapist_email?: string; created_at?: string } | null>(null);
   const [isTransferredClient, setIsTransferredClient] = useState(!!propCutoffDate);
   const [transferCutoffDate, setTransferCutoffDate] = useState<Date | null>(propCutoffDate || null);
@@ -220,13 +220,13 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       const res = await fetch(`${API_BASE_URL}/api/activities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: client.id, ...activityForm }),
+        body: JSON.stringify({ client_id: client.id, name: activityForm.name, description: activityForm.description, notify_client: activityForm.notify_client, reminder_count: activityForm.reminder_count, reminder_interval_days: activityForm.reminder_interval_days }),
         credentials: 'include'
       });
       if (res.ok) {
         toast.success('Activity added!');
         setShowAddActivitiesModal(false);
-        setActivityForm({ name: '', description: '', visible_to_client: false });
+        setActivityForm({ name: '', description: '', notify_client: false, reminder_count: 2, reminder_interval_days: 1 });
         fetchActivities();
       } else { toast.error('Failed to add activity.'); }
     } catch (e) { toast.error('Error adding activity.'); }
@@ -1243,12 +1243,50 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
             <p>Add an activity suggestion for this client.</p>
 
             <div className={styles.formGroup}>
-              <label>Visible to client?</label>
-              <select className={styles.formSelect} value={activityForm.visible_to_client ? 'Yes' : 'No'}
-                onChange={(e) => setActivityForm({ ...activityForm, visible_to_client: e.target.value === 'Yes' })}>
-                <option>No</option>
-                <option>Yes</option>
-              </select>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label style={{ margin: 0 }}>Notify Client</label>
+                <div
+                  onClick={() => setActivityForm({ ...activityForm, notify_client: !activityForm.notify_client })}
+                  style={{
+                    width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer',
+                    background: activityForm.notify_client ? '#2D7579' : '#ccc',
+                    position: 'relative', transition: 'background 0.2s', flexShrink: 0
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute', top: '3px',
+                    left: activityForm.notify_client ? '23px' : '3px',
+                    width: '18px', height: '18px', borderRadius: '50%',
+                    background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                  }} />
+                </div>
+              </div>
+              {activityForm.notify_client && (
+                <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '6px' }}>
+                      Number of reminders
+                    </label>
+                    <input
+                      type="number" min={1} max={20}
+                      className={styles.formInput}
+                      value={activityForm.reminder_count}
+                      onChange={(e) => setActivityForm({ ...activityForm, reminder_count: Math.max(1, parseInt(e.target.value) || 1) })}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '6px' }}>
+                      Remind every (days)
+                    </label>
+                    <input
+                      type="number" min={1} max={90}
+                      className={styles.formInput}
+                      value={activityForm.reminder_interval_days}
+                      onChange={(e) => setActivityForm({ ...activityForm, reminder_interval_days: Math.max(1, parseInt(e.target.value) || 1) })}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className={styles.formGroup}>

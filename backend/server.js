@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from './config/passport.js';
 import pool from './config/database.js';
+import { sendEmail, activityNotificationEmail } from './lib/email.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import calendarRoutes from './routes/calendars.js';
@@ -159,10 +160,59 @@ async function ensureAppointmentsSchema() {
   }
 }
 
+// ─── Activity Reminder Cron (runs every hour) ─────────────────────────────────
+async function processActivityReminders() {
+    try {
+        // Find activities due for a reminder
+        const due = await pool.query(`
+            SELECT ca.*, c.name as client_name, c.email as client_email,
+                   u.user_name as therapist_name
+            FROM ClientActivities ca
+            JOIN Clients c ON ca.client_id = c.id
+            JOIN Users u ON ca.therapist_id = u.id
+            WHERE ca.notify_client = true
+              AND ca.reminders_sent < ca.reminder_count
+              AND ca.next_reminder_at IS NOT NULL
+              AND ca.next_reminder_at <= NOW()
+        `);
+
+        for (const act of due.rows) {
+            if (!act.client_email) continue;
+            const reminderNum = act.reminders_sent + 1;
+            const emailContent = activityNotificationEmail({
+                clientName: act.client_name,
+                therapistName: act.therapist_name,
+                activityName: act.name,
+                activityDescription: act.description,
+                isReminder: true,
+                reminderNum
+            });
+            await sendEmail({ to: act.client_email, ...emailContent });
+
+            const newSent = reminderNum;
+            const hasMore = newSent < act.reminder_count;
+            const nextAt = hasMore
+                ? new Date(Date.now() + act.reminder_interval_days * 24 * 60 * 60 * 1000)
+                : null;
+
+            await pool.query(
+                `UPDATE ClientActivities SET reminders_sent = $1, next_reminder_at = $2 WHERE id = $3`,
+                [newSent, nextAt, act.id]
+            );
+            console.log(`✅ Reminder ${reminderNum}/${act.reminder_count} sent for activity "${act.name}" to ${act.client_email}`);
+        }
+    } catch (err) {
+        console.error('Activity reminder cron error:', err.message);
+    }
+}
+
 // Start server
 app.listen(PORT, async () => {
   await ensureCalendarsSchema();
   await ensureAppointmentsSchema();
+  // Run activity reminder cron every hour
+  setInterval(processActivityReminders, 60 * 60 * 1000);
+  processActivityReminders(); // run once on startup too
   console.log(`🚀 Server running on port ${PORT}`);
 });
 
