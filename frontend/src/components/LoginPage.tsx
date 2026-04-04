@@ -25,6 +25,8 @@ const LoginPage: React.FC = () => {
   React.useEffect(() => {
     if (errorParam) {
       toast.error('Google login failed. Please try again or use email/password.');
+      // Clear error params from URL to prevent re-triggering on remount
+      navigate({ search: '' }, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [errorParam]);
