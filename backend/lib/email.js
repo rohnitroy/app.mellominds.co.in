@@ -1,34 +1,12 @@
-import nodemailer from 'nodemailer';
-import dns from 'dns';
+import { Resend } from 'resend';
 
-// Force IPv4 globally — Render's free tier blocks outbound IPv6
-dns.setDefaultResultOrder('ipv4first');
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Gmail App Passwords are displayed with spaces for readability but must be passed without them
-const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
-
-const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // STARTTLS
-    auth: {
-        user: process.env.GMAIL_USER,
-        pass: gmailAppPassword,
-    },
-});
-
-// Verify email transporter on startup so misconfiguration is caught early
-if (process.env.GMAIL_USER && gmailAppPassword) {
-    transporter.verify((err) => {
-        if (err) {
-            console.error('❌ Email transporter verification failed:', err.message);
-            console.error('   Check GMAIL_USER and GMAIL_APP_PASSWORD in your .env');
-        } else {
-            console.log('✅ Email transporter ready — using', process.env.GMAIL_USER);
-        }
-    });
+// Verify Resend is configured on startup
+if (process.env.RESEND_API_KEY) {
+    console.log('✅ Resend email client ready');
 } else {
-    console.warn('⚠️  Email not configured — GMAIL_USER or GMAIL_APP_PASSWORD missing. Emails will be skipped.');
+    console.warn('⚠️  Email not configured — RESEND_API_KEY missing. Emails will be skipped.');
 }
 
 // Warn if FRONTEND_URL is still pointing to localhost in a non-development context
@@ -38,16 +16,16 @@ if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.includes('localhost') &
 
 /**
  * Send an email.
- * @param {object} opts - { to, subject, html, text? }
+ * @param {object} opts - { to, cc, subject, html, text? }
  */
 export async function sendEmail({ to, cc, subject, html, text }) {
-    if (!process.env.GMAIL_USER || !gmailAppPassword) {
+    if (!process.env.RESEND_API_KEY) {
         console.warn('Email not configured — skipping send.');
         return;
     }
     try {
-        await transporter.sendMail({
-            from: `"MelloMinds" <${process.env.GMAIL_USER}>`,
+        await resend.emails.send({
+            from: 'MelloMinds <onboarding@resend.dev>',
             to,
             ...(cc ? { cc } : {}),
             subject,
@@ -58,7 +36,7 @@ export async function sendEmail({ to, cc, subject, html, text }) {
     } catch (err) {
         // Non-fatal — log but don't crash the request
         console.error(`❌ Email failed to ${to}:`, err.message);
-        console.error('   Verify GMAIL_APP_PASSWORD is valid and 2FA is enabled on the Gmail account.');
+        console.error('   Verify RESEND_API_KEY is valid.');
     }
 }
 
