@@ -1,4 +1,6 @@
 import './config/env.js'; // MUST be first
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first'); // Force IPv4 — Render blocks outbound IPv6
 import express from 'express';
 import session from 'express-session';
 import cors from 'cors';

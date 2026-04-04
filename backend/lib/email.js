@@ -1,4 +1,8 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Force IPv4 globally — Render's free tier blocks outbound IPv6
+dns.setDefaultResultOrder('ipv4first');
 
 // Gmail App Passwords are displayed with spaces for readability but must be passed without them
 const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
@@ -11,7 +15,6 @@ const transporter = nodemailer.createTransport({
         user: process.env.GMAIL_USER,
         pass: gmailAppPassword,
     },
-    dnsOptions: { family: 4 }, // Force IPv4 DNS resolution
 });
 
 // Verify email transporter on startup so misconfiguration is caught early
