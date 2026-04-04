@@ -25,7 +25,7 @@ export async function sendEmail({ to, cc, subject, html, text }) {
     }
     try {
         await resend.emails.send({
-            from: 'MelloMinds <onboarding@resend.dev>',
+            from: 'MelloMinds <noreply@mellominds.com>',
             to,
             ...(cc ? { cc } : {}),
             subject,
