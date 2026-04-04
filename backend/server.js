@@ -28,6 +28,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Trust the first proxy (required on Render/Heroku/etc. for rate limiting and secure cookies)
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow /uploads to be served cross-origin
