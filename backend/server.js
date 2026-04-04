@@ -116,6 +116,15 @@ app.get('/health', (req, res) => {
 
 // Auto-migrate Calendars table columns on startup
 async function ensureCalendarsSchema() {
+  const required = ['form_data','payment_enabled','payment_gateway','prices','cancellation_policy','reschedule_policy','locations','schedule_settings','max_attendees'];
+  const { rows } = await pool.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'calendars' AND column_name = ANY($1)`,
+    [required]
+  );
+  if (rows.length === required.length) {
+    console.log('✅ Calendars schema verified');
+    return;
+  }
   try {
     await pool.query(`
       ALTER TABLE Calendars
@@ -137,6 +146,21 @@ async function ensureCalendarsSchema() {
 
 // Auto-migrate Appointments table columns on startup
 async function ensureAppointmentsSchema() {
+  const required = ['client_phone','payment_status','payment_amount','form_responses','location_type','cancel_token','cashfree_order_id','cashfree_payment_link'];
+  const { rows } = await pool.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'appointments' AND column_name = ANY($1)`,
+    [required]
+  );
+  if (rows.length === required.length) {
+    // Fill any null cancel_tokens without needing ALTER TABLE
+    await pool.query(`
+      UPDATE Appointments
+      SET cancel_token = md5(id::text || random()::text || clock_timestamp()::text)
+      WHERE cancel_token IS NULL
+    `).catch(() => {});
+    console.log('✅ Appointments schema verified');
+    return;
+  }
   try {
     await pool.query(`
       ALTER TABLE Appointments
