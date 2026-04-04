@@ -4,11 +4,14 @@ import nodemailer from 'nodemailer';
 const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // STARTTLS
     auth: {
         user: process.env.GMAIL_USER,
         pass: gmailAppPassword,
     },
+    family: 4, // Force IPv4 — avoids ENETUNREACH on IPv6-blocked hosts (e.g. Render)
 });
 
 // Verify email transporter on startup so misconfiguration is caught early
