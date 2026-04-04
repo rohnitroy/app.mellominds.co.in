@@ -5,16 +5,13 @@ const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // STARTTLS
+    port: 465,
+    secure: true,
+    family: 4, // Force IPv4 — Render blocks outbound IPv6
     auth: {
         user: process.env.GMAIL_USER,
         pass: gmailAppPassword,
     },
-    // Force IPv4 — Render (and some cloud hosts) block IPv6 outbound,
-    // causing ENETUNREACH on Gmail's IPv6 address. socketOptions ensures
-    // the TCP socket itself binds to IPv4 regardless of DNS resolution order.
-    socketOptions: { family: 4 },
 });
 
 // Verify email transporter on startup so misconfiguration is caught early
