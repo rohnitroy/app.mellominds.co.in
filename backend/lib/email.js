@@ -1,12 +1,25 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+    },
+});
 
-// Startup config check
-if (!resend) {
-    console.warn('⚠️  Email not configured — RESEND_API_KEY missing. Emails will be skipped.');
+// Verify email transporter on startup so misconfiguration is caught early
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    transporter.verify((err) => {
+        if (err) {
+            console.error('❌ Email transporter verification failed:', err.message);
+            console.error('   Check GMAIL_USER and GMAIL_APP_PASSWORD in your .env');
+        } else {
+            console.log('✅ Email transporter ready — using', process.env.GMAIL_USER);
+        }
+    });
 } else {
-    console.log('✅ Email transporter ready — using Resend');
+    console.warn('⚠️  Email not configured — GMAIL_USER or GMAIL_APP_PASSWORD missing. Emails will be skipped.');
 }
 
 // Warn if FRONTEND_URL is still pointing to localhost in a non-development context
@@ -16,32 +29,27 @@ if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.includes('localhost') &
 
 /**
  * Send an email.
- * @param {object} opts - { to, cc, subject, html, text? }
+ * @param {object} opts - { to, subject, html, text? }
  */
 export async function sendEmail({ to, cc, subject, html, text }) {
-    if (!resend) {
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
         console.warn('Email not configured — skipping send.');
         return;
     }
     try {
-        const from = process.env.EMAIL_FROM || 'MelloMinds <noreply@mellominds.co.in>';
-        const payload = {
-            from,
-            to: Array.isArray(to) ? to : [to],
+        await transporter.sendMail({
+            from: `"MelloMinds" <${process.env.GMAIL_USER}>`,
+            to,
+            ...(cc ? { cc } : {}),
             subject,
             html,
-            ...(text ? { text } : {}),
-            ...(cc ? { cc: Array.isArray(cc) ? cc : [cc] } : {}),
-        };
-        const { error } = await resend.emails.send(payload);
-        if (error) {
-            console.error(`❌ Email failed to ${to}:`, error.message);
-        } else {
-            console.log(`✅ Email sent to ${to}: ${subject}`);
-        }
+            text: text || html.replace(/<[^>]+>/g, ''),
+        });
+        console.log(`✅ Email sent to ${to}: ${subject}`);
     } catch (err) {
         // Non-fatal — log but don't crash the request
         console.error(`❌ Email failed to ${to}:`, err.message);
+        console.error('   Verify GMAIL_APP_PASSWORD is valid and 2FA is enabled on the Gmail account.');
     }
 }
 
