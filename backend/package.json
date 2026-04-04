@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch --watch-path=. server.js",
-    "start": "node server.js"
+    "start": "node --dns-result-order=ipv4first server.js"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.490.0",
