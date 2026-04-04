@@ -1,15 +1,18 @@
 import nodemailer from 'nodemailer';
 
+// Gmail App Passwords are displayed with spaces for readability but must be passed without them
+const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
+
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
+        pass: gmailAppPassword,
     },
 });
 
 // Verify email transporter on startup so misconfiguration is caught early
-if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+if (process.env.GMAIL_USER && gmailAppPassword) {
     transporter.verify((err) => {
         if (err) {
             console.error('❌ Email transporter verification failed:', err.message);
@@ -32,7 +35,7 @@ if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.includes('localhost') &
  * @param {object} opts - { to, subject, html, text? }
  */
 export async function sendEmail({ to, cc, subject, html, text }) {
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+    if (!process.env.GMAIL_USER || !gmailAppPassword) {
         console.warn('Email not configured — skipping send.');
         return;
     }
@@ -317,6 +320,36 @@ export function activityNotificationEmail({ clientName, therapistName, activityN
                     <p style="margin:0 0 8px;color:#082421;font-weight:700;font-size:16px;">${activityName}</p>
                     ${activityDescription ? `<p style="margin:0;color:#555;font-size:14px;line-height:1.6;">${activityDescription}</p>` : ''}
                 </div>
+                <p style="color:#888;font-size:13px;margin-top:32px;">— The MelloMinds Team</p>
+            </div>
+        </div>`
+    };
+}
+
+export function sessionReminderEmail({ clientName, therapistName, sessionTitle, startTime, meetLink, locationText }) {
+    const dateStr = new Date(startTime).toLocaleString('en-IN', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata'
+    });
+    return {
+        subject: `Reminder: Your session tomorrow — ${sessionTitle}`,
+        html: `
+        <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:560px;margin:0 auto;background:#f9f9f9;padding:32px;">
+            <div style="background:#082421;border-radius:12px 12px 0 0;padding:24px 32px;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">Session Reminder 🔔</h1>
+            </div>
+            <div style="background:#fff;border-radius:0 0 12px 12px;padding:32px;border:1px solid #e0e0e0;">
+                <p style="color:#333;font-size:15px;">Hi <strong>${clientName}</strong>,</p>
+                <p style="color:#333;font-size:15px;">This is a reminder that you have a session coming up in approximately 24 hours.</p>
+                <div style="background:#f4fffe;border-left:4px solid #2D7579;border-radius:8px;padding:16px 20px;margin:24px 0;">
+                    <p style="margin:0 0 8px;color:#082421;font-weight:600;font-size:16px;">${sessionTitle}</p>
+                    <p style="margin:0 0 6px;color:#555;font-size:14px;">👤 With ${therapistName}</p>
+                    <p style="margin:0 0 6px;color:#555;font-size:14px;">📅 ${dateStr}</p>
+                    <p style="margin:0;color:#555;font-size:14px;">📍 ${locationText || 'Google Meet'}</p>
+                </div>
+                ${meetLink ? `<p style="text-align:center;margin:24px 0;">
+                    <a href="${meetLink}" style="background:#082421;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;">Join Google Meet</a>
+                </p>` : ''}
                 <p style="color:#888;font-size:13px;margin-top:32px;">— The MelloMinds Team</p>
             </div>
         </div>`

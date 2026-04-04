@@ -6,7 +6,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from './config/passport.js';
 import pool from './config/database.js';
-import { sendEmail, activityNotificationEmail } from './lib/email.js';
+import { sendEmail, activityNotificationEmail, sessionReminderEmail } from './lib/email.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import calendarRoutes from './routes/calendars.js';
@@ -184,6 +184,43 @@ async function ensureAppointmentsSchema() {
   }
 }
 
+// ─── Session Reminder Cron (runs every hour, sends 24h-before reminders) ─────
+// mello_admin has DML-only rights (no DDL), so we track sent reminders in-memory.
+// The 23–25h window is narrow enough that the cron won't double-send within a single server run.
+const _remindersSentThisRun = new Set();
+
+async function processSessionReminders() {
+    try {
+        const due = await pool.query(`
+            SELECT a.id, a.title, a.start_time, a.meet_link, a.location_type,
+                   a.client_name, a.client_email,
+                   u.user_name as therapist_name
+            FROM Appointments a
+            JOIN Users u ON a.therapist_id = u.id
+            WHERE a.status NOT IN ('cancelled', 'completed')
+              AND a.client_email IS NOT NULL
+              AND a.start_time BETWEEN NOW() + INTERVAL '23 hours' AND NOW() + INTERVAL '25 hours'
+        `);
+
+        for (const appt of due.rows) {
+            if (_remindersSentThisRun.has(appt.id)) continue;
+            const emailContent = sessionReminderEmail({
+                clientName: appt.client_name,
+                therapistName: appt.therapist_name,
+                sessionTitle: appt.title,
+                startTime: appt.start_time,
+                meetLink: appt.meet_link,
+                locationText: appt.location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet'
+            });
+            await sendEmail({ to: appt.client_email, ...emailContent });
+            _remindersSentThisRun.add(appt.id);
+            console.log(`✅ Session reminder sent to ${appt.client_email} for "${appt.title}"`);
+        }
+    } catch (err) {
+        console.error('Session reminder cron error:', err.message);
+    }
+}
+
 // ─── Activity Reminder Cron (runs every hour) ─────────────────────────────────
 async function processActivityReminders() {
     try {
@@ -237,6 +274,9 @@ app.listen(PORT, async () => {
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);
   processActivityReminders(); // run once on startup too
+  // Run session reminder cron every hour
+  setInterval(processSessionReminders, 60 * 60 * 1000);
+  processSessionReminders(); // run once on startup too
   console.log(`🚀 Server running on port ${PORT}`);
 });
 

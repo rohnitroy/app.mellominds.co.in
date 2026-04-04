@@ -524,7 +524,15 @@ router.post('/manage/:token/reschedule', async (req, res) => {
         await sendEmail({ to: appt.client_email, ...clientEmail });
 
         // Email therapist
-        await sendEmail({ to: appt.therapist_email, ...clientEmail });
+        const therapistRescheduleEmail = rescheduleConfirmationEmail({
+            clientName: appt.therapist_name,
+            therapistName: appt.client_name,
+            sessionTitle: appt.title,
+            newStartTime: newStart.toISOString(),
+            meetLink: newMeetLink
+        });
+        therapistRescheduleEmail.subject = `Session Rescheduled — ${appt.title} with ${appt.client_name}`;
+        await sendEmail({ to: appt.therapist_email, ...therapistRescheduleEmail });
 
         res.json({ message: 'Booking rescheduled successfully', new_start_time: newStart });
     } catch (err) {
