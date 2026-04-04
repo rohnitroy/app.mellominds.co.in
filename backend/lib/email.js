@@ -11,7 +11,10 @@ const transporter = nodemailer.createTransport({
         user: process.env.GMAIL_USER,
         pass: gmailAppPassword,
     },
-    family: 4, // Force IPv4 — avoids ENETUNREACH on IPv6-blocked hosts (e.g. Render)
+    // Force IPv4 — Render (and some cloud hosts) block IPv6 outbound,
+    // causing ENETUNREACH on Gmail's IPv6 address. socketOptions ensures
+    // the TCP socket itself binds to IPv4 regardless of DNS resolution order.
+    socketOptions: { family: 4 },
 });
 
 // Verify email transporter on startup so misconfiguration is caught early
