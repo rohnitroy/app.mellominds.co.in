@@ -35,6 +35,7 @@ import QuickActionMenu from './components/QuickActionMenu';
 import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
 import Loader from './components/Loader';
+import CookieBanner from './components/CookieBanner';
 
 interface NavItem {
   name: string;
@@ -1187,6 +1188,7 @@ const AppContent: React.FC = () => {
         </Routes>
       </BrowserRouter>
       <ToastContainer toasts={toasts} onClose={removeToast} />
+      <CookieBanner />
     </>
   );
 };
