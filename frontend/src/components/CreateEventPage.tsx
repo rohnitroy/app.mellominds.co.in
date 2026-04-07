@@ -391,6 +391,11 @@ const CreateEventPage: React.FC = () => {
     };
 
     const handleSave = async () => {
+        if (!isGoogleConnected) {
+            toast.error('Please connect your Google Calendar in Settings before creating a calendar.');
+            return;
+        }
+
         if (!eventData.name.trim()) {
             toast.error('Event Name is required.');
             setActiveTab('basic');

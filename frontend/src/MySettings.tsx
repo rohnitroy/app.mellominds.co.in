@@ -20,6 +20,7 @@ const MySettings: React.FC = () => {
   const [cashfreeForm, setCashfreeForm] = useState({ app_id: '', secret_key: '', environment: 'sandbox' });
   const [cashfreeLoading, setCashfreeLoading] = useState(false);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+  const [showGoogleDisconnectConfirm, setShowGoogleDisconnectConfirm] = useState(false);
 
   useEffect(() => {
     // Handle Gmail OAuth redirect result
@@ -85,6 +86,22 @@ const MySettings: React.FC = () => {
     setCashfreeConnected(false);
     setShowCashfreeForm(false);
     setShowDisconnectConfirm(false);
+  };
+
+  const handleGoogleDisconnect = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/connect-calendar/disconnect`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) {
+        setGoogleConnected(false);
+        toast.success('Google Calendar disconnected.');
+      } else {
+        toast.error('Failed to disconnect. Please try again.');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setShowGoogleDisconnectConfirm(false);
+    }
   };
 
   return (
@@ -243,8 +260,14 @@ const MySettings: React.FC = () => {
                   + Connect Calendar
                 </button>
               ) : (
-                <div className={styles.connectedTag}>
-                  ✓ Connected
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div className={styles.connectedTag}>✓ Connected</div>
+                  <button
+                    className={styles.disconnectBtn}
+                    onClick={() => setShowGoogleDisconnectConfirm(true)}
+                  >
+                    Disconnect
+                  </button>
                 </div>
               )}
             </div>
@@ -313,6 +336,16 @@ const MySettings: React.FC = () => {
       danger
       onConfirm={handleCashfreeDisconnect}
       onCancel={() => setShowDisconnectConfirm(false)}
+    />
+    <ConfirmModal
+      isOpen={showGoogleDisconnectConfirm}
+      title="Disconnect Google Calendar"
+      message="Disconnect Google Calendar? New appointments will no longer sync to your Google Calendar."
+      confirmLabel="Disconnect"
+      cancelLabel="Keep Connected"
+      danger
+      onConfirm={handleGoogleDisconnect}
+      onCancel={() => setShowGoogleDisconnectConfirm(false)}
     />
     </>
   );

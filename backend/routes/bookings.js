@@ -74,6 +74,16 @@ router.post('/public', async (req, res) => {
             });
         }
 
+        // Require therapist to have Google Calendar connected
+        const googleCheck = await client.query(
+            "SELECT id FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
+            [userId]
+        );
+        if (googleCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'Bookings are currently unavailable. The therapist has not connected their Google Calendar.' });
+        }
+
         // Parse duration
         const durationMatch = calendarService.duration.match(/(\d+)/);
         const durationMinutes = durationMatch ? parseInt(durationMatch[0]) : 60;

@@ -123,6 +123,15 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Title and duration are required' });
         }
 
+        // Require Google Calendar connection before creating a calendar
+        const googleCheck = await pool.query(
+            "SELECT id FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
+            [userId]
+        );
+        if (googleCheck.rows.length === 0) {
+            return res.status(403).json({ error: 'Please connect your Google Calendar in Settings before creating a calendar.' });
+        }
+
         const finalSlug = slug || `/${title.toLowerCase().replace(/ /g, '-')}-${Date.now()}`;
 
         const result = await pool.query(
