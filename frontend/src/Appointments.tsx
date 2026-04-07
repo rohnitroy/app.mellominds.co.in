@@ -42,6 +42,7 @@ const Appointments: React.FC = () => {
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
   // Confirm modal state
   const [confirmModal, setConfirmModal] = useState<{ id: number; action: string } | null>(null);
 
@@ -84,6 +85,7 @@ const Appointments: React.FC = () => {
   }, [socket]);
 
   const updateStatus = async (id: number, status: string) => {
+    setActionLoading(id);
     try {
       const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/status`, {
         method: 'PATCH',
@@ -100,10 +102,13 @@ const Appointments: React.FC = () => {
     } catch (e) {
       console.error('Failed to update status:', e);
       alert('Network error. Please try again.');
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const updatePayment = async (id: number, payment_status: string) => {
+    setActionLoading(id);
     try {
       const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/payment`, {
         method: 'PATCH',
@@ -114,10 +119,13 @@ const Appointments: React.FC = () => {
       if (res.ok) fetchAppointments();
     } catch (e) {
       console.error('Failed to update payment:', e);
+    } finally {
+      setActionLoading(null);
     }
   };
 
   const sendReminder = async (id: number) => {
+    setActionLoading(id);
     try {
       const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/reminder`, {
         method: 'POST', credentials: 'include'
@@ -125,6 +133,8 @@ const Appointments: React.FC = () => {
       if (!res.ok) console.error('Failed to send reminder');
     } catch (e) {
       console.error('Failed to send reminder:', e);
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -269,6 +279,7 @@ const Appointments: React.FC = () => {
         return (
           <div style={{ position: 'relative' }}>
             <button
+              disabled={actionLoading === id}
               onClick={(e) => {
                 e.stopPropagation();
                 if (isMenuOpen) { setActiveMenuId(null); setMenuPos(null); return; }
@@ -276,9 +287,9 @@ const Appointments: React.FC = () => {
                 setMenuPos({ top: rect.bottom + window.scrollY + 4, right: window.innerWidth - rect.right });
                 setActiveMenuId(id);
               }}
-              style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', color: '#333', fontSize: '16px', lineHeight: 1 }}
+              style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '4px 10px', cursor: actionLoading === id ? 'not-allowed' : 'pointer', color: '#333', fontSize: '16px', lineHeight: 1, opacity: actionLoading === id ? 0.5 : 1 }}
             >
-              ···
+              {actionLoading === id ? '…' : '···'}
             </button>
           </div>
         );

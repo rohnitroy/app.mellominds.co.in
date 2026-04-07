@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import API_BASE_URL from '../config/api';
 import styles from './ProfileLink.module.css';
 import { useAuth } from '../context/AuthContext';
+import Loader from './Loader';
 
 const BASE_URL = 'https://app.mellominds.co.in';
 
@@ -108,7 +109,7 @@ const ProfileLink: React.FC<ProfileLinkProps> = ({ onBack }) => {
     const info = statusInfo();
     const canSave = input.length >= 4 && input !== currentSlug && status === 'available' && canEdit;
 
-    if (loading) return <div className={styles.page}><p style={{ color: '#6b7280', fontSize: 14 }}>Loading...</p></div>;
+    if (loading) return <div className={styles.page}><Loader /></div>;
 
     return (
         <div className={styles.page}>

@@ -99,6 +99,10 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [editData, setEditData] = useState({ ...savedData });
 
   const [activities, setActivities] = useState<any[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitySubmitting, setActivitySubmitting] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingNote, setDeletingNote] = useState<number | null>(null);
   const [activityForm, setActivityForm] = useState({ name: '', description: '', notify_client: false, reminder_count: 2, reminder_interval_days: 1 });
   const [transferInfo, setTransferInfo] = useState<{ transferred: boolean; from_therapist_email?: string; created_at?: string } | null>(null);
   const [isTransferredClient, setIsTransferredClient] = useState(!!propCutoffDate);
@@ -113,10 +117,12 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [editingNote, setEditingNote] = useState<any | null>(null);
 
   const fetchActivities = async () => {
+    setActivitiesLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/activities/${client.id}`, { credentials: 'include' });
       if (res.ok) setActivities(await res.json());
     } catch (e) { console.error('Failed to fetch activities:', e); }
+    finally { setActivitiesLoading(false); }
   };
 
   useEffect(() => { fetchActivities(); }, [client.id]);
@@ -216,6 +222,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
 
   const handleActivitySubmit = async () => {
     if (!activityForm.name.trim()) { toast.warning('Activity name is required.'); return; }
+    setActivitySubmitting(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/activities`, {
         method: 'POST',
@@ -230,6 +237,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         fetchActivities();
       } else { toast.error('Failed to add activity.'); }
     } catch (e) { toast.error('Error adding activity.'); }
+    finally { setActivitySubmitting(false); }
   };
 
   const handleDeleteActivity = async (id: number) => {
@@ -373,11 +381,13 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   };
 
   const handleDeleteNote = async (noteId: number) => {
+    setDeletingNote(noteId);
     try {
       const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, { method: 'DELETE', credentials: 'include' });
       if (res.ok) { toast.success('Note deleted.'); setRefreshTrigger(prev => prev + 1); }
       else toast.error('Failed to delete note.');
     } catch { toast.error('Error deleting note.'); }
+    finally { setDeletingNote(null); }
   };
 
   const handleEditClient = () => {
@@ -394,6 +404,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     const sanitized = Object.fromEntries(
       Object.entries(editData).map(([k, v]) => [k, v === '-' ? '' : v])
     );
+    setSavingEdit(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/clients/${client.id}`, {
         method: 'PUT',
@@ -428,6 +439,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     } catch (error) {
       console.error('Error updating client:', error);
       toast.error('Error updating client information.');
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -934,8 +947,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                                     <button className={styles.noteEditBtn} onClick={() => handleEditNote(note, app.id.toString())}>
                                       Edit
                                     </button>
-                                    <button className={styles.noteEditBtn} style={{ color: '#c62828', borderColor: '#c62828' }} onClick={() => handleDeleteNote(note.id)}>
-                                      Delete
+                                    <button className={styles.noteEditBtn} style={{ color: '#c62828', borderColor: '#c62828' }} onClick={() => handleDeleteNote(note.id)} disabled={deletingNote === note.id}>
+                                      {deletingNote === note.id ? 'Deleting...' : 'Delete'}
                                     </button>
                                   </div>
                                 )}
@@ -1008,7 +1021,9 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                 </div>
 
                 <div className={styles.activityList}>
-                  {(() => {
+                  {activitiesLoading ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px' }}>Loading activities...</div>
+                  ) : (() => {
                     const filtered = selectedDate === 'all' ? activities : activities.filter((act: any) => {
                       const d = new Date(act.created_at);
                       const [mon, yr] = selectedDate.split(' ');
@@ -1114,7 +1129,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
               <button className={styles.editButton} style={{ background: '#f1f3f4', color: '#082421' }} onClick={handleCancelEdit}>Cancel</button>
-              <button className={styles.editButton} onClick={handleSaveEdit}>Save Changes</button>
+              <button className={styles.editButton} onClick={handleSaveEdit} disabled={savingEdit}>{savingEdit ? 'Saving...' : 'Save Changes'}</button>
             </div>
           </div>
         </div>
@@ -1301,7 +1316,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                 value={activityForm.description} onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}></textarea>
             </div>
 
-            <button className={styles.modalSubmitBtn} onClick={handleActivitySubmit}>Add Activity</button>
+            <button className={styles.modalSubmitBtn} onClick={handleActivitySubmit} disabled={activitySubmitting}>{activitySubmitting ? 'Adding...' : 'Add Activity'}</button>
           </div>
         </div>
       )}

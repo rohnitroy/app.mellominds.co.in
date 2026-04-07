@@ -4,6 +4,7 @@ import { Wallet, Document, Paper, Filter, People } from 'react-iconly';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from './config/api';
 import ConfirmModal from './components/ConfirmModal';
+import Loader from './components/Loader';
 import { useAuth } from './context/AuthContext';
 import { useToast } from './context/ToastContext';
 
@@ -19,6 +20,9 @@ const MySettings: React.FC = () => {
   const [showCashfreeForm, setShowCashfreeForm] = useState(false);
   const [cashfreeForm, setCashfreeForm] = useState({ app_id: '', secret_key: '', environment: 'sandbox' });
   const [cashfreeLoading, setCashfreeLoading] = useState(false);
+  const [disconnectingCashfree, setDisconnectingCashfree] = useState(false);
+  const [disconnectingGoogle, setDisconnectingGoogle] = useState(false);
+  const [integrationsLoading, setIntegrationsLoading] = useState(true);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showGoogleDisconnectConfirm, setShowGoogleDisconnectConfirm] = useState(false);
 
@@ -46,13 +50,14 @@ const MySettings: React.FC = () => {
         console.error('Error checking google status:', error);
       }
     };
-    checkGoogleStatus();
 
-    // Check Cashfree status
-    fetch(`${API_BASE_URL}/api/cashfree/status`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : { connected: false })
-      .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
-      .catch(() => {});
+    Promise.all([
+      checkGoogleStatus(),
+      fetch(`${API_BASE_URL}/api/cashfree/status`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : { connected: false })
+        .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
+        .catch(() => {}),
+    ]).finally(() => setIntegrationsLoading(false));
   }, []);
 
   const handleCashfreeConnect = async (e: React.FormEvent) => {
@@ -82,13 +87,16 @@ const MySettings: React.FC = () => {
   };
 
   const handleCashfreeDisconnect = async () => {
+    setDisconnectingCashfree(true);
     await fetch(`${API_BASE_URL}/api/cashfree/disconnect`, { method: 'DELETE', credentials: 'include' });
     setCashfreeConnected(false);
     setShowCashfreeForm(false);
     setShowDisconnectConfirm(false);
+    setDisconnectingCashfree(false);
   };
 
   const handleGoogleDisconnect = async () => {
+    setDisconnectingGoogle(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/connect-calendar/disconnect`, { method: 'DELETE', credentials: 'include' });
       if (res.ok) {
@@ -100,6 +108,7 @@ const MySettings: React.FC = () => {
     } catch {
       toast.error('Network error. Please try again.');
     } finally {
+      setDisconnectingGoogle(false);
       setShowGoogleDisconnectConfirm(false);
     }
   };
@@ -256,8 +265,9 @@ const MySettings: React.FC = () => {
                 <button
                   className={styles.connectBtn}
                   onClick={() => window.location.href = `${API_BASE_URL}/api/connect-calendar/start`}
+                  disabled={integrationsLoading}
                 >
-                  + Connect Calendar
+                  {integrationsLoading ? 'Checking...' : '+ Connect Calendar'}
                 </button>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
@@ -265,8 +275,9 @@ const MySettings: React.FC = () => {
                   <button
                     className={styles.disconnectBtn}
                     onClick={() => setShowGoogleDisconnectConfirm(true)}
+                    disabled={disconnectingGoogle}
                   >
-                    Disconnect
+                    {disconnectingGoogle ? 'Disconnecting...' : 'Disconnect'}
                   </button>
                 </div>
               )}
@@ -302,7 +313,7 @@ const MySettings: React.FC = () => {
                 cashfreeConnected ? (
                   <div>
                     <div className={styles.connectedTag}>✓ Connected ({cashfreeEnv})</div>
-                    <button className={styles.connectBtn} style={{ marginTop: '8px', background: '#fee2e2', color: '#dc2626' }} onClick={() => setShowDisconnectConfirm(true)}>Disconnect</button>
+                    <button className={styles.connectBtn} style={{ marginTop: '8px', background: '#fee2e2', color: '#dc2626' }} onClick={() => setShowDisconnectConfirm(true)} disabled={disconnectingCashfree}>{disconnectingCashfree ? 'Disconnecting...' : 'Disconnect'}</button>
                   </div>
                 ) : showCashfreeForm ? (
                   <form onSubmit={handleCashfreeConnect} style={{ marginTop: '8px' }}>
@@ -331,7 +342,7 @@ const MySettings: React.FC = () => {
       isOpen={showDisconnectConfirm}
       title="Disconnect Cashfree"
       message="Disconnect Cashfree? Payments will stop working for your calendars that use it."
-      confirmLabel="Disconnect"
+      confirmLabel={disconnectingCashfree ? 'Disconnecting...' : 'Disconnect'}
       cancelLabel="Keep Connected"
       danger
       onConfirm={handleCashfreeDisconnect}
@@ -341,7 +352,7 @@ const MySettings: React.FC = () => {
       isOpen={showGoogleDisconnectConfirm}
       title="Disconnect Google Calendar"
       message="Disconnect Google Calendar? New appointments will no longer sync to your Google Calendar."
-      confirmLabel="Disconnect"
+      confirmLabel={disconnectingGoogle ? 'Disconnecting...' : 'Disconnect'}
       cancelLabel="Keep Connected"
       danger
       onConfirm={handleGoogleDisconnect}
