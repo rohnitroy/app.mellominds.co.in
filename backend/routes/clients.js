@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../config/database.js';
-import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail, transferCancelledEmail, bookingLinkEmail } from '../lib/email.js';
+import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail, transferCancelledEmail, bookingLinkEmail, isEmailEnabled } from '../lib/email.js';
 import { createNotification } from '../lib/notifications.js';
 
 const router = express.Router();
@@ -150,7 +150,7 @@ router.post('/transfers/:transferId/approve', async (req, res) => {
 
         // Send email to Therapist A
         const fromTherapistRes = await pool.query('SELECT user_name, email FROM Users WHERE id = $1', [transfer.from_therapist_id]);
-        if (fromTherapistRes.rows.length > 0) {
+        if (fromTherapistRes.rows.length > 0 && await isEmailEnabled(toTherapistId, 'transfer_status')) {
             const emailContent = transferApprovedEmail({
                 fromTherapistName: fromTherapistRes.rows[0].user_name,
                 clientName: transfer.name
@@ -204,8 +204,8 @@ router.post('/transfers/:transferId/reject', async (req, res) => {
 
         // Send email to Therapist A (non-blocking, after response)
         pool.query('SELECT user_name, email FROM Users WHERE id = $1', [transfer.from_therapist_id])
-            .then(r => {
-                if (r.rows.length > 0) {
+            .then(async r => {
+                if (r.rows.length > 0 && await isEmailEnabled(toTherapistId, 'transfer_status')) {
                     const emailContent = transferRejectedEmail({
                         fromTherapistName: r.rows[0].user_name,
                         clientName: transfer.client_name
@@ -257,27 +257,30 @@ router.delete('/transfers/:transferId/cancel', async (req, res) => {
         }).catch(() => {});
 
         // Email receiving therapist
-        sendEmail({
-            to: t.to_therapist_email,
-            ...transferCancelledEmail({
-                recipientName: t.to_therapist_name,
-                fromTherapistName: t.from_therapist_name,
-                clientName: t.client_name
-            })
-        }).catch(() => {});
-
-        // Email client (if they have an email)
-        if (t.client_email) {
+        isEmailEnabled(fromTherapistId, 'transfer_status').then(enabled => {
+            if (!enabled) return;
             sendEmail({
-                to: t.client_email,
+                to: t.to_therapist_email,
                 ...transferCancelledEmail({
-                    recipientName: t.client_name,
+                    recipientName: t.to_therapist_name,
                     fromTherapistName: t.from_therapist_name,
-                    clientName: t.client_name,
-                    isClient: true
+                    clientName: t.client_name
                 })
             }).catch(() => {});
-        }
+
+            // Email client (if they have an email)
+            if (t.client_email) {
+                sendEmail({
+                    to: t.client_email,
+                    ...transferCancelledEmail({
+                        recipientName: t.client_name,
+                        fromTherapistName: t.from_therapist_name,
+                        clientName: t.client_name,
+                        isClient: true
+                    })
+                }).catch(() => {});
+            }
+        }).catch(() => {});
 
     } catch (error) {
         console.error('Error cancelling transfer:', error);
@@ -326,7 +329,8 @@ router.post('/', async (req, res) => {
                     const therapistName = req.user.user_name || req.user.email;
                     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
                     const slug = cal.slug.replace(/^\//, '');
-                    const bookingLink = `${frontendUrl}/book/${userId}/${slug}`;
+                    const identifier = req.user.profile_slug || userId;
+                    const bookingLink = `${frontendUrl}/book/${identifier}/${slug}`;
                     const emailContent = bookingLinkEmail({
                         clientName: name.trim(),
                         therapistName,
@@ -470,12 +474,14 @@ router.post('/:id/transfer', async (req, res) => {
         await dbClient.query('COMMIT');
 
         // Send email to Therapist B
-        const emailContent = transferRequestEmail({
-            toTherapistName: targetRes.rows[0].user_name || target_email,
-            fromTherapistName: fromName,
-            clientName: clientRes.rows[0].name
-        });
-        await sendEmail({ to: targetRes.rows[0].email, ...emailContent });
+        if (await isEmailEnabled(req.user.id, 'transfer_request')) {
+            const emailContent = transferRequestEmail({
+                toTherapistName: targetRes.rows[0].user_name || target_email,
+                fromTherapistName: fromName,
+                clientName: clientRes.rows[0].name
+            });
+            await sendEmail({ to: targetRes.rows[0].email, ...emailContent });
+        }
 
         res.json({ message: `Transfer request sent to ${targetRes.rows[0].user_name || target_email}. Awaiting their approval.` });
 

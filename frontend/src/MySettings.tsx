@@ -4,9 +4,12 @@ import { Wallet, Document, Paper, Filter, People } from 'react-iconly';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from './config/api';
 import ConfirmModal from './components/ConfirmModal';
+import { useAuth } from './context/AuthContext';
 
 const MySettings: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isEnterprise = user?.plan_name === 'enterprise';
 
   const [googleConnected, setGoogleConnected] = useState(false);
   const [cashfreeConnected, setCashfreeConnected] = useState(false);
@@ -101,32 +104,33 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard} style={{ position: 'relative', opacity: 0.75 }}>
-            <div style={{
-              position: 'absolute', inset: 0, borderRadius: '16px',
-              zIndex: 2, cursor: 'not-allowed',
-              display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
-              padding: '16px'
-            }}>
-              <span style={{
-                background: '#F9E141',
-                color: '#082421', fontSize: '11px', fontWeight: 700,
-                padding: '4px 10px', borderRadius: '20px',
-                fontFamily: 'Urbanist', letterSpacing: '0.3px',
-                
-                whiteSpace: 'nowrap'
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75, cursor: isEnterprise ? 'pointer' : 'not-allowed' }} onClick={isEnterprise ? () => navigate('/settings/profile-link') : undefined}>
+            {!isEnterprise && (
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: '16px',
+                zIndex: 2, cursor: 'not-allowed',
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+                padding: '16px'
               }}>
-                ⭐ Upgrade your plan
-              </span>
-            </div>
-            <div className={styles.cardContent} style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                <span style={{
+                  background: '#F9E141',
+                  color: '#082421', fontSize: '11px', fontWeight: 700,
+                  padding: '4px 10px', borderRadius: '20px',
+                  fontFamily: 'Urbanist', letterSpacing: '0.3px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  ⭐ Upgrade your plan
+                </span>
+              </div>
+            )}
+            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
                 <People set="bulk" size="medium" primaryColor="#082421" />
                 Profile Link
               </h3>
               <p>customize your profile link & edit your username...</p>
             </div>
-            <div className={styles.cardArrow} style={{ pointerEvents: 'none' }}>
+            <div className={styles.cardArrow} style={!isEnterprise ? { pointerEvents: 'none' } : {}}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -164,32 +168,33 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard} style={{ position: 'relative', opacity: 0.75 }}>
-            <div style={{
-              position: 'absolute', inset: 0, borderRadius: '16px',
-              zIndex: 2, cursor: 'not-allowed',
-              display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
-              padding: '16px'
-            }}>
-              <span style={{
-                background: '#F9E141',
-                color: '#082421', fontSize: '11px', fontWeight: 700,
-                padding: '4px 10px', borderRadius: '20px',
-                fontFamily: 'Urbanist', letterSpacing: '0.3px',
-                
-                whiteSpace: 'nowrap'
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75, cursor: isEnterprise ? 'pointer' : 'not-allowed' }} onClick={isEnterprise ? () => navigate('/settings/reminders') : undefined}>
+            {!isEnterprise && (
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: '16px',
+                zIndex: 2, cursor: 'not-allowed',
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+                padding: '16px'
               }}>
-                ⭐ Upgrade your plan
-              </span>
-            </div>
-            <div className={styles.cardContent} style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                <span style={{
+                  background: '#F9E141',
+                  color: '#082421', fontSize: '11px', fontWeight: 700,
+                  padding: '4px 10px', borderRadius: '20px',
+                  fontFamily: 'Urbanist', letterSpacing: '0.3px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  ⭐ Upgrade your plan
+                </span>
+              </div>
+            )}
+            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
                 <Filter set="bulk" size="medium" primaryColor="#082421" />
                 Manage Reminders
               </h3>
               <p>enable/disable reminders and notifications...</p>
             </div>
-            <div className={styles.cardArrow} style={{ pointerEvents: 'none' }}>
+            <div className={styles.cardArrow} style={!isEnterprise ? { pointerEvents: 'none' } : {}}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -233,32 +238,54 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard} style={{ position: 'relative', opacity: 0.75 }}>
-            {/* Upgrade overlay */}
-            <div style={{
-              position: 'absolute', inset: 0, borderRadius: '16px',
-              zIndex: 2, cursor: 'not-allowed',
-              display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
-              padding: '16px'
-            }}>
-              <span style={{
-                background: '#F9E141',
-                color: '#082421', fontSize: '11px', fontWeight: 700,
-                padding: '4px 10px', borderRadius: '20px',
-                fontFamily: 'Urbanist', letterSpacing: '0.3px',
-                
-                whiteSpace: 'nowrap'
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75 }}>
+            {!isEnterprise && (
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: '16px',
+                zIndex: 2, cursor: 'not-allowed',
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+                padding: '16px'
               }}>
-                ⭐ Upgrade your plan
-              </span>
-            </div>
-            <div className={styles.cardContent} style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                <span style={{
+                  background: '#F9E141',
+                  color: '#082421', fontSize: '11px', fontWeight: 700,
+                  padding: '4px 10px', borderRadius: '20px',
+                  fontFamily: 'Urbanist', letterSpacing: '0.3px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  ⭐ Upgrade your plan
+                </span>
+              </div>
+            )}
+            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
                 <Wallet set="bulk" size="medium" primaryColor="#082421" />
                 Connect Cashfree
               </h3>
               <p>Accept appointment payments via Cashfree payment gateway</p>
-              <button className={styles.connectBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>+ Connect Cashfree</button>
+              {isEnterprise ? (
+                cashfreeConnected ? (
+                  <div>
+                    <div className={styles.connectedTag}>✓ Connected ({cashfreeEnv})</div>
+                    <button className={styles.connectBtn} style={{ marginTop: '8px', background: '#fee2e2', color: '#dc2626' }} onClick={() => setShowDisconnectConfirm(true)}>Disconnect</button>
+                  </div>
+                ) : showCashfreeForm ? (
+                  <form onSubmit={handleCashfreeConnect} style={{ marginTop: '8px' }}>
+                    <input placeholder="App ID" value={cashfreeForm.app_id} onChange={e => setCashfreeForm(f => ({ ...f, app_id: e.target.value }))} required style={{ display: 'block', marginBottom: '6px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
+                    <input placeholder="Secret Key" value={cashfreeForm.secret_key} onChange={e => setCashfreeForm(f => ({ ...f, secret_key: e.target.value }))} required style={{ display: 'block', marginBottom: '6px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
+                    <select value={cashfreeForm.environment} onChange={e => setCashfreeForm(f => ({ ...f, environment: e.target.value }))} style={{ display: 'block', marginBottom: '8px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }}>
+                      <option value="sandbox">Sandbox</option>
+                      <option value="production">Production</option>
+                    </select>
+                    <button type="submit" className={styles.connectBtn} disabled={cashfreeLoading}>{cashfreeLoading ? 'Connecting...' : 'Save'}</button>
+                    <button type="button" className={styles.connectBtn} style={{ marginLeft: '8px', background: '#f3f4f6', color: '#374151' }} onClick={() => setShowCashfreeForm(false)}>Cancel</button>
+                  </form>
+                ) : (
+                  <button className={styles.connectBtn} onClick={() => setShowCashfreeForm(true)}>+ Connect Cashfree</button>
+                )
+              ) : (
+                <button className={styles.connectBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>+ Connect Cashfree</button>
+              )}
             </div>
           </div>
         </div>

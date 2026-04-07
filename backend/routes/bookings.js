@@ -2,7 +2,7 @@ import express from 'express';
 import { google } from 'googleapis';
 import pool from '../config/database.js';
 import { createNotification } from '../lib/notifications.js';
-import { sendEmail, bookingConfirmationEmail, cancellationEmail, rescheduleConfirmationEmail } from '../lib/email.js';
+import { sendEmail, bookingConfirmationEmail, cancellationEmail, rescheduleConfirmationEmail, isEmailEnabled } from '../lib/email.js';
 import { getGoogleAuthClient } from '../lib/googleAuth.js';
 
 const router = express.Router();
@@ -179,20 +179,22 @@ router.post('/public', async (req, res) => {
         });
 
         // Send confirmation email to client
-        const emailContent = bookingConfirmationEmail({
-            clientName: client_name,
-            therapistName: calendarService.therapist_name || 'your therapist',
-            sessionTitle: calendarService.title,
-            startTime: startTime.toISOString(),
-            meetLink: meetLink,
-            locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet',
-            cancelToken: insertRes.rows[0].cancel_token,
-            frontendUrl: process.env.FRONTEND_URL
-        });
-        await sendEmail({ to: client_email, ...emailContent });
+        if (await isEmailEnabled(userId, 'booking_confirmation')) {
+            const emailContent = bookingConfirmationEmail({
+                clientName: client_name,
+                therapistName: calendarService.therapist_name || 'your therapist',
+                sessionTitle: calendarService.title,
+                startTime: startTime.toISOString(),
+                meetLink: meetLink,
+                locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet',
+                cancelToken: insertRes.rows[0].cancel_token,
+                frontendUrl: process.env.FRONTEND_URL
+            });
+            await sendEmail({ to: client_email, ...emailContent });
+        }
 
         // Send confirmation email to therapist
-        if (calendarService.therapist_email) {
+        if (calendarService.therapist_email && await isEmailEnabled(userId, 'booking_confirmation_therapist')) {
             const therapistNotifContent = bookingConfirmationEmail({
                 clientName: calendarService.therapist_name || 'Therapist',
                 therapistName: client_name,
@@ -399,28 +401,30 @@ router.post('/manage/:token/cancel', async (req, res) => {
         });
 
         // Email client (non-fatal)
-        sendEmail({
-            to: appt.client_email,
-            ...cancellationEmail({
-                clientName: appt.client_name,
-                therapistName: appt.therapist_name,
-                sessionTitle: appt.title,
-                startTime: appt.start_time,
-                cancelledBy: 'you'
-            })
-        }).catch(err => console.error('Client cancellation email failed:', err.message));
+        if (await isEmailEnabled(appt.therapist_id, 'cancellation')) {
+            sendEmail({
+                to: appt.client_email,
+                ...cancellationEmail({
+                    clientName: appt.client_name,
+                    therapistName: appt.therapist_name,
+                    sessionTitle: appt.title,
+                    startTime: appt.start_time,
+                    cancelledBy: 'you'
+                })
+            }).catch(err => console.error('Client cancellation email failed:', err.message));
 
-        // Email therapist (non-fatal)
-        sendEmail({
-            to: appt.therapist_email,
-            ...cancellationEmail({
-                clientName: appt.client_name,
-                therapistName: appt.therapist_name,
-                sessionTitle: appt.title,
-                startTime: appt.start_time,
-                cancelledBy: appt.client_name
-            })
-        }).catch(err => console.error('Therapist cancellation email failed:', err.message));
+            // Email therapist (non-fatal)
+            sendEmail({
+                to: appt.therapist_email,
+                ...cancellationEmail({
+                    clientName: appt.client_name,
+                    therapistName: appt.therapist_name,
+                    sessionTitle: appt.title,
+                    startTime: appt.start_time,
+                    cancelledBy: appt.client_name
+                })
+            }).catch(err => console.error('Therapist cancellation email failed:', err.message));
+        }
 
         res.json({ message: 'Booking cancelled successfully' });
     } catch (err) {
@@ -514,25 +518,27 @@ router.post('/manage/:token/reschedule', async (req, res) => {
         });
 
         // Email client
-        const clientEmail = rescheduleConfirmationEmail({
-            clientName: appt.client_name,
-            therapistName: appt.therapist_name,
-            sessionTitle: appt.title,
-            newStartTime: newStart.toISOString(),
-            meetLink: newMeetLink
-        });
-        await sendEmail({ to: appt.client_email, ...clientEmail });
+        if (await isEmailEnabled(appt.therapist_id, 'reschedule')) {
+            const clientEmail = rescheduleConfirmationEmail({
+                clientName: appt.client_name,
+                therapistName: appt.therapist_name,
+                sessionTitle: appt.title,
+                newStartTime: newStart.toISOString(),
+                meetLink: newMeetLink
+            });
+            await sendEmail({ to: appt.client_email, ...clientEmail });
 
-        // Email therapist
-        const therapistRescheduleEmail = rescheduleConfirmationEmail({
-            clientName: appt.therapist_name,
-            therapistName: appt.client_name,
-            sessionTitle: appt.title,
-            newStartTime: newStart.toISOString(),
-            meetLink: newMeetLink
-        });
-        therapistRescheduleEmail.subject = `Session Rescheduled — ${appt.title} with ${appt.client_name}`;
-        await sendEmail({ to: appt.therapist_email, ...therapistRescheduleEmail });
+            // Email therapist
+            const therapistRescheduleEmail = rescheduleConfirmationEmail({
+                clientName: appt.therapist_name,
+                therapistName: appt.client_name,
+                sessionTitle: appt.title,
+                newStartTime: newStart.toISOString(),
+                meetLink: newMeetLink
+            });
+            therapistRescheduleEmail.subject = `Session Rescheduled — ${appt.title} with ${appt.client_name}`;
+            await sendEmail({ to: appt.therapist_email, ...therapistRescheduleEmail });
+        }
 
         res.json({ message: 'Booking rescheduled successfully', new_start_time: newStart });
     } catch (err) {
@@ -934,6 +940,10 @@ router.post('/:id/reminder', async (req, res) => {
             timeZone: 'Asia/Kolkata'
         });
 
+        if (!await isEmailEnabled(userId, 'session_reminder')) {
+            return res.status(403).json({ error: 'Session reminder emails are disabled in your email preferences.' });
+        }
+
         await sendEmail({
             to: appt.client_email,
             subject: `Reminder: Your session with ${appt.therapist_name} is coming up`,
@@ -1205,9 +1215,14 @@ router.post('/send-link', async (req, res) => {
         }
         const cal = calRes.rows[0];
 
-        const bookingLink = `${process.env.FRONTEND_URL}/book/${userId}/${cal.slug?.replace(/^\//, '')}`;
+        const userSlugRes = await pool.query('SELECT profile_slug FROM Users WHERE id = $1', [userId]);
+        const identifier = userSlugRes.rows[0]?.profile_slug || userId;
+        const bookingLink = `${process.env.FRONTEND_URL}/book/${identifier}/${cal.slug?.replace(/^\//, '')}`;
 
         const { bookingLinkEmail } = await import('../lib/email.js');
+        if (!await isEmailEnabled(userId, 'booking_link')) {
+            return res.status(403).json({ error: 'Booking link emails are disabled in your email preferences.' });
+        }
         const emailContent = bookingLinkEmail({
             clientName: client_name,
             therapistName: cal.therapist_name,
@@ -1249,7 +1264,9 @@ router.post('/send-link/bulk', async (req, res) => {
             return res.status(404).json({ error: 'Calendar not found' });
         }
         const cal = calRes.rows[0];
-        const bookingLink = `${process.env.FRONTEND_URL}/book/${userId}/${cal.slug?.replace(/^\//, '')}`;
+        const bulkUserSlugRes = await pool.query('SELECT profile_slug FROM Users WHERE id = $1', [userId]);
+        const bulkIdentifier = bulkUserSlugRes.rows[0]?.profile_slug || userId;
+        const bookingLink = `${process.env.FRONTEND_URL}/book/${bulkIdentifier}/${cal.slug?.replace(/^\//, '')}`;
         const { bookingLinkEmail } = await import('../lib/email.js');
 
         const results = await Promise.allSettled(
@@ -1377,6 +1394,10 @@ router.post('/:id/send-invoice', async (req, res) => {
             </div>
           </div>
         </body></html>`;
+
+        if (!await isEmailEnabled(userId, 'invoice')) {
+            return res.status(403).json({ error: 'Invoice emails are disabled in your email preferences.' });
+        }
 
         await sendEmail({
             to: b.client_email,

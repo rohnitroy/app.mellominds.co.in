@@ -373,7 +373,8 @@ const CreateEventPage: React.FC = () => {
     const getBookingUrl = () => {
         if (!user || !eventData.url.trim()) return '';
         const slug = eventData.url.replace(/^\//, '');
-        return `${window.location.origin}/book/${user.id}/${slug}`;
+        const identifier = user.profile_slug || user.id;
+        return `${window.location.origin}/book/${identifier}/${slug}`;
     };
 
     const handleCopyLink = () => {

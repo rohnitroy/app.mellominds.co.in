@@ -133,7 +133,7 @@ const SendBookingLinkModal: React.FC<SendBookingLinkModalProps> = ({ isOpen, onC
 
   const selectedCalendar = calendars.find(c => String(c.id) === selectedCalendarId);
   const bookingLink = selectedCalendar && user
-    ? `${window.location.origin}/book/${user.id}/${selectedCalendar.slug?.replace(/^\//, '')}`
+    ? `${window.location.origin}/book/${user.profile_slug || user.id}/${selectedCalendar.slug?.replace(/^\//, '')}`
     : '';
 
   if (!isOpen) return null;

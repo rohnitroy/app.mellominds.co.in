@@ -8,7 +8,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from './config/passport.js';
 import pool from './config/database.js';
-import { sendEmail, activityNotificationEmail, sessionReminderEmail } from './lib/email.js';
+import { sendEmail, activityNotificationEmail, sessionReminderEmail, isEmailEnabled } from './lib/email.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import calendarRoutes from './routes/calendars.js';
@@ -21,6 +21,8 @@ import notificationsRoutes from './routes/notifications.js';
 import activitiesRoutes from './routes/activities.js';
 import cashfreeRoutes from './routes/cashfree.js';
 import enterpriseRoutes from './routes/enterprise.js';
+import emailPreferencesRoutes from './routes/emailPreferences.js';
+import profileLinkRoutes from './routes/profileLink.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -98,6 +100,8 @@ app.use('/api/activities', activitiesRoutes);
 app.use('/api/availability', availabilityRoutes);
 app.use('/api/cashfree', cashfreeRoutes);
 app.use('/api/enterprise', enterpriseRoutes);
+app.use('/api/email-preferences', emailPreferencesRoutes);
+app.use('/api/profile-link', profileLinkRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -199,6 +203,7 @@ async function processSessionReminders() {
         const due = await pool.query(`
             SELECT a.id, a.title, a.start_time, a.meet_link, a.location_type,
                    a.client_name, a.client_email,
+                   a.therapist_id,
                    u.user_name as therapist_name
             FROM Appointments a
             JOIN Users u ON a.therapist_id = u.id
@@ -209,6 +214,7 @@ async function processSessionReminders() {
 
         for (const appt of due.rows) {
             if (_remindersSentThisRun.has(appt.id)) continue;
+            if (!await isEmailEnabled(appt.therapist_id, 'session_reminder')) continue;
             const emailContent = sessionReminderEmail({
                 clientName: appt.client_name,
                 therapistName: appt.therapist_name,
@@ -244,6 +250,7 @@ async function processActivityReminders() {
 
         for (const act of due.rows) {
             if (!act.client_email) continue;
+            if (!await isEmailEnabled(act.therapist_id, 'activity_notification')) continue;
             const reminderNum = act.reminders_sent + 1;
             const emailContent = activityNotificationEmail({
                 clientName: act.client_name,

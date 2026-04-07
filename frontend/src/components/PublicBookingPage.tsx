@@ -52,7 +52,7 @@ function getTimezoneLabel(): string {
 }
 
 const PublicBookingPage: React.FC = () => {
-    const { userId, slug } = useParams<{ userId: string; slug: string }>();
+    const { userId, slug, profileSlug } = useParams<{ userId?: string; slug: string; profileSlug?: string }>();
     const toast = useToast();
 
     // Allow the page to scroll — App.css sets overflow:hidden on html/body for the dashboard
@@ -101,7 +101,13 @@ const PublicBookingPage: React.FC = () => {
     useEffect(() => {
         const fetchCalendar = async () => {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/calendars/public/${userId}/${slug}`);
+                // identifier is numeric = user ID, otherwise = custom profile slug
+                const identifier = profileSlug || userId;
+                const isNumeric = /^\d+$/.test(identifier || '');
+                const apiUrl = isNumeric
+                    ? `${API_BASE_URL}/api/calendars/public/${identifier}/${slug}`
+                    : `${API_BASE_URL}/api/calendars/public/u/${identifier}/${slug}`;
+                const response = await fetch(apiUrl);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.form_data?.questions) {

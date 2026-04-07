@@ -1,0 +1,70 @@
+import express from 'express';
+import pool from '../config/database.js';
+import { isAuthenticated } from '../middleware/auth.js';
+
+const router = express.Router();
+
+const CONTROLLABLE_KEYS = [
+    'booking_confirmation',
+    'booking_confirmation_therapist',
+    'cancellation',
+    'reschedule',
+    'session_reminder',
+    'activity_notification',
+    'booking_link',
+    'invoice',
+    'transfer_request',
+    'transfer_status',
+];
+
+// GET /api/email-preferences
+router.get('/', isAuthenticated, async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT email_preferences FROM Users WHERE id = $1',
+            [req.user.id]
+        );
+        res.json(result.rows[0]?.email_preferences || {});
+    } catch (err) {
+        console.error('Error fetching email preferences:', err.message);
+        res.status(500).json({ error: 'Failed to fetch email preferences' });
+    }
+});
+
+// PUT /api/email-preferences
+router.put('/', isAuthenticated, async (req, res) => {
+    try {
+        const updates = req.body;
+
+        // Only allow known controllable keys
+        const sanitized = {};
+        for (const key of CONTROLLABLE_KEYS) {
+            if (typeof updates[key] === 'boolean') {
+                sanitized[key] = updates[key];
+            }
+        }
+
+        if (Object.keys(sanitized).length === 0) {
+            return res.status(400).json({ error: 'No valid preference keys provided' });
+        }
+
+        // Merge with existing preferences
+        await pool.query(
+            `UPDATE Users
+             SET email_preferences = email_preferences || $1::jsonb
+             WHERE id = $2`,
+            [JSON.stringify(sanitized), req.user.id]
+        );
+
+        const updated = await pool.query(
+            'SELECT email_preferences FROM Users WHERE id = $1',
+            [req.user.id]
+        );
+        res.json(updated.rows[0].email_preferences);
+    } catch (err) {
+        console.error('Error updating email preferences:', err.message);
+        res.status(500).json({ error: 'Failed to update email preferences' });
+    }
+});
+
+export default router;

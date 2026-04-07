@@ -18,6 +18,7 @@ interface User {
     pincode?: string;
     clinic_address?: string;
     plan_name?: 'free' | 'enterprise';
+    profile_slug?: string | null;
 }
 
 interface AuthContextType {

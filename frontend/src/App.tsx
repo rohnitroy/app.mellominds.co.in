@@ -22,6 +22,8 @@ import ManageBooking from './components/ManageBooking';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
 import CreateEventPage from './components/CreateEventPage';
+import ManageReminders from './components/ManageReminders';
+import ProfileLink from './components/ProfileLink';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
@@ -1168,6 +1170,8 @@ const AppContent: React.FC = () => {
               <Route path="settings" element={<MySettings />} />
               <Route path="settings/my-profile" element={<MyProfile onBack={() => window.history.back()} />} />
               <Route path="settings/client-notes-template" element={<ClientNotesTemplate onBack={() => window.history.back()} />} />
+              <Route path="settings/reminders" element={<ManageReminders onBack={() => window.history.back()} />} />
+              <Route path="settings/profile-link" element={<ProfileLink onBack={() => window.history.back()} />} />
               <Route path="notifications" element={<NotificationsPage onBack={() => {}} />} />
             </Route>
           </Route>

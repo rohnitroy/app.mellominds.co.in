@@ -27,6 +27,44 @@ router.get('/public/:userId/:slug', async (req, res) => {
     }
 });
 
+// GET /api/calendars/public/u/:profileSlug/:slug — alias using custom profile slug
+router.get('/public/u/:profileSlug/:slug', async (req, res) => {
+    try {
+        const { profileSlug, slug } = req.params;
+        const result = await pool.query(
+            `SELECT c.*, u.user_name as therapist_name, u.email as therapist_email, u.profile_picture
+             FROM Calendars c
+             JOIN Users u ON c.user_id = u.id
+             WHERE u.profile_slug = $1 AND (c.slug = $2 OR c.slug = $3) AND c.is_active = true`,
+            [profileSlug, slug, slug.startsWith('/') ? slug : `/${slug}`]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Calendar not found' });
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching public calendar by profile slug:', error);
+        res.status(500).json({ error: 'Failed to fetch calendar' });
+    }
+});
+
+// GET /api/calendars/public/u/:profileSlug/:slug — alias using custom profile slug
+router.get('/public/u/:profileSlug/:slug', async (req, res) => {
+    try {
+        const { profileSlug, slug } = req.params;
+        const result = await pool.query(
+            `SELECT c.*, u.user_name as therapist_name, u.email as therapist_email, u.profile_picture
+             FROM Calendars c
+             JOIN Users u ON c.user_id = u.id
+             WHERE u.profile_slug = $1 AND (c.slug = $2 OR c.slug = $3) AND c.is_active = true`,
+            [profileSlug, slug, slug.startsWith('/') ? slug : `/${slug}`]
+        );
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Calendar not found' });
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching public calendar by profile slug:', error);
+        res.status(500).json({ error: 'Failed to fetch calendar' });
+    }
+});
+
 // GET /api/calendars/payment-gateways - Returns available payment modes
 // "offline" is always available; connected PGs are appended dynamically
 router.get('/payment-gateways', async (req, res) => {

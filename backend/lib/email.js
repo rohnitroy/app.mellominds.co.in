@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import pool from '../config/database.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -12,6 +13,26 @@ if (process.env.RESEND_API_KEY) {
 // Warn if FRONTEND_URL is still pointing to localhost in a non-development context
 if (process.env.FRONTEND_URL && process.env.FRONTEND_URL.includes('localhost') && process.env.NODE_ENV === 'production') {
     console.warn('⚠️  FRONTEND_URL is set to localhost but NODE_ENV is production. Cancel/reschedule links in emails will be broken.');
+}
+
+/**
+ * Check if a user has a specific email type enabled in their preferences.
+ * Returns true if enabled or if no preference is set (defaults to on).
+ * @param {number} userId
+ * @param {string} prefKey - one of the controllable preference keys
+ */
+export async function isEmailEnabled(userId, prefKey) {
+    try {
+        const result = await pool.query(
+            'SELECT email_preferences FROM Users WHERE id = $1',
+            [userId]
+        );
+        const prefs = result.rows[0]?.email_preferences;
+        if (!prefs || prefs[prefKey] === undefined) return true; // default on
+        return prefs[prefKey] === true;
+    } catch {
+        return true; // fail open — don't block emails on DB error
+    }
 }
 
 /**

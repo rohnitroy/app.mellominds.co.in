@@ -1,6 +1,6 @@
 import express from 'express';
 import pool from '../config/database.js';
-import { sendEmail, activityNotificationEmail } from '../lib/email.js';
+import { sendEmail, activityNotificationEmail, isEmailEnabled } from '../lib/email.js';
 
 const router = express.Router();
 
@@ -80,6 +80,7 @@ router.delete('/:id', async (req, res) => {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function sendImmediateActivityEmail(clientId, therapistId, activityName, activityDescription) {
+    if (!await isEmailEnabled(therapistId, 'activity_notification')) return;
     const clientRes = await pool.query(
         'SELECT name, email FROM Clients WHERE id = $1 AND therapist_id = $2',
         [clientId, therapistId]
