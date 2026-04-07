@@ -1,6 +1,8 @@
 import './config/env.js'; // MUST be first
 import dns from 'dns';
 dns.setDefaultResultOrder('ipv4first'); // Force IPv4 — Render blocks outbound IPv6
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 import express from 'express';
 import session from 'express-session';
 import cors from 'cors';
@@ -8,6 +10,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import passport from './config/passport.js';
 import pool from './config/database.js';
+import { setIO } from './lib/socket.js';
 import { sendEmail, activityNotificationEmail, sessionReminderEmail, isEmailEnabled } from './lib/email.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
@@ -30,7 +33,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
+
+// Socket.io setup
+const io = new SocketIOServer(httpServer, {
+    cors: {
+        origin: [process.env.FRONTEND_URL, 'http://localhost:5173'],
+        credentials: true,
+    }
+});
+setIO(io);
+
+io.on('connection', (socket) => {
+    // Client joins their own room by userId so we can emit targeted events
+    socket.on('join', (userId) => {
+        if (userId) socket.join(`user:${userId}`);
+    });
+});
 
 // Trust the first proxy (required on Render/Heroku/etc. for rate limiting and secure cookies)
 app.set('trust proxy', 1);
@@ -280,7 +300,7 @@ async function processActivityReminders() {
 }
 
 // Start server
-app.listen(PORT, async () => {
+httpServer.listen(PORT, async () => {
   await ensureCalendarsSchema();
   await ensureAppointmentsSchema();
   // Run activity reminder cron every hour

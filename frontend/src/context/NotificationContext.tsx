@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { API_URL } from '../config/api';
 import { useAuth } from './AuthContext';
+import { useSocket } from './SocketContext';
 
 interface Notification {
     id: number;
@@ -27,6 +28,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const { isAuthenticated } = useAuth();
+    const { socket } = useSocket();
 
     const fetchNotifications = useCallback(async () => {
         if (!isAuthenticated) return;
@@ -62,13 +64,20 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         }
     };
 
-    // Initial fetch + poll every 30s
+    // Initial fetch + poll every 30s as fallback
     useEffect(() => {
         if (!isAuthenticated) return;
         fetchNotifications();
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
     }, [isAuthenticated, fetchNotifications]);
+
+    // Real-time: refresh when socket emits notifications_updated
+    useEffect(() => {
+        if (!socket) return;
+        socket.on('notifications_updated', fetchNotifications);
+        return () => { socket.off('notifications_updated', fetchNotifications); };
+    }, [socket, fetchNotifications]);
 
     return (
         <NotificationContext.Provider value={{ notifications, unreadCount, fetchNotifications, refresh: fetchNotifications, markAsRead, markAllAsRead }}>

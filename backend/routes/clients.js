@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail, transferCancelledEmail, bookingLinkEmail, isEmailEnabled } from '../lib/email.js';
 import { createNotification } from '../lib/notifications.js';
+import { getIO } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -364,6 +365,10 @@ router.post('/', async (req, res) => {
             description: `Client "${name.trim()}" has been added to your client list.`,
             relatedId: row.id
         }).catch(() => {});
+
+        // Real-time update
+        const io = getIO();
+        if (io) io.to(`user:${userId}`).emit('clients_updated');
     } catch (error) {
         console.error('Error creating client:', error);
         res.status(500).json({ error: error.message || 'Failed to create client' });
@@ -542,6 +547,11 @@ router.put('/:id', async (req, res) => {
         );
 
         const row = result.rows[0];
+
+        // Real-time update
+        const io = getIO();
+        if (io) io.to(`user:${userId}`).emit('clients_updated');
+
         res.json({
             id: row.id, name: row.name, phone: row.phone, email: row.email,
             age: row.age, occupation: row.occupation, gender: row.gender,

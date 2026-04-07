@@ -11,6 +11,7 @@ import { exportToCSV } from './utils/exportCSV';
 import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
 import ConfirmModal from './components/ConfirmModal';
+import { useSocket } from './context/SocketContext';
 
 const TAB_SLUGS: Record<string, string> = {
   'upcoming': 'Upcoming',
@@ -57,6 +58,8 @@ const Appointments: React.FC = () => {
 
   const tabs = ['Upcoming', 'All Bookings', 'Completed', 'Pending Session Notes', 'Cancelled', 'No Show'];
 
+  const { socket } = useSocket();
+
   const fetchAppointments = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
@@ -72,6 +75,13 @@ const Appointments: React.FC = () => {
   };
 
   useEffect(() => { fetchAppointments(); }, []);
+
+  // Real-time: refresh when socket emits bookings_updated
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('bookings_updated', fetchAppointments);
+    return () => { socket.off('bookings_updated', fetchAppointments); };
+  }, [socket]);
 
   const updateStatus = async (id: number, status: string) => {
     try {

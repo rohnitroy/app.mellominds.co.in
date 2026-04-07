@@ -4,6 +4,7 @@ import pool from '../config/database.js';
 import { createNotification } from '../lib/notifications.js';
 import { sendEmail, bookingConfirmationEmail, cancellationEmail, rescheduleConfirmationEmail, isEmailEnabled } from '../lib/email.js';
 import { getGoogleAuthClient } from '../lib/googleAuth.js';
+import { getIO } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -177,6 +178,13 @@ router.post('/public', async (req, res) => {
             description: `You have received a new booking from ${client_name}`,
             relatedId: insertRes.rows[0].id
         });
+
+        // Real-time: notify therapist's connected clients
+        const io = getIO();
+        if (io) {
+            io.to(`user:${userId}`).emit('bookings_updated');
+            io.to(`user:${userId}`).emit('notifications_updated');
+        }
 
         // Send confirmation email to client
         if (await isEmailEnabled(userId, 'booking_confirmation')) {
@@ -902,6 +910,13 @@ router.post('/', async (req, res) => {
             relatedId: insertRes.rows[0].id
         });
 
+        // Real-time update
+        const io = getIO();
+        if (io) {
+            io.to(`user:${userId}`).emit('bookings_updated');
+            io.to(`user:${userId}`).emit('clients_updated');
+        }
+
         res.status(201).json(insertRes.rows[0]);
 
     } catch (error) {
@@ -1053,6 +1068,10 @@ router.patch('/:id/reschedule', async (req, res) => {
             relatedId: appt.id
         }).catch(() => {});
 
+        // Real-time update
+        const io = getIO();
+        if (io) io.to(`user:${userId}`).emit('bookings_updated');
+
         res.json(updated.rows[0]);
     } catch (err) {
         console.error('Error rescheduling booking:', err);
@@ -1138,6 +1157,10 @@ router.patch('/:id/status', async (req, res) => {
             }).catch(() => {});
         }
 
+        // Real-time update
+        const io = getIO();
+        if (io) io.to(`user:${userId}`).emit('bookings_updated');
+
         res.json(appt);
     } catch (error) {
         console.error('Error updating booking status:', error);
@@ -1184,6 +1207,10 @@ router.patch('/:id/payment', async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Booking not found' });
         }
+
+        // Real-time update
+        const io = getIO();
+        if (io) io.to(`user:${userId}`).emit('bookings_updated');
 
         res.json(result.rows[0]);
     } catch (error) {

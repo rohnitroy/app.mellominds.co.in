@@ -9,6 +9,7 @@ import Loader from './components/Loader';
 import { useToast } from './context/ToastContext';
 import { exportToCSV } from './utils/exportCSV';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useSocket } from './context/SocketContext';
 interface Client {
   id: number;
   name: string;
@@ -121,9 +122,22 @@ const AllClients: React.FC = () => {
     }
   };
 
+  const { socket } = useSocket();
+
   useEffect(() => {
     fetchClients();
   }, []);
+
+  // Real-time: refresh when socket emits clients_updated or bookings_updated
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('clients_updated', fetchClients);
+    socket.on('bookings_updated', fetchClients);
+    return () => {
+      socket.off('clients_updated', fetchClients);
+      socket.off('bookings_updated', fetchClients);
+    };
+  }, [socket]);
 
   // Handle URL-based client selection (e.g. /clients/:clientId/:tab)
   useEffect(() => {

@@ -27,6 +27,7 @@ import ProfileLink from './components/ProfileLink';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
+import { SocketProvider } from './context/SocketContext';
 import ToastContainer from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import API_BASE_URL from './config/api';
@@ -1201,10 +1202,12 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <ToastProvider>
-        <NotificationProvider>
-          <AppContent />
-          <Analytics />
-        </NotificationProvider>
+        <SocketProvider>
+          <NotificationProvider>
+            <AppContent />
+            <Analytics />
+          </NotificationProvider>
+        </SocketProvider>
       </ToastProvider>
     </AuthProvider>
   );
