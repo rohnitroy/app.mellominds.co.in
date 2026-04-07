@@ -26,6 +26,7 @@ import cashfreeRoutes from './routes/cashfree.js';
 import enterpriseRoutes from './routes/enterprise.js';
 import emailPreferencesRoutes from './routes/emailPreferences.js';
 import profileLinkRoutes from './routes/profileLink.js';
+import gmailRoutes from './routes/gmail.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -122,6 +123,7 @@ app.use('/api/cashfree', cashfreeRoutes);
 app.use('/api/enterprise', enterpriseRoutes);
 app.use('/api/email-preferences', emailPreferencesRoutes);
 app.use('/api/profile-link', profileLinkRoutes);
+app.use('/api/gmail', gmailRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -243,7 +245,7 @@ async function processSessionReminders() {
                 meetLink: appt.meet_link,
                 locationText: appt.location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet'
             });
-            await sendEmail({ to: appt.client_email, ...emailContent });
+            await sendEmail({ to: appt.client_email, ...emailContent, senderId: appt.therapist_id });
             _remindersSentThisRun.add(appt.id);
             console.log(`✅ Session reminder sent to ${appt.client_email} for "${appt.title}"`);
         }
@@ -280,7 +282,7 @@ async function processActivityReminders() {
                 isReminder: true,
                 reminderNum
             });
-            await sendEmail({ to: act.client_email, ...emailContent });
+            await sendEmail({ to: act.client_email, ...emailContent, senderId: act.therapist_id });
 
             const newSent = reminderNum;
             const hasMore = newSent < act.reminder_count;

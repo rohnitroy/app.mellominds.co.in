@@ -5,10 +5,12 @@ import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from './config/api';
 import ConfirmModal from './components/ConfirmModal';
 import { useAuth } from './context/AuthContext';
+import { useToast } from './context/ToastContext';
 
 const MySettings: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToast();
   const isEnterprise = user?.plan_name === 'enterprise';
 
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -20,6 +22,16 @@ const MySettings: React.FC = () => {
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
 
   useEffect(() => {
+    // Handle Gmail OAuth redirect result
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('gmail_connected') === 'true') {
+      toast.success('Gmail connected successfully!');
+      navigate('/settings/reminders', { replace: true });
+    } else if (params.get('gmail_error')) {
+      toast.error('Failed to connect Gmail. Please try again.');
+      navigate('/settings', { replace: true });
+    }
+
     const checkGoogleStatus = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/connect-calendar/status`, {

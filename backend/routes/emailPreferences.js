@@ -15,6 +15,7 @@ const CONTROLLABLE_KEYS = [
     'invoice',
     'transfer_request',
     'transfer_status',
+    'use_own_email',
 ];
 
 // GET /api/email-preferences

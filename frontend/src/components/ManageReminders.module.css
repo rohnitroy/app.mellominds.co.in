@@ -140,3 +140,124 @@
     font-size: 14px;
     margin-bottom: 20px;
 }
+
+/* ─── Gmail / Sender Card ─────────────────────────────────────────────────── */
+
+.senderCard {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.senderHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.senderTitle {
+    display: block;
+    font-size: 15px;
+    font-weight: 700;
+    color: #082421;
+    margin-bottom: 3px;
+}
+
+.senderDesc {
+    display: block;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.enterpriseBadge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #082421;
+    background: #d1fae5;
+    border-radius: 6px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.gmailRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid #f3f4f6;
+}
+
+.gmailInfo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gmailIcon {
+    color: #6b7280;
+    flex-shrink: 0;
+}
+
+.gmailEmail {
+    font-size: 14px;
+    font-weight: 500;
+    color: #082421;
+}
+
+.gmailNotConnected {
+    font-size: 14px;
+    color: #9ca3af;
+}
+
+.connectBtn {
+    background: #082421;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.connectBtn:hover {
+    background: #0f3d38;
+}
+
+.disconnectBtn {
+    background: none;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.disconnectBtn:hover {
+    background: #fef2f2;
+}
+
+.disconnectBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.useOwnEmailRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0 2px;
+    border-top: 1px solid #f3f4f6;
+    margin-top: 4px;
+}

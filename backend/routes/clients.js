@@ -156,7 +156,7 @@ router.post('/transfers/:transferId/approve', async (req, res) => {
                 fromTherapistName: fromTherapistRes.rows[0].user_name,
                 clientName: transfer.name
             });
-            await sendEmail({ to: fromTherapistRes.rows[0].email, ...emailContent });
+            await sendEmail({ to: fromTherapistRes.rows[0].email, ...emailContent, senderId: toTherapistId });
         }
 
         res.json({ message: 'Transfer approved successfully' });
@@ -211,7 +211,7 @@ router.post('/transfers/:transferId/reject', async (req, res) => {
                         fromTherapistName: r.rows[0].user_name,
                         clientName: transfer.client_name
                     });
-                    sendEmail({ to: r.rows[0].email, ...emailContent });
+                    sendEmail({ to: r.rows[0].email, ...emailContent, senderId: toTherapistId });
                 }
             }).catch(() => {});
     } catch (error) {
@@ -262,6 +262,7 @@ router.delete('/transfers/:transferId/cancel', async (req, res) => {
             if (!enabled) return;
             sendEmail({
                 to: t.to_therapist_email,
+                senderId: fromTherapistId,
                 ...transferCancelledEmail({
                     recipientName: t.to_therapist_name,
                     fromTherapistName: t.from_therapist_name,
@@ -273,6 +274,7 @@ router.delete('/transfers/:transferId/cancel', async (req, res) => {
             if (t.client_email) {
                 sendEmail({
                     to: t.client_email,
+                    senderId: fromTherapistId,
                     ...transferCancelledEmail({
                         recipientName: t.client_name,
                         fromTherapistName: t.from_therapist_name,
@@ -340,7 +342,7 @@ router.post('/', async (req, res) => {
                         duration: cal.duration,
                         bookingLink,
                     });
-                    await sendEmail({ to: email.trim().toLowerCase(), ...emailContent });
+                    await sendEmail({ to: email.trim().toLowerCase(), ...emailContent, senderId: userId });
                 }
             } catch (emailErr) {
                 console.error('Failed to send welcome email:', emailErr.message);
@@ -485,7 +487,7 @@ router.post('/:id/transfer', async (req, res) => {
                 fromTherapistName: fromName,
                 clientName: clientRes.rows[0].name
             });
-            await sendEmail({ to: targetRes.rows[0].email, ...emailContent });
+            await sendEmail({ to: targetRes.rows[0].email, ...emailContent, senderId: req.user.id });
         }
 
         res.json({ message: `Transfer request sent to ${targetRes.rows[0].user_name || target_email}. Awaiting their approval.` });

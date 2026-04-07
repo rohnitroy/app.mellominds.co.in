@@ -198,7 +198,7 @@ router.post('/public', async (req, res) => {
                 cancelToken: insertRes.rows[0].cancel_token,
                 frontendUrl: process.env.FRONTEND_URL
             });
-            await sendEmail({ to: client_email, ...emailContent });
+            await sendEmail({ to: client_email, ...emailContent, senderId: userId });
         }
 
         // Send confirmation email to therapist
@@ -219,7 +219,7 @@ router.post('/public', async (req, res) => {
                     `Your session has been confirmed with <strong>${client_name}</strong>`,
                     `A new session has been booked by <strong>${client_name}</strong>${partner_name ? ` &amp; <strong>${partner_name}</strong>` : ''}`
                 );
-            await sendEmail({ to: calendarService.therapist_email, ...therapistNotifContent });
+            await sendEmail({ to: calendarService.therapist_email, ...therapistNotifContent, senderId: userId });
         }
 
         // If couples session — upsert partner as client and send them a confirmation too
@@ -248,7 +248,7 @@ router.post('/public', async (req, res) => {
                 cancelToken: insertRes.rows[0].cancel_token,
                 frontendUrl: process.env.FRONTEND_URL
             });
-            await sendEmail({ to: partner_email, ...partnerEmailContent });
+            await sendEmail({ to: partner_email, ...partnerEmailContent, senderId: userId });
         }
 
         // Send confirmation to any additional email-type fields captured in the form
@@ -280,7 +280,7 @@ router.post('/public', async (req, res) => {
                     cancelToken: insertRes.rows[0].cancel_token,
                     frontendUrl: process.env.FRONTEND_URL
                 });
-                await sendEmail({ to: extraEmail, ...extraEmailContent });
+                await sendEmail({ to: extraEmail, ...extraEmailContent, senderId: userId });
             }
         } catch (extraEmailErr) {
             console.error('Failed to send extra email confirmations:', extraEmailErr.message);
@@ -418,7 +418,8 @@ router.post('/manage/:token/cancel', async (req, res) => {
                     sessionTitle: appt.title,
                     startTime: appt.start_time,
                     cancelledBy: 'you'
-                })
+                }),
+                senderId: appt.therapist_id
             }).catch(err => console.error('Client cancellation email failed:', err.message));
 
             // Email therapist (non-fatal)
@@ -430,7 +431,8 @@ router.post('/manage/:token/cancel', async (req, res) => {
                     sessionTitle: appt.title,
                     startTime: appt.start_time,
                     cancelledBy: appt.client_name
-                })
+                }),
+                senderId: appt.therapist_id
             }).catch(err => console.error('Therapist cancellation email failed:', err.message));
         }
 
@@ -534,7 +536,7 @@ router.post('/manage/:token/reschedule', async (req, res) => {
                 newStartTime: newStart.toISOString(),
                 meetLink: newMeetLink
             });
-            await sendEmail({ to: appt.client_email, ...clientEmail });
+            await sendEmail({ to: appt.client_email, ...clientEmail, senderId: appt.therapist_id });
 
             // Email therapist
             const therapistRescheduleEmail = rescheduleConfirmationEmail({
@@ -545,7 +547,7 @@ router.post('/manage/:token/reschedule', async (req, res) => {
                 meetLink: newMeetLink
             });
             therapistRescheduleEmail.subject = `Session Rescheduled — ${appt.title} with ${appt.client_name}`;
-            await sendEmail({ to: appt.therapist_email, ...therapistRescheduleEmail });
+            await sendEmail({ to: appt.therapist_email, ...therapistRescheduleEmail, senderId: appt.therapist_id });
         }
 
         res.json({ message: 'Booking rescheduled successfully', new_start_time: newStart });
@@ -962,6 +964,7 @@ router.post('/:id/reminder', async (req, res) => {
         await sendEmail({
             to: appt.client_email,
             subject: `Reminder: Your session with ${appt.therapist_name} is coming up`,
+            senderId: userId,
             html: `
                 <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px; color: #1a1a1a;">
                     <h2 style="color: #082421;">Session Reminder</h2>
@@ -1056,7 +1059,7 @@ router.patch('/:id/reschedule', async (req, res) => {
                 newStartTime: newStart.toISOString(),
                 meetLink: appt.meet_link
             });
-            sendEmail({ to: appt.client_email, ...emailContent }).catch(() => {});
+            sendEmail({ to: appt.client_email, ...emailContent, senderId: userId }).catch(() => {});
         }
 
         // Notify therapist of their own reschedule action
@@ -1143,7 +1146,7 @@ router.patch('/:id/status', async (req, res) => {
                 startTime: appt.start_time,
                 cancelledBy: 'your therapist'
             });
-            sendEmail({ to: appt.client_email, ...emailContent }).catch(() => {});
+            sendEmail({ to: appt.client_email, ...emailContent, senderId: userId }).catch(() => {});
         }
 
         // Notify therapist of their own cancellation action
@@ -1259,7 +1262,7 @@ router.post('/send-link', async (req, res) => {
             bookingLink,
         });
 
-        await sendEmail({ to: client_email, ...emailContent });
+        await sendEmail({ to: client_email, ...emailContent, senderId: userId });
         res.json({ message: 'Booking link sent successfully' });
     } catch (error) {
         console.error('Error sending booking link:', error);
@@ -1300,6 +1303,7 @@ router.post('/send-link/bulk', async (req, res) => {
             clients.map(({ name, email }) =>
                 sendEmail({
                     to: email,
+                    senderId: userId,
                     ...bookingLinkEmail({
                         clientName: name,
                         therapistName: cal.therapist_name,
@@ -1430,6 +1434,7 @@ router.post('/:id/send-invoice', async (req, res) => {
             to: b.client_email,
             subject: `Invoice for your session — ${b.title} (#${b.id})`,
             html,
+            senderId: userId,
         });
 
         res.json({ message: 'Invoice sent successfully' });

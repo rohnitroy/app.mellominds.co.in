@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { google } from 'googleapis';
 import pool from '../config/database.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -36,10 +37,152 @@ export async function isEmailEnabled(userId, prefKey) {
 }
 
 /**
- * Send an email.
- * @param {object} opts - { to, cc, subject, html, text? }
+ * Get a refreshed Gmail OAuth2 client for a user, or null if not connected.
+ * @param {number} userId
  */
-export async function sendEmail({ to, cc, subject, html, text }) {
+async function getGmailClient(userId) {
+    const result = await pool.query(
+        "SELECT access_token, refresh_token, expiry_date FROM UserIntegrations WHERE user_id = $1 AND provider = 'gmail'",
+        [userId]
+    );
+    if (result.rows.length === 0) return null;
+
+    const { access_token, refresh_token, expiry_date } = result.rows[0];
+    if (!refresh_token) return null;
+
+    const GMAIL_CALLBACK_URL =
+        process.env.GMAIL_CALLBACK_URL ||
+        `http://localhost:${process.env.PORT || 3001}/api/gmail/callback`;
+
+    const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        GMAIL_CALLBACK_URL
+    );
+    oauth2Client.setCredentials({ access_token, refresh_token, expiry_date });
+
+    const fiveMinMs = 5 * 60 * 1000;
+    if (!expiry_date || Date.now() >= Number(expiry_date) - fiveMinMs) {
+        try {
+            const { credentials } = await oauth2Client.refreshAccessToken();
+            await pool.query(
+                `UPDATE UserIntegrations SET access_token = $1, expiry_date = $2, updated_at = NOW()
+                 WHERE user_id = $3 AND provider = 'gmail'`,
+                [credentials.access_token, credentials.expiry_date, userId]
+            );
+            if (credentials.refresh_token) {
+                await pool.query(
+                    `UPDATE UserIntegrations SET refresh_token = $1 WHERE user_id = $2 AND provider = 'gmail'`,
+                    [credentials.refresh_token, userId]
+                );
+            }
+            oauth2Client.setCredentials(credentials);
+        } catch (err) {
+            console.error(`[gmail] Token refresh failed for user ${userId}:`, err.message);
+            return null;
+        }
+    }
+    return oauth2Client;
+}
+
+/**
+ * Send an email via the user's own Gmail account.
+ * @param {object} opts - { userId, fromName, fromEmail, to, cc, subject, html, text? }
+ */
+async function sendViaGmail({ userId, fromName, fromEmail, to, cc, subject, html, text }) {
+    const auth = await getGmailClient(userId);
+    if (!auth) {
+        console.warn(`[gmail] No valid Gmail client for user ${userId} — falling back to Resend`);
+        return false;
+    }
+
+    const gmail = google.gmail({ version: 'v1', auth });
+    const plainText = text || html.replace(/<[^>]+>/g, '');
+    const fromHeader = `${fromName} <${fromEmail}>`;
+
+    // Build RFC 2822 message
+    const lines = [
+        `From: ${fromHeader}`,
+        `To: ${to}`,
+        ...(cc ? [`Cc: ${cc}`] : []),
+        `Subject: ${subject}`,
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/alternative; boundary="boundary"',
+        '',
+        '--boundary',
+        'Content-Type: text/plain; charset=UTF-8',
+        '',
+        plainText,
+        '--boundary',
+        'Content-Type: text/html; charset=UTF-8',
+        '',
+        html,
+        '--boundary--',
+    ];
+
+    const raw = Buffer.from(lines.join('\r\n'))
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+    try {
+        await gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
+        console.log(`✅ Gmail sent (user ${userId}) to ${to}: ${subject}`);
+        return true;
+    } catch (err) {
+        console.error(`[gmail] Send failed for user ${userId}:`, err.message);
+        if (err.message?.includes('Gmail API has not been used') || err.message?.includes('disabled')) {
+            console.error('[gmail] ⚠️  Enable the Gmail API at: https://console.cloud.google.com/apis/library/gmail.googleapis.com');
+        }
+        return false;
+    }
+}
+
+/**
+ * Send an email. If the therapist (identified by senderId) has use_own_email enabled
+ * and is on the enterprise plan, sends via their Gmail. Otherwise uses Resend.
+ *
+ * @param {object} opts - { to, cc, subject, html, text?, senderId? }
+ *   senderId: therapist's user ID — required to attempt Gmail routing
+ */
+export async function sendEmail({ to, cc, subject, html, text, senderId }) {
+    // Try Gmail routing if senderId is provided
+    if (senderId) {
+        try {
+            const userResult = await pool.query(
+                "SELECT plan_name, email_preferences FROM Users WHERE id = $1",
+                [senderId]
+            );
+            const user = userResult.rows[0];
+            const useOwnEmail = user?.email_preferences?.use_own_email === true;
+            const isEnterprise = user?.plan_name === 'enterprise';
+
+            if (isEnterprise && useOwnEmail) {
+                // Get the connected Gmail address
+                const integResult = await pool.query(
+                    "SELECT calendar_id as gmail_email FROM UserIntegrations WHERE user_id = $1 AND provider = 'gmail'",
+                    [senderId]
+                );
+                const gmailEmail = integResult.rows[0]?.gmail_email;
+                if (gmailEmail) {
+                    const sent = await sendViaGmail({
+                        userId: senderId,
+                        fromName: user.user_name || 'MelloMinds',
+                        fromEmail: gmailEmail,
+                        to, cc, subject, html, text,
+                    });
+                    if (sent) return;
+                    // Fall through to Resend on failure
+                }
+            }
+        } catch (err) {
+            console.error('[sendEmail] Gmail routing check failed:', err.message);
+            // Fall through to Resend
+        }
+    }
+
+    // Default: Resend
     if (!process.env.RESEND_API_KEY) {
         console.warn('Email not configured — skipping send.');
         return;
@@ -55,7 +198,6 @@ export async function sendEmail({ to, cc, subject, html, text }) {
         });
         console.log(`✅ Email sent to ${to}: ${subject}`);
     } catch (err) {
-        // Non-fatal — log but don't crash the request
         console.error(`❌ Email failed to ${to}:`, err.message);
         console.error('   Verify RESEND_API_KEY is valid.');
     }

@@ -98,7 +98,7 @@ async function sendImmediateActivityEmail(clientId, therapistId, activityName, a
         activityDescription,
         isReminder: false
     });
-    await sendEmail({ to: client.email, ...emailContent });
+    await sendEmail({ to: client.email, ...emailContent, senderId: therapistId });
 }
 
 export default router;
