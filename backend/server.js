@@ -40,7 +40,9 @@ const PORT = process.env.PORT || 3000;
 // Socket.io setup
 const io = new SocketIOServer(httpServer, {
     cors: {
-        origin: [process.env.FRONTEND_URL, 'http://localhost:5173'],
+        origin: process.env.NODE_ENV === 'production'
+          ? [process.env.FRONTEND_URL].filter(Boolean)
+          : [process.env.FRONTEND_URL, 'http://localhost:5173'].filter(Boolean),
         credentials: true,
     }
 });
@@ -56,10 +58,19 @@ io.on('connection', (socket) => {
 // Trust the first proxy (required on Render/Heroku/etc. for rate limiting and secure cookies)
 app.set('trust proxy', 1);
 
+// Validate critical env vars on startup
+if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
+  console.error('❌ SESSION_SECRET is missing or too short (min 32 chars). Exiting.');
+  process.exit(1);
+}
+
+const isProduction = process.env.NODE_ENV === 'production';
+
 // Security headers
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' }, // allow /uploads to be served cross-origin
-  contentSecurityPolicy: false, // disable CSP here — frontend is a separate origin
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false,
+  hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
 }));
 
 // Rate limiter for auth endpoints — 20 attempts per 15 minutes per IP
@@ -71,6 +82,15 @@ const authLimiter = rateLimit({
   message: { error: 'Too many attempts. Please try again in 15 minutes.' },
 });
 
+// General rate limiter for all API endpoints — 200 requests per 15 minutes per IP
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down and try again later.' },
+});
+
 // Middleware
 app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: true, limit: '50kb' }));
@@ -78,16 +98,19 @@ app.use(express.urlencoded({ extended: true, limit: '50kb' }));
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// CORS configuration - allow frontend to communicate with backend
+// CORS — only allow localhost in development
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [process.env.FRONTEND_URL].filter(Boolean)
+  : [process.env.FRONTEND_URL, 'http://localhost:5173'].filter(Boolean);
+
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, 'http://localhost:5173'],
-  credentials: true, // Allow cookies to be sent
+  origin: allowedOrigins,
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
 // Session configuration - required for Passport
-const isProduction = process.env.NODE_ENV === 'production';
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
@@ -108,22 +131,19 @@ app.use(passport.session());
 
 // Routes
 app.use('/auth', authLimiter, authRoutes);
-// NOTE: /api/v1/users is disabled — uses unverified JWT (see lib/tenants.js)
-// Uncomment only after replacing extractTenantContext with proper JWT verification
-// app.use('/api/v1/users', usersRoutes);
-app.use('/api/calendars', calendarRoutes);
-app.use('/api/connect-calendar', connectCalendarRoutes);
-app.use('/api/bookings', bookingsRoutes);
-app.use('/api/clients', clientsRoutes);
-app.use('/api/notes', notesRoutes);
-app.use('/api/notifications', notificationsRoutes);
-app.use('/api/activities', activitiesRoutes);
-app.use('/api/availability', availabilityRoutes);
-app.use('/api/cashfree', cashfreeRoutes);
-app.use('/api/enterprise', enterpriseRoutes);
-app.use('/api/email-preferences', emailPreferencesRoutes);
-app.use('/api/profile-link', profileLinkRoutes);
-app.use('/api/gmail', gmailRoutes);
+app.use('/api/calendars', apiLimiter, calendarRoutes);
+app.use('/api/connect-calendar', apiLimiter, connectCalendarRoutes);
+app.use('/api/bookings', apiLimiter, bookingsRoutes);
+app.use('/api/clients', apiLimiter, clientsRoutes);
+app.use('/api/notes', apiLimiter, notesRoutes);
+app.use('/api/notifications', apiLimiter, notificationsRoutes);
+app.use('/api/activities', apiLimiter, activitiesRoutes);
+app.use('/api/availability', apiLimiter, availabilityRoutes);
+app.use('/api/cashfree', apiLimiter, cashfreeRoutes);
+app.use('/api/enterprise', apiLimiter, enterpriseRoutes);
+app.use('/api/email-preferences', apiLimiter, emailPreferencesRoutes);
+app.use('/api/profile-link', apiLimiter, profileLinkRoutes);
+app.use('/api/gmail', apiLimiter, gmailRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -301,10 +321,25 @@ async function processActivityReminders() {
     }
 }
 
+// Auto-migrate Users table columns on startup
+async function ensureUsersSchema() {
+  try {
+    await pool.query(`
+      ALTER TABLE Users
+      ADD COLUMN IF NOT EXISTS reset_token TEXT,
+      ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ
+    `);
+    console.log('✅ Users schema verified');
+  } catch (err) {
+    console.error('⚠️  Users schema migration warning:', err.message);
+  }
+}
+
 // Start server
 httpServer.listen(PORT, async () => {
   await ensureCalendarsSchema();
   await ensureAppointmentsSchema();
+  await ensureUsersSchema();
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);
   processActivityReminders(); // run once on startup too

@@ -305,12 +305,9 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                 return res.status(400).json({ error: 'Invalid signature' });
             }
         } else {
-            // No signature headers — only allow in sandbox/dev, reject in production
-            if (process.env.NODE_ENV === 'production') {
-                console.warn('Cashfree webhook: missing signature headers in production for order', orderId);
-                return res.status(400).json({ error: 'Webhook signature required in production' });
-            }
-            console.warn('Cashfree webhook: no signature headers (sandbox mode), processing anyway');
+            // No signature headers — always reject, regardless of environment
+            console.warn('Cashfree webhook: missing signature headers for order', orderId);
+            return res.status(400).json({ error: 'Webhook signature required' });
         }
 
         // Mark appointment as paid — also handles the case where the booking

@@ -5,8 +5,19 @@ import { createNotification } from '../lib/notifications.js';
 import { sendEmail, bookingConfirmationEmail, cancellationEmail, rescheduleConfirmationEmail, isEmailEnabled } from '../lib/email.js';
 import { getGoogleAuthClient } from '../lib/googleAuth.js';
 import { getIO } from '../lib/socket.js';
+import rateLimit from 'express-rate-limit';
+import { sanitizeStr, isValidEmail, isValidPhone } from '../middleware/sanitize.js';
 
 const router = express.Router();
+
+// Rate limiter for public booking endpoint
+const publicBookingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many booking attempts. Please try again later.' },
+});
 
 // Middleware to ensure authentication
 const ensureAuthenticated = (req, res, next) => {
@@ -17,13 +28,38 @@ const ensureAuthenticated = (req, res, next) => {
 };
 
 // POST /api/bookings/public - Create appointment (Unauthenticated)
-router.post('/public', async (req, res) => {
+router.post('/public', publicBookingLimiter, async (req, res) => {
     const client = await pool.connect();
     try {
-        const { calendar_id, start_time, client_email, client_name, client_phone, form_responses, location_type, cashfree_order_id, partner_name, partner_email, partner_phone } = req.body;
+        let { calendar_id, start_time, client_email, client_name, client_phone, form_responses, location_type, cashfree_order_id, partner_name, partner_email, partner_phone } = req.body;
 
         if (!calendar_id || !start_time || !client_email || !client_name) {
             return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Sanitize and validate inputs
+        client_name = sanitizeStr(client_name, 100);
+        client_email = client_email.trim().toLowerCase().slice(0, 254);
+        client_phone = client_phone ? sanitizeStr(client_phone, 20) : null;
+        partner_name = partner_name ? sanitizeStr(partner_name, 100) : null;
+        partner_email = partner_email ? partner_email.trim().toLowerCase().slice(0, 254) : null;
+        partner_phone = partner_phone ? sanitizeStr(partner_phone, 20) : null;
+
+        if (!isValidEmail(client_email)) {
+            return res.status(400).json({ error: 'Invalid email address.' });
+        }
+        if (client_phone && !isValidPhone(client_phone)) {
+            return res.status(400).json({ error: 'Invalid phone number.' });
+        }
+        if (partner_email && !isValidEmail(partner_email)) {
+            return res.status(400).json({ error: 'Invalid partner email address.' });
+        }
+        if (!client_name) {
+            return res.status(400).json({ error: 'Client name is required.' });
+        }
+        // Limit form_responses size
+        if (form_responses && JSON.stringify(form_responses).length > 10000) {
+            return res.status(400).json({ error: 'Form responses too large.' });
         }
 
         // Idempotency: if a booking already exists for this cashfree_order_id, return it directly

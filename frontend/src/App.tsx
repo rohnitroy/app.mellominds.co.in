@@ -24,6 +24,7 @@ import TermsOfService from './components/TermsOfService';
 import CreateEventPage from './components/CreateEventPage';
 import ManageReminders from './components/ManageReminders';
 import ProfileLink from './components/ProfileLink';
+import ResetPassword from './components/ResetPassword';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
@@ -1151,6 +1152,7 @@ const AppContent: React.FC = () => {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protected Routes */}
           <Route element={<ProtectedRoute />}>

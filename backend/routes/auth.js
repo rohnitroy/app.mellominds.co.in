@@ -1,13 +1,15 @@
 import express from 'express';
 import passport from '../config/passport.js';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import pool from '../config/database.js';
 import multer from 'multer';
 import cloudinary from '../config/cloudinary.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { sendEmail, forgotPasswordEmail, newUserAlertEmail } from '../lib/email.js';
+import { sendEmail, passwordResetEmail, newUserAlertEmail } from '../lib/email.js';
+import { sanitizeStr, isValidEmail } from '../middleware/sanitize.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,9 +40,22 @@ router.post('/register', async (req, res) => {
   try {
     const { fullName, email, password, phoneNumber, dateOfBirth, gender, specialization, languages, country, state, city, pincode, address } = req.body;
 
-    // Validate required fields
+    // Validate and sanitize inputs
     if (!fullName || !email || !password) {
       return res.status(400).json({ error: 'Full name, email, and password are required' });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Invalid email address.' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    }
+    if (password.length > 128) {
+      return res.status(400).json({ error: 'Password too long.' });
+    }
+    const sanitizedName = sanitizeStr(fullName, 100);
+    if (!sanitizedName) {
+      return res.status(400).json({ error: 'Invalid name.' });
     }
 
     // Check if user already exists
@@ -190,42 +205,76 @@ router.post('/complete-profile', async (req, res) => {
   }
 });
 
-// POST /auth/forgot-password - Generate a temporary password
+// POST /auth/forgot-password - Send a secure reset link
 router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
+    if (!isValidEmail(email)) return res.status(400).json({ error: 'Invalid email address.' });
 
     const result = await pool.query('SELECT id, auth_provider FROM Users WHERE email = $1', [email]);
-    if (result.rows.length === 0) {
-      // Don't reveal if email exists or not
-      return res.json({ message: 'If this email is registered, a temporary password has been generated.' });
-    }
+
+    // Always return the same message to prevent email enumeration
+    const genericMsg = { message: 'If this email is registered, a reset link has been sent.' };
+
+    if (result.rows.length === 0) return res.json(genericMsg);
 
     const user = result.rows[0];
     if (user.auth_provider === 'google') {
       return res.status(400).json({ error: 'This account uses Google login. Please sign in with Google.' });
     }
 
-    // Generate a random 10-char temp password
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    let tempPassword = '';
-    for (let i = 0; i < 10; i++) tempPassword += chars[Math.floor(Math.random() * chars.length)];
+    // Generate a secure random token, store its hash, expire in 30 minutes
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expires = new Date(Date.now() + 30 * 60 * 1000);
 
-    const hashed = await bcrypt.hash(tempPassword, 10);
-    await pool.query('UPDATE Users SET password = $1 WHERE id = $2', [hashed, user.id]);
+    await pool.query(
+      'UPDATE Users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      [tokenHash, expires, user.id]
+    );
 
-    // Email the temp password — never expose it in the API response
-    const emailContent = forgotPasswordEmail({ tempPassword });
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}`;
+    const emailContent = passwordResetEmail({ resetUrl });
     await sendEmail({ to: email, ...emailContent });
 
-    res.json({ message: 'If this email is registered, a temporary password has been sent to your inbox.' });
+    res.json(genericMsg);
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ error: 'Failed to reset password' });
+    res.status(500).json({ error: 'Failed to process request' });
   }
 });
 
+// POST /auth/reset-password - Validate token and set new password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) return res.status(400).json({ error: 'Token and password are required' });
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const result = await pool.query(
+      'SELECT id FROM Users WHERE reset_token = $1 AND reset_token_expires > NOW()',
+      [tokenHash]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Reset link is invalid or has expired.' });
+    }
+
+    const hashed = await bcrypt.hash(password, 10);
+    await pool.query(
+      'UPDATE Users SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      [hashed, result.rows[0].id]
+    );
+
+    res.json({ message: 'Password updated successfully.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
 // Logout
 router.post('/logout', (req, res) => {
   req.logout((err) => {

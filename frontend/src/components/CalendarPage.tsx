@@ -28,6 +28,7 @@ const CalendarPage: React.FC = () => {
   const [fetchError, setFetchError] = useState(false);
 
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
+  const [isGoogleConnected, setIsGoogleConnected] = useState<boolean | null>(null);
 
   // 3-dot menu
   const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
@@ -68,6 +69,13 @@ const CalendarPage: React.FC = () => {
   };
 
   useEffect(() => { fetchCalendars(); }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/connect-calendar/status`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setIsGoogleConnected(!!d.connected))
+      .catch(() => setIsGoogleConnected(false));
+  }, []);
 
   // Close 3-dot menu on outside click
   useEffect(() => {
@@ -175,8 +183,15 @@ const CalendarPage: React.FC = () => {
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             className="create-calendar-btn"
-            onClick={() => setShowAvailabilityModal(true)}
-            style={{ backgroundColor: '#fff', color: '#333', border: '1px solid #ccc' }}
+            onClick={() => isGoogleConnected && setShowAvailabilityModal(true)}
+            title={!isGoogleConnected ? 'Connect Google Calendar in Settings first' : ''}
+            style={{
+              backgroundColor: '#fff',
+              color: isGoogleConnected ? '#333' : '#aaa',
+              border: `1px solid ${isGoogleConnected ? '#ccc' : '#e0e0e0'}`,
+              cursor: isGoogleConnected ? 'pointer' : 'not-allowed',
+              opacity: isGoogleConnected === null ? 0.5 : 1,
+            }}
           >
             Available Hours
           </button>

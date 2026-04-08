@@ -12,7 +12,6 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showForgotModal, setShowForgotModal] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
-  const [tempPassword, setTempPassword] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -75,13 +74,12 @@ const LoginPage: React.FC = () => {
         body: JSON.stringify({ email: forgotEmail })
       })
       const data = await res.json()
-      if (res.ok && data.tempPassword) {
-        setTempPassword(data.tempPassword)
-      } else if (res.ok) {
-        toast.info('If this email is registered, a temporary password has been generated.')
+      if (res.ok) {
+        toast.success('If this email is registered, a reset link has been sent to your inbox.')
         setShowForgotModal(false)
+        setForgotEmail('')
       } else {
-        toast.error(data.error || 'Failed to reset password')
+        toast.error(data.error || 'Failed to send reset link')
       }
     } catch {
       toast.error('Network error. Please try again.')

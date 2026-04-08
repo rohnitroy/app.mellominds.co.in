@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../config/database.js';
+import { sanitizeStr, isValidSlug } from '../middleware/sanitize.js';
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ router.get('/public/:userId/:slug', async (req, res) => {
     try {
         const { userId, slug } = req.params;
         const result = await pool.query(
-            `SELECT c.*, u.user_name as therapist_name, u.email as therapist_email, u.profile_picture 
+            `SELECT c.*, u.user_name as therapist_name, u.profile_picture 
              FROM Calendars c
              JOIN Users u ON c.user_id = u.id
              WHERE c.user_id = $1 AND (c.slug = $2 OR c.slug = $3) AND c.is_active = true`,
@@ -32,7 +33,7 @@ router.get('/public/u/:profileSlug/:slug', async (req, res) => {
     try {
         const { profileSlug, slug } = req.params;
         const result = await pool.query(
-            `SELECT c.*, u.user_name as therapist_name, u.email as therapist_email, u.profile_picture
+            `SELECT c.*, u.user_name as therapist_name, u.profile_picture
              FROM Calendars c
              JOIN Users u ON c.user_id = u.id
              WHERE u.profile_slug = $1 AND (c.slug = $2 OR c.slug = $3) AND c.is_active = true`,
@@ -51,7 +52,7 @@ router.get('/public/u/:profileSlug/:slug', async (req, res) => {
     try {
         const { profileSlug, slug } = req.params;
         const result = await pool.query(
-            `SELECT c.*, u.user_name as therapist_name, u.email as therapist_email, u.profile_picture
+            `SELECT c.*, u.user_name as therapist_name, u.profile_picture
              FROM Calendars c
              JOIN Users u ON c.user_id = u.id
              WHERE u.profile_slug = $1 AND (c.slug = $2 OR c.slug = $3) AND c.is_active = true`,
@@ -121,6 +122,12 @@ router.post('/', async (req, res) => {
 
         if (!title || !duration) {
             return res.status(400).json({ error: 'Title and duration are required' });
+        }
+        if (title.length > 150) {
+            return res.status(400).json({ error: 'Title too long (max 150 chars).' });
+        }
+        if (slug && !isValidSlug(slug.replace(/^\//, ''))) {
+            return res.status(400).json({ error: 'Slug must be lowercase alphanumeric and hyphens only.' });
         }
 
         // Require Google Calendar connection before creating a calendar

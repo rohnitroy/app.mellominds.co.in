@@ -5,6 +5,7 @@ import DateInput from './components/DateInput';
 import CustomDropdown from './components/CustomDropdown';
 import LanguageMultiSelect from './components/LanguageMultiSelect';
 import CountrySelect from './components/CountrySelect';
+import StateSelect from './components/StateSelect';
 import { useToast } from './context/ToastContext';
 import API_BASE_URL from './config/api';
 import Loader from './components/Loader';
@@ -302,10 +303,10 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
 
           <div className={styles.formGroup}>
             <label>State<span className={styles.required}>*</span></label>
-            <input
-              type="text"
+            <StateSelect
+              country={formData.country}
               value={formData.state}
-              onChange={(e) => handleInputChange('state', e.target.value)}
+              onChange={(val) => handleInputChange('state', val)}
             />
           </div>
 
