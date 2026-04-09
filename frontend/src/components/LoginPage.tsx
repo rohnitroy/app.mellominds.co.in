@@ -222,15 +222,24 @@ const LoginPage: React.FC = () => {
             </div>
             <h3 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px', margin: '0 0 8px 0', color: '#082421' }}>Forgot Your Password?</h3>
             <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 20px 0', lineHeight: 1.6 }}>
-              Please contact our support team and we'll help you reset your password.
+              Enter your email address and we'll send you a link to reset your password.
             </p>
-            <a href="mailto:mellomindsventure@gmail.com"
-              style={{ display: 'inline-block', background: '#082421', color: '#fff', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', padding: '12px 24px', borderRadius: '8px', textDecoration: 'none', marginBottom: '12px' }}>
-              mellomindsventure@gmail.com
-            </a>
-            <br />
+            <form onSubmit={handleForgotPassword}>
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={forgotEmail}
+                onChange={e => setForgotEmail(e.target.value)}
+                required
+                style={{ width: '100%', padding: '12px 14px', borderRadius: '8px', border: '1px solid #D1D5DB', fontFamily: 'Urbanist', fontSize: '14px', marginBottom: '16px', boxSizing: 'border-box', outline: 'none' }}
+              />
+              <button type="submit" disabled={forgotLoading}
+                style={{ width: '100%', background: '#082421', color: '#fff', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', padding: '12px', borderRadius: '8px', border: 'none', cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.7 : 1, marginBottom: '12px' }}>
+                {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+            </form>
             <button onClick={() => setShowForgotModal(false)}
-              style={{ background: 'none', border: 'none', fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', cursor: 'pointer', marginTop: '8px' }}>
+              style={{ background: 'none', border: 'none', fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', cursor: 'pointer' }}>
               Close
             </button>
           </div>
