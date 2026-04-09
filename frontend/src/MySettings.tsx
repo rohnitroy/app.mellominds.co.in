@@ -175,22 +175,6 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard}>
-            <div className={styles.cardContent}>
-              <h3>
-                <Paper set="bulk" size="medium" primaryColor="#082421" />
-                Clinical Profile
-                <div className={styles.comingSoonTag}>Coming soon</div>
-              </h3>
-              <p>customize client's clinical profile form...</p>
-            </div>
-            <div className={styles.cardArrow}>
-              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-          </div>
-
           <div className={styles.settingCard} onClick={() => navigate('/settings/client-notes-template')} style={{ cursor: 'pointer' }}>
             <div className={styles.cardContent}>
               <h3>

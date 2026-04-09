@@ -22,7 +22,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     phoneNumber: '',
     dateOfBirth: '',
     email: '',
-    gender: 'Female',
+    gender: '',
     specialization: 'Counselling Therapist',
     languages: 'English, Hindi, Odia',
     country: 'India',
@@ -54,7 +54,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
               phoneNumber: data.user.phone || '',
               dateOfBirth: data.user.dob ? new Date(data.user.dob).toISOString().split('T')[0] : '',
               email: data.user.email || '',
-              gender: data.user.gender || 'Female',
+              gender: data.user.gender || '',
               specialization: data.user.specialization || 'Counselling Therapist',
               languages: data.user.language_spoken || 'English, Hindi, Odia',
               country: data.user.country || 'India',
@@ -152,9 +152,9 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
-        // Check file size (5MB limit)
-        if (file.size > 5 * 1024 * 1024) {
-          toast.error('Image size must be less than 5MB');
+        // Check file size (3MB limit)
+        if (file.size > 3 * 1024 * 1024) {
+          toast.error('Image size must be less than 3MB');
           return;
         }
 
@@ -216,6 +216,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
             )}
           </div>
           <button className={styles.changeImageBtn} onClick={handleImageChange}>+ Change profile image</button>
+          <span style={{ fontSize: '11px', color: '#9CA3AF', fontFamily: 'Urbanist', marginTop: '4px' }}>Max file size: 3MB (JPG, PNG, WebP)</span>
         </div>
 
         <div className={styles.formGrid}>
@@ -269,6 +270,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
               ]}
               value={formData.gender}
               onChange={(val) => handleInputChange('gender', val)}
+              placeholder="Select gender"
             />
           </div>
 

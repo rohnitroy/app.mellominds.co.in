@@ -3,12 +3,14 @@ import { createPortal } from 'react-dom';
 import styles from './ClientView.module.css';
 import { Call, Message, Calendar, ArrowLeft, ChevronDown, Delete } from 'react-iconly';
 import { useToast } from './context/ToastContext';
+import { useAuth } from './context/AuthContext';
 import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
 import CreateBooking from './components/CreateBooking';
 import ConfirmModal from './components/ConfirmModal';
 import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
+import UpgradePlanModal from './components/UpgradePlanModal';
 import { ColumnDef } from '@tanstack/react-table';
 
 interface Client {
@@ -38,6 +40,12 @@ interface ClientViewProps {
 
 const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, propCutoffDate, onTabChange }) => {
   const toast = useToast();
+  const { user } = useAuth();
+  const isEnterprise = user?.plan_name === 'enterprise';
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [uploadingNoteFile, setUploadingNoteFile] = useState(false);
+  const [clinicalProfileUrl, setClinicalProfileUrl] = useState<string | null>(null);
+  const [uploadingClinicalProfile, setUploadingClinicalProfile] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(initialTab || 'Overview');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
@@ -147,6 +155,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         };
         setSavedData(fresh);
         setEditData(fresh);
+        setClinicalProfileUrl(data.clinical_profile_url || null);
       })
       .catch(() => {});
   }, [client.id]);
@@ -516,6 +525,81 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     return () => clearTimeout(timer);
   }, [transferEmail]);
 
+  const handleUploadNoteFile = (appointmentId: string) => {
+    if (!isEnterprise) { setShowUpgradeModal(true); return; }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (file.size < 5 * 1024 * 1024) { toast.error('File size must be at least 5MB'); return; }
+      if (file.size > 10 * 1024 * 1024) { toast.error('File size must be less than 10MB'); return; }
+      setUploadingNoteFile(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('appointment_id', appointmentId);
+        const res = await fetch(`${API_BASE_URL}/api/notes/upload-attachment`, {
+          method: 'POST',
+          credentials: 'include',
+          body: formData,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          toast.success(`File "${data.original_name}" uploaded successfully!`);
+        } else {
+          const err = await res.json();
+          toast.error(err.error || 'Failed to upload file');
+        }
+      } catch {
+        toast.error('Error uploading file');
+      } finally {
+        setUploadingNoteFile(false);
+      }
+    };
+    input.click();
+  };
+
+  const handleUploadClinicalProfile = () => {
+    const maxSize = isEnterprise ? 10 * 1024 * 1024 : 3 * 1024 * 1024;
+    const minSize = isEnterprise ? 5 * 1024 * 1024 : 0;
+    const limitLabel = isEnterprise ? '5–10MB' : 'up to 3MB';
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (isEnterprise && file.size < minSize) { toast.error('File size must be at least 5MB'); return; }
+      if (file.size > maxSize) { toast.error(`File size must be less than ${isEnterprise ? '10MB' : '3MB'}`); return; }
+      setUploadingClinicalProfile(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${API_BASE_URL}/api/clients/${client.id}/clinical-profile`, {
+          method: 'POST',
+          credentials: 'include',
+          body: formData,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setClinicalProfileUrl(data.url);
+          toast.success(`Clinical profile "${data.original_name}" uploaded successfully!`);
+        } else {
+          const err = await res.json();
+          toast.error(err.error || 'Failed to upload clinical profile');
+        }
+      } catch {
+        toast.error('Error uploading clinical profile');
+      } finally {
+        setUploadingClinicalProfile(false);
+      }
+    };
+    input.click();
+  };
+
   const tabs: string[] = ['Overview', 'Session Notes', 'Activity Suggestion'];
 
   const handleTransferClient = async () => {
@@ -800,7 +884,29 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
           <div className={styles.infoSection}>
             <h3>Clinical Profile:</h3>
             <div className={styles.clinicalProfileCard}>
-              <button className={styles.addClinicalBtn}>+ add clinical profile</button>
+              {clinicalProfileUrl ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2D7579" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  <a href={clinicalProfileUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: '13px', color: '#2D7579', fontFamily: 'Urbanist', fontWeight: 600, textDecoration: 'underline' }}>
+                    View Clinical Profile
+                  </a>
+                  {!(isTransferredClient && transferCutoffDate) && (
+                    <button className={styles.addClinicalBtn} onClick={handleUploadClinicalProfile} disabled={uploadingClinicalProfile}>
+                      {uploadingClinicalProfile ? 'Uploading...' : '↑ Replace file'}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                  <button className={styles.addClinicalBtn} onClick={handleUploadClinicalProfile} disabled={uploadingClinicalProfile}>
+                    {uploadingClinicalProfile ? 'Uploading...' : '+ add clinical profile'}
+                  </button>
+                  <span style={{ fontSize: '11px', color: '#9CA3AF', fontFamily: 'Urbanist' }}>{isEnterprise ? '5–10MB' : 'Up to 3MB'} · PDF, DOC, TXT, Image</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -932,6 +1038,18 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                             onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
                             + Add Note
                           </button>
+                        )}
+                        {!(isTransferredClient && transferCutoffDate) && (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                            <button
+                              className={styles.noteEditBtn}
+                              style={{ marginLeft: '4px' }}
+                              disabled={uploadingNoteFile}
+                              onClick={() => handleUploadNoteFile(app.id.toString())}>
+                              {uploadingNoteFile ? 'Uploading...' : '↑ Upload File'}
+                            </button>
+                            <span style={{ fontSize: '10px', color: '#9CA3AF', fontFamily: 'Urbanist' }}>5–10MB · PDF, DOC, TXT, Image</span>
+                          </div>
                         )}
                       </div>
                       <div className={styles.sessionNotes}>
@@ -1623,6 +1741,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         }}
         onCancel={() => setConfirmModal(null)}
       />
+
+      <UpgradePlanModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );
 };

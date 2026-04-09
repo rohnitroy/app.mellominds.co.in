@@ -1,5 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
+import multer from 'multer';
+import cloudinary from '../config/cloudinary.js';
 
 const router = express.Router();
 
@@ -10,7 +12,60 @@ const ensureAuthenticated = (req, res, next) => {
 
 router.use(ensureAuthenticated);
 
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit for session note files
+
 // ─── Static routes first ──────────────────────────────────────────────────────
+
+// POST /api/notes/upload-attachment - Upload a session note file (Enterprise only)
+router.post('/upload-attachment', upload.single('file'), async (req, res) => {
+    try {
+        if (req.user.plan_name !== 'enterprise') {
+            return res.status(403).json({ error: 'This feature is available for Enterprise plan users only.' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const therapistId = req.user.id;
+        const { appointment_id } = req.body;
+
+        if (!appointment_id) {
+            return res.status(400).json({ error: 'appointment_id is required' });
+        }
+
+        // Verify appointment belongs to this therapist
+        const ownerCheck = await pool.query(
+            'SELECT id FROM Appointments WHERE id = $1 AND therapist_id = $2',
+            [appointment_id, therapistId]
+        );
+        if (ownerCheck.rows.length === 0) {
+            return res.status(403).json({ error: 'Appointment not found or access denied' });
+        }
+
+        const uploadResult = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'mellominds/session-notes',
+                    public_id: `therapist_${therapistId}_appt_${appointment_id}_${Date.now()}`,
+                    resource_type: 'auto',
+                },
+                (error, result) => { if (error) reject(error); else resolve(result); }
+            );
+            stream.end(req.file.buffer);
+        });
+
+        res.json({
+            url: uploadResult.secure_url,
+            original_name: req.file.originalname,
+            resource_type: uploadResult.resource_type,
+            format: uploadResult.format,
+        });
+    } catch (error) {
+        console.error('Session note upload error:', error);
+        res.status(500).json({ error: 'Failed to upload file' });
+    }
+});
 
 // GET /api/notes/template/me - Get therapist's note template
 router.get('/template/me', async (req, res) => {

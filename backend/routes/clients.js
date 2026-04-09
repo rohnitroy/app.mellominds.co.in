@@ -1,5 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
+import multer from 'multer';
+import cloudinary from '../config/cloudinary.js';
 import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail, transferCancelledEmail, bookingLinkEmail, isEmailEnabled } from '../lib/email.js';
 import { createNotification } from '../lib/notifications.js';
 import { getIO } from '../lib/socket.js';
@@ -12,6 +14,8 @@ const ensureAuthenticated = (req, res, next) => {
 };
 
 router.use(ensureAuthenticated);
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // ─── Static routes first (must come before /:id routes) ──────────────────────
 
@@ -501,6 +505,73 @@ router.post('/:id/transfer', async (req, res) => {
     }
 });
 
+// POST /api/clients/:id/clinical-profile - Upload clinical profile file
+router.post('/:id/clinical-profile', upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const isEnterprise = req.user.plan_name === 'enterprise';
+        const maxSize = isEnterprise ? 10 * 1024 * 1024 : 3 * 1024 * 1024;
+
+        if (req.file.size < 0) {
+            return res.status(400).json({ error: 'Invalid file' });
+        }
+        if (req.file.size > maxSize) {
+            return res.status(400).json({ error: `File size must be less than ${isEnterprise ? '10MB' : '3MB'}` });
+        }
+
+        const therapistId = req.user.id;
+        const clientId = req.params.id;
+
+        // Verify client belongs to this therapist
+        const ownerCheck = await pool.query(
+            'SELECT id, clinical_profile_url FROM Clients WHERE id = $1 AND therapist_id = $2',
+            [clientId, therapistId]
+        );
+        if (ownerCheck.rows.length === 0) {
+            return res.status(403).json({ error: 'Client not found or access denied' });
+        }
+
+        // Delete old file from Cloudinary if exists
+        const oldUrl = ownerCheck.rows[0].clinical_profile_url;
+        if (oldUrl && oldUrl.includes('cloudinary.com')) {
+            try {
+                const publicId = oldUrl.split('/').slice(-2).join('/').split('.')[0];
+                await cloudinary.uploader.destroy(publicId, { resource_type: 'raw' });
+            } catch (e) {
+                console.error('Error deleting old clinical profile file:', e);
+            }
+        }
+
+        const uploadResult = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'mellominds/clinical-profiles',
+                    public_id: `therapist_${therapistId}_client_${clientId}_${Date.now()}`,
+                    resource_type: 'auto',
+                },
+                (error, result) => { if (error) reject(error); else resolve(result); }
+            );
+            stream.end(req.file.buffer);
+        });
+
+        await pool.query(
+            'UPDATE Clients SET clinical_profile_url = $1 WHERE id = $2',
+            [uploadResult.secure_url, clientId]
+        );
+
+        res.json({
+            url: uploadResult.secure_url,
+            original_name: req.file.originalname,
+        });
+    } catch (error) {
+        console.error('Clinical profile upload error:', error);
+        res.status(500).json({ error: 'Failed to upload clinical profile' });
+    }
+});
+
 // GET /api/clients/:id
 router.get('/:id', async (req, res) => {
     try {
@@ -510,7 +581,8 @@ router.get('/:id', async (req, res) => {
                     emergency_name as "emergencyName",
                     emergency_phone as "emergencyPhone",
                     emergency_relation as "emergencyRelation",
-                    manually_added
+                    manually_added,
+                    clinical_profile_url
              FROM Clients WHERE id = $1 AND therapist_id = $2`,
             [req.params.id, req.user.id]
         );
