@@ -1,38 +1,13 @@
-# MelloMinds Login Page
+# MelloMinds
 
-A React + TypeScript login page for MelloMinds therapy practice management platform.
-
-## Installation
-
-```bash
-npm install
-```
-
-## Development
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-## Build
-
-```bash
-npm run build
-```
-
-## Preview Production Build
-
-```bash
-npm run preview
-```
+MelloMinds is a therapy practice management platform designed to help therapists and mental health professionals manage their practice efficiently.
 
 ## Features
 
-- Email/Password login form
-- Password visibility toggle
-- Google login option
+- Email/Password login with Google login option
+- Client management and scheduling
+- Appointment booking and calendar management
+- Payments and invoicing
+- Session notes and clinical profiles
+- Real-time notifications
 - Responsive design
-- TypeScript support
-- Modern React with hooks
