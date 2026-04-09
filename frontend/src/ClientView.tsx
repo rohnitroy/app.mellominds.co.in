@@ -533,7 +533,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
-      if (file.size < 5 * 1024 * 1024) { toast.error('File size must be at least 5MB'); return; }
       if (file.size > 10 * 1024 * 1024) { toast.error('File size must be less than 10MB'); return; }
       setUploadingNoteFile(true);
       try {
@@ -562,18 +561,13 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   };
 
   const handleUploadClinicalProfile = () => {
-    const maxSize = isEnterprise ? 10 * 1024 * 1024 : 3 * 1024 * 1024;
-    const minSize = isEnterprise ? 5 * 1024 * 1024 : 0;
-    const limitLabel = isEnterprise ? '5–10MB' : 'up to 3MB';
-
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
-      if (isEnterprise && file.size < minSize) { toast.error('File size must be at least 5MB'); return; }
-      if (file.size > maxSize) { toast.error(`File size must be less than ${isEnterprise ? '10MB' : '3MB'}`); return; }
+      if (file.size > 10 * 1024 * 1024) { toast.error('File size must be less than 10MB'); return; }
       setUploadingClinicalProfile(true);
       try {
         const formData = new FormData();

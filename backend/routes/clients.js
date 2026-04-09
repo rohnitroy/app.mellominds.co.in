@@ -512,14 +512,10 @@ router.post('/:id/clinical-profile', upload.single('file'), async (req, res) => 
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
-        const isEnterprise = req.user.plan_name === 'enterprise';
-        const maxSize = isEnterprise ? 10 * 1024 * 1024 : 3 * 1024 * 1024;
+        const maxSize = 10 * 1024 * 1024;
 
-        if (req.file.size < 0) {
-            return res.status(400).json({ error: 'Invalid file' });
-        }
         if (req.file.size > maxSize) {
-            return res.status(400).json({ error: `File size must be less than ${isEnterprise ? '10MB' : '3MB'}` });
+            return res.status(400).json({ error: 'File size must be less than 10MB' });
         }
 
         const therapistId = req.user.id;
