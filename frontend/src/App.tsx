@@ -39,6 +39,7 @@ import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
 import Loader from './components/Loader';
 import CookieBanner from './components/CookieBanner';
+import UpgradePlanModal from './components/UpgradePlanModal';
 
 interface NavItem {
   name: string;
@@ -373,6 +374,7 @@ const DashboardLayout: React.FC = () => {
   const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
   const [showCreateBookingModal, setShowCreateBookingModal] = useState<boolean>(false);
   const [showAddClientModal, setShowAddClientModal] = useState<boolean>(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const { logout, user } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
@@ -491,7 +493,11 @@ const DashboardLayout: React.FC = () => {
     <div className="header">
       <div className="plan-info">
         <span>Your Plan:</span>
-        <span className="free-tier">
+        <span
+          className="free-tier"
+          onClick={!isEnterprise ? () => setShowUpgradeModal(true) : undefined}
+          style={!isEnterprise ? { cursor: 'pointer' } : {}}
+        >
           {planLabel} {!isEnterprise && <img src="Danger Circle.svg" alt="Info" style={{ width: '17px', height: '17px', verticalAlign: 'middle' }} />}
         </span>
       </div>
@@ -564,6 +570,7 @@ const DashboardLayout: React.FC = () => {
       {showAddClientModal && (
         <AddClientModal onClose={() => setShowAddClientModal(false)} />
       )}
+      <UpgradePlanModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );
 };
