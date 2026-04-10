@@ -12,7 +12,6 @@ import MyProfile from './MyProfile';
 import ClientNotesTemplate from './components/ClientNotesTemplate';
 import CreateBooking from './components/CreateBooking';
 import SendBookingLinkModal from './components/SendBookingLinkModal';
-import UpgradePlanModal from './components/UpgradePlanModal';
 import CalendarPage from './components/CalendarPage';
 import LoginPage from './components/LoginPage';
 import SignUpPage from './components/SignUpPage';
@@ -372,7 +371,6 @@ const AddClientModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 const DashboardLayout: React.FC = () => {
   const [showSendLinkModal, setShowSendLinkModal] = useState<boolean>(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [showCreateBookingModal, setShowCreateBookingModal] = useState<boolean>(false);
   const [showAddClientModal, setShowAddClientModal] = useState<boolean>(false);
   const { logout, user } = useAuth();
@@ -496,9 +494,6 @@ const DashboardLayout: React.FC = () => {
         <span className="free-tier">
           {planLabel} {!isEnterprise && <img src="Danger Circle.svg" alt="Info" style={{ width: '17px', height: '17px', verticalAlign: 'middle' }} />}
         </span>
-        {!isEnterprise && (
-          <button className="upgrade-btn" onClick={() => setShowUpgradeModal(true)}>Explore our plans</button>
-        )}
       </div>
 
       <div className="user-info">
@@ -551,10 +546,6 @@ const DashboardLayout: React.FC = () => {
         isOpen={showSendLinkModal}
         onClose={() => setShowSendLinkModal(false)}
       />
-      <UpgradePlanModal
-        isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-      />
       {showCreateBookingModal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
@@ -577,9 +568,13 @@ const DashboardLayout: React.FC = () => {
   );
 };
 
+const FREE_TIER_ANALYTICS_DAYS = 90;
+
 const DashboardHome: React.FC = () => {
   const { user } = useAuth();
   const toast = useToast();
+  const { setShowSendLinkModal } = useOutletContext<{ setShowSendLinkModal: any }>();
+  const isFreeTier = !user?.plan_name || user.plan_name === 'free';
   const [dateFilter, setDateFilter] = useState<string>('all_time');
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
   const [showCustomDatePicker, setShowCustomDatePicker] = useState<boolean>(false);
@@ -587,6 +582,16 @@ const DashboardHome: React.FC = () => {
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const navigate = useNavigate();
   const dateDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  // Earliest date free-tier users can query analytics for
+  const getFreeTierMinDate = (): Date => {
+    const d = new Date();
+    d.setDate(d.getDate() - FREE_TIER_ANALYTICS_DAYS);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+
+  const getFreeTierMinDateStr = (): string => getFreeTierMinDate().toISOString().split('T')[0];
 
   // Handle Google Calendar OAuth redirect result
   useEffect(() => {
@@ -657,6 +662,14 @@ const DashboardHome: React.FC = () => {
   const handleDateFilterSelect = (value: string) => {
     if (value === 'custom') {
       setShowCustomDatePicker(true);
+    } else if (isFreeTier && value !== 'all_time' && value !== 'custom') {
+      // Check if the selected month is entirely before the free-tier cutoff
+      const [month, year] = value.split(' ');
+      const monthIndex = new Date(`${month} 1, 2000`).getMonth();
+      const monthEnd = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59);
+      if (monthEnd < getFreeTierMinDate()) {
+        toast.error(`Free plan analytics is limited to the last ${FREE_TIER_ANALYTICS_DAYS} days. Upgrade to access older data.`);        return;
+      }
     }
     setDateFilter(value);
     setShowDateDropdown(false);
@@ -730,17 +743,26 @@ const DashboardHome: React.FC = () => {
       try {
         // Build stats URL with date filter
         let statsUrl = `${API_BASE_URL}/api/bookings/stats`;
+        const freeCutoff = isFreeTier ? getFreeTierMinDate() : null;
+
         if (dateFilter !== 'all_time' && dateFilter !== 'custom') {
           // Parse month filter (e.g., "Dec 2025")
           const [month, year] = dateFilter.split(' ');
           const monthIndex = new Date(`${month} 1, 2000`).getMonth();
-          const startDate = new Date(parseInt(year), monthIndex, 1).toISOString();
-          const endDate = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59).toISOString();
-          statsUrl += `?startDate=${startDate}&endDate=${endDate}`;
+          let startDate = new Date(parseInt(year), monthIndex, 1);
+          const endDate = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59);
+          // Clamp start date for free tier
+          if (freeCutoff && startDate < freeCutoff) startDate = freeCutoff;
+          statsUrl += `?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`;
         } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
-          const startDate = new Date(customStartDate).toISOString();
-          const endDate = new Date(customEndDate).toISOString();
-          statsUrl += `?startDate=${startDate}&endDate=${endDate}`;
+          let startDate = new Date(customStartDate);
+          const endDate = new Date(customEndDate);
+          // Clamp start date for free tier
+          if (freeCutoff && startDate < freeCutoff) startDate = freeCutoff;
+          statsUrl += `?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`;
+        } else if (dateFilter === 'all_time' && freeCutoff) {
+          // Free tier: restrict "all time" to last 90 days
+          statsUrl += `?startDate=${freeCutoff.toISOString()}`;
         }
 
         // Fetch Stats
@@ -955,19 +977,55 @@ const DashboardHome: React.FC = () => {
             <div className="custom-date-modal" onClick={() => setShowCustomDatePicker(false)}>
               <div className="custom-date-content" onClick={(e) => e.stopPropagation()}>
                 <h3>Select Date Range</h3>
+                {isFreeTier && (
+                  <p style={{ margin: '0 0 12px', fontSize: '12px', color: '#B45309', background: '#FEF3C7', borderRadius: '6px', padding: '8px 10px' }}>
+                    Free plan: analytics limited to the last {FREE_TIER_ANALYTICS_DAYS} days. Contact us to upgrade.
+                  </p>
+                )}
                 <div className="date-inputs">
                   <div className="date-input-group">
                     <label>Start Date</label>
-                    <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} />
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      min={isFreeTier ? getFreeTierMinDateStr() : undefined}
+                      max={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (isFreeTier && val < getFreeTierMinDateStr()) {
+                          val = getFreeTierMinDateStr();
+                          toast.error(`Free plan analytics is limited to the last ${FREE_TIER_ANALYTICS_DAYS} days.`);
+                        }
+                        setCustomStartDate(val);
+                      }}
+                    />
                   </div>
                   <div className="date-input-group">
                     <label>End Date</label>
-                    <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} />
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      min={isFreeTier ? getFreeTierMinDateStr() : customStartDate || undefined}
+                      max={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                    />
                   </div>
                 </div>
                 <div className="date-modal-actions">
                   <button onClick={() => setShowCustomDatePicker(false)} className="cancel-btn">Cancel</button>
-                  <button onClick={() => { if (customStartDate && customEndDate) setShowCustomDatePicker(false); }} className="apply-btn" disabled={!customStartDate || !customEndDate}>Apply</button>
+                  <button
+                    onClick={() => {
+                      if (customStartDate && customEndDate) {
+                        // Final clamp safety check
+                        if (isFreeTier && customStartDate < getFreeTierMinDateStr()) {
+                          setCustomStartDate(getFreeTierMinDateStr());
+                        }
+                        setShowCustomDatePicker(false);
+                      }
+                    }}
+                    className="apply-btn"
+                    disabled={!customStartDate || !customEndDate}
+                  >Apply</button>
                 </div>
               </div>
             </div>

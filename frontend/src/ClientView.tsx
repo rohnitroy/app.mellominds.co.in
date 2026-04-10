@@ -10,7 +10,6 @@ import CreateBooking from './components/CreateBooking';
 import ConfirmModal from './components/ConfirmModal';
 import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
-import UpgradePlanModal from './components/UpgradePlanModal';
 import { ColumnDef } from '@tanstack/react-table';
 
 interface Client {
@@ -42,10 +41,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const toast = useToast();
   const { user } = useAuth();
   const isEnterprise = user?.plan_name === 'enterprise';
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [uploadingNoteFile, setUploadingNoteFile] = useState(false);
-  const [clinicalProfileUrl, setClinicalProfileUrl] = useState<string | null>(null);
-  const [uploadingClinicalProfile, setUploadingClinicalProfile] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(initialTab || 'Overview');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
@@ -62,7 +58,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [transferOptions, setTransferOptions] = useState({
     notes: false,
     activities: false,
-    clinical_profile: false,
   });
   const [transferring, setTransferring] = useState(false);
   const [emailLookup, setEmailLookup] = useState<{ status: 'idle' | 'checking' | 'found' | 'notfound'; name?: string }>({ status: 'idle' });
@@ -123,6 +118,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [noteTemplate, setNoteTemplate] = useState<any[]>([]);
   const [noteFormData, setNoteFormData] = useState<Record<string, any>>({});
   const [editingNote, setEditingNote] = useState<any | null>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<{ url: string; original_name: string }[]>([]);
+  const [uploadingNoteAttachment, setUploadingNoteAttachment] = useState(false);
 
   const fetchActivities = async () => {
     setActivitiesLoading(true);
@@ -155,7 +152,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         };
         setSavedData(fresh);
         setEditData(fresh);
-        setClinicalProfileUrl(data.clinical_profile_url || null);
       })
       .catch(() => {});
   }, [client.id]);
@@ -349,8 +345,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       const url = isEdit ? `${API_BASE_URL}/api/notes/${editingNote.id}` : `${API_BASE_URL}/api/notes`;
       const method = isEdit ? 'PUT' : 'POST';
       const body = isEdit
-        ? JSON.stringify({ content })
-        : JSON.stringify({ appointment_id: selectedAppointmentId, content });
+        ? JSON.stringify({ content, attachments: [...(editingNote.attachments || []), ...pendingAttachments] })
+        : JSON.stringify({ appointment_id: selectedAppointmentId, content, attachments: pendingAttachments });
 
       const response = await fetch(url, {
         method,
@@ -365,6 +361,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         setNoteContent('');
         setSelectedAppointmentId('');
         setEditingNote(null);
+        setPendingAttachments([]);
         const init: Record<string, any> = {};
         noteTemplate.forEach((f: any) => { init[f.key] = f.type === 'checkbox' ? [] : ''; });
         setNoteFormData(init);
@@ -381,6 +378,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const handleEditNote = (note: any, appointmentId: string) => {
     setEditingNote(note);
     setSelectedAppointmentId(appointmentId);
+    setPendingAttachments([]);
     if (noteTemplate.length > 0 && note.content && typeof note.content === 'object' && !note.content.text) {
       setNoteFormData(note.content);
     } else {
@@ -526,7 +524,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   }, [transferEmail]);
 
   const handleUploadNoteFile = (appointmentId: string) => {
-    if (!isEnterprise) { setShowUpgradeModal(true); return; }
+    if (!isEnterprise) { toast.error('File attachments are available on Enterprise plan only.'); return; }
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg';
@@ -546,7 +544,11 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         });
         if (res.ok) {
           const data = await res.json();
-          toast.success(`File "${data.original_name}" uploaded successfully!`);
+          // Add to pending attachments and open the note modal so it gets saved with a note
+          setPendingAttachments(prev => [...prev, { url: data.url, original_name: data.original_name }]);
+          setSelectedAppointmentId(appointmentId);
+          setShowAddNotesModal(true);
+          toast.success(`File "${data.original_name}" ready — add a note and save to attach it.`);
         } else {
           const err = await res.json();
           toast.error(err.error || 'Failed to upload file');
@@ -555,40 +557,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         toast.error('Error uploading file');
       } finally {
         setUploadingNoteFile(false);
-      }
-    };
-    input.click();
-  };
-
-  const handleUploadClinicalProfile = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      if (file.size > 10 * 1024 * 1024) { toast.error('File size must be less than 10MB'); return; }
-      setUploadingClinicalProfile(true);
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const res = await fetch(`${API_BASE_URL}/api/clients/${client.id}/clinical-profile`, {
-          method: 'POST',
-          credentials: 'include',
-          body: formData,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setClinicalProfileUrl(data.url);
-          toast.success(`Clinical profile "${data.original_name}" uploaded successfully!`);
-        } else {
-          const err = await res.json();
-          toast.error(err.error || 'Failed to upload clinical profile');
-        }
-      } catch {
-        toast.error('Error uploading clinical profile');
-      } finally {
-        setUploadingClinicalProfile(false);
       }
     };
     input.click();
@@ -875,34 +843,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
             </div>
           </div>
 
-          <div className={styles.infoSection}>
-            <h3>Clinical Profile:</h3>
-            <div className={styles.clinicalProfileCard}>
-              {clinicalProfileUrl ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2D7579" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                  </svg>
-                  <a href={clinicalProfileUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: '13px', color: '#2D7579', fontFamily: 'Urbanist', fontWeight: 600, textDecoration: 'underline' }}>
-                    View Clinical Profile
-                  </a>
-                  {!(isTransferredClient && transferCutoffDate) && (
-                    <button className={styles.addClinicalBtn} onClick={handleUploadClinicalProfile} disabled={uploadingClinicalProfile}>
-                      {uploadingClinicalProfile ? 'Uploading...' : '↑ Replace file'}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                  <button className={styles.addClinicalBtn} onClick={handleUploadClinicalProfile} disabled={uploadingClinicalProfile}>
-                    {uploadingClinicalProfile ? 'Uploading...' : '+ add clinical profile'}
-                  </button>
-                  <span style={{ fontSize: '11px', color: '#9CA3AF', fontFamily: 'Urbanist' }}>{isEnterprise ? '5–10MB' : 'Up to 3MB'} · PDF, DOC, TXT, Image</span>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         <div className={styles.rightPanel}>
@@ -1010,7 +950,9 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   ) : appointments.length === 0 && (
                     <div style={{ padding: '32px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px', fontFamily: 'Urbanist' }}>No bookings found for this client.</div>
                   )}
-                  {appointments.map((app, i) => (
+                  {appointments.map((app, i) => {
+                    if (app.status === 'cancelled') return null;
+                    return (
                     <div className={styles.sessionItem} key={i}>
                       <div className={styles.sessionHeader}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -1026,7 +968,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                             {app.status === 'noshow' ? 'No Show' : app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)) : 'Scheduled'}
                           </span>
                         </div>
-                        {!(isTransferredClient && transferCutoffDate) && app.status !== 'cancelled' && !(app.notes?.length > 0) && (
+                        {!(isTransferredClient && transferCutoffDate) && !(app.notes?.length > 0) && (
                           <button
                             className={styles.noteEditBtn}
                             onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
@@ -1081,6 +1023,18 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                                   {typeof note.content === 'object' ? note.content?.text : note.content}
                                 </div>
                               )}
+                              {/* Attachments */}
+                              {note.attachments?.length > 0 && (
+                                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  {note.attachments.map((a: any, ai: number) => (
+                                      <a key={ai} href={`${API_BASE_URL}/api/clients/clinical-profile/view?url=${encodeURIComponent(a.url)}`}
+                                        target="_blank" rel="noopener noreferrer"
+                                        style={{ fontSize: '12px', color: '#2D7579', textDecoration: 'underline', fontFamily: 'Urbanist' }}>
+                                        📎 {a.original_name}
+                                      </a>
+                                    ))}
+                                </div>
+                              )}
                             </div>
                           ))
                         ) : (
@@ -1088,7 +1042,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                         )}
                       </div>
                     </div>
-                  ))}
+                  ); })}
                 </div>
 
                 {!(isTransferredClient && transferCutoffDate) && (
@@ -1249,11 +1203,11 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
 
       {/* Add Notes Modal */}
       {showAddNotesModal && (
-        <div className={styles.modalOverlay} onClick={() => { setShowAddNotesModal(false); setEditingNote(null); setSelectedAppointmentId(''); }}>
+        <div className={styles.modalOverlay} onClick={() => { setShowAddNotesModal(false); setEditingNote(null); setSelectedAppointmentId(''); setPendingAttachments([]); }}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <h2 style={{ margin: 0 }}>{editingNote ? 'Edit Note' : '+ Add Notes'}</h2>
-              <button onClick={() => { setShowAddNotesModal(false); setEditingNote(null); setSelectedAppointmentId(''); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+              <button onClick={() => { setShowAddNotesModal(false); setEditingNote(null); setSelectedAppointmentId(''); setPendingAttachments([]); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
             </div>
             <p>{editingNote ? 'Update the note for this session.' : 'Add notes to a dedicated client booking.'}</p>
 
@@ -1350,6 +1304,71 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
                 />
+              </div>
+            )}
+
+            {/* Attachments — enterprise only */}
+            {isEnterprise && (
+              <div className={styles.formGroup}>
+                <label>Attachments</label>
+                {/* Existing attachments on edit */}
+                {editingNote?.attachments?.length > 0 && (
+                  <div style={{ marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {editingNote.attachments.map((a: any, i: number) => (
+                      <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '13px', color: '#2D7579', textDecoration: 'underline', fontFamily: 'Urbanist' }}>
+                        📎 {a.original_name}
+                      </a>
+                    ))}
+                  </div>
+                )}
+                {/* Newly added attachments */}
+                {pendingAttachments.length > 0 && (
+                  <div style={{ marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {pendingAttachments.map((a, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '13px', color: '#2D7579', fontFamily: 'Urbanist' }}>📎 {a.original_name}</span>
+                        <button onClick={() => setPendingAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                          style={{ background: 'none', border: 'none', color: '#c62828', cursor: 'pointer', fontSize: '13px', padding: 0 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  disabled={uploadingNoteAttachment}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg';
+                    input.onchange = async (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (!file) return;
+                      if (file.size > 10 * 1024 * 1024) { toast.error('File size must be less than 10MB'); return; }
+                      setUploadingNoteAttachment(true);
+                      try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        formData.append('appointment_id', selectedAppointmentId || editingNote?.appointment_id?.toString() || '');
+                        const res = await fetch(`${API_BASE_URL}/api/notes/upload-attachment`, {
+                          method: 'POST', credentials: 'include', body: formData,
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setPendingAttachments(prev => [...prev, { url: data.url, original_name: data.original_name }]);
+                        } else {
+                          const err = await res.json();
+                          toast.error(err.error || 'Failed to upload file');
+                        }
+                      } catch { toast.error('Error uploading file'); }
+                      finally { setUploadingNoteAttachment(false); }
+                    };
+                    input.click();
+                  }}
+                  style={{ fontSize: '13px', color: '#2D7579', background: 'none', border: '1px dashed #2D7579', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontFamily: 'Urbanist' }}
+                >
+                  {uploadingNoteAttachment ? 'Uploading...' : '+ Attach File'}
+                </button>
               </div>
             )}
 
@@ -1515,7 +1534,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
               {[
                 { key: 'notes', label: 'Session Notes', desc: 'All session notes for this client', disabled: false },
                 { key: 'activities', label: 'Activity Suggestions', desc: 'All activity suggestions for this client', disabled: false },
-                { key: 'clinical_profile', label: 'Clinical Profile', desc: 'Coming soon — not available yet', disabled: true },
               ].map(opt => (
                 <label key={opt.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', cursor: opt.disabled ? 'not-allowed' : 'pointer', opacity: opt.disabled ? 0.45 : 1 }}>
                   <input
@@ -1736,7 +1754,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         onCancel={() => setConfirmModal(null)}
       />
 
-      <UpgradePlanModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );
 };

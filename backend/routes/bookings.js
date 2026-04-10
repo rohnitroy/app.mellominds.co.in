@@ -786,7 +786,8 @@ router.get('/', async (req, res) => {
                         json_build_object(
                             'id', sn.id, 
                             'content', sn.note_content, 
-                            'created_at', sn.created_at
+                            'created_at', sn.created_at,
+                            'attachments', COALESCE(sn.attachments, '[]'::jsonb)
                         )
                     ) FILTER (WHERE sn.id IS NOT NULL), 
                     '[]'

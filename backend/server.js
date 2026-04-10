@@ -11,7 +11,7 @@ import rateLimit from 'express-rate-limit';
 import passport from './config/passport.js';
 import pool from './config/database.js';
 import { setIO } from './lib/socket.js';
-import { sendEmail, activityNotificationEmail, sessionReminderEmail, isEmailEnabled } from './lib/email.js';
+import { sendEmail, activityNotificationEmail, sessionReminderEmail, sessionReminder30MinEmail, isEmailEnabled } from './lib/email.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import calendarRoutes from './routes/calendars.js';
@@ -73,10 +73,10 @@ app.use(helmet({
   hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
 }));
 
-// Rate limiter for auth endpoints — 20 attempts per 15 minutes per IP
+// Rate limiter for auth endpoints — disabled in development
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: isProduction ? 20 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts. Please try again in 15 minutes.' },
@@ -274,6 +274,44 @@ async function processSessionReminders() {
     }
 }
 
+// ─── 30-Min Session Reminder Cron (runs every 5 min) ─────────────────────────
+// Tracks sent reminders in-memory to avoid double-sending within a server run.
+const _30minRemindersSentThisRun = new Set();
+
+async function process30MinReminders() {
+    try {
+        const due = await pool.query(`
+            SELECT a.id, a.title, a.start_time, a.meet_link, a.location_type,
+                   a.client_name, a.client_email,
+                   a.therapist_id,
+                   u.user_name as therapist_name
+            FROM Appointments a
+            JOIN Users u ON a.therapist_id = u.id
+            WHERE a.status NOT IN ('cancelled', 'completed')
+              AND a.client_email IS NOT NULL
+              AND a.start_time BETWEEN NOW() + INTERVAL '25 minutes' AND NOW() + INTERVAL '35 minutes'
+        `);
+
+        for (const appt of due.rows) {
+            if (_30minRemindersSentThisRun.has(appt.id)) continue;
+            if (!await isEmailEnabled(appt.therapist_id, 'session_reminder_30min')) continue;
+            const emailContent = sessionReminder30MinEmail({
+                clientName: appt.client_name,
+                therapistName: appt.therapist_name,
+                sessionTitle: appt.title,
+                startTime: appt.start_time,
+                meetLink: appt.meet_link,
+                locationText: appt.location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet'
+            });
+            await sendEmail({ to: appt.client_email, ...emailContent, senderId: appt.therapist_id });
+            _30minRemindersSentThisRun.add(appt.id);
+            console.log(`✅ 30-min reminder sent to ${appt.client_email} for "${appt.title}"`);
+        }
+    } catch (err) {
+        console.error('30-min session reminder cron error:', err.message);
+    }
+}
+
 // ─── Activity Reminder Cron (runs every hour) ─────────────────────────────────
 async function processActivityReminders() {
     try {
@@ -335,17 +373,34 @@ async function ensureUsersSchema() {
   }
 }
 
+// Auto-migrate SessionNotes table columns on startup
+async function ensureSessionNotesSchema() {
+  try {
+    await pool.query(`
+      ALTER TABLE SessionNotes
+      ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb
+    `);
+    console.log('✅ SessionNotes schema verified');
+  } catch (err) {
+    console.error('⚠️  SessionNotes schema migration warning:', err.message);
+  }
+}
+
 // Start server
 httpServer.listen(PORT, async () => {
   await ensureCalendarsSchema();
   await ensureAppointmentsSchema();
   await ensureUsersSchema();
+  await ensureSessionNotesSchema();
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);
   processActivityReminders(); // run once on startup too
   // Run session reminder cron every hour
   setInterval(processSessionReminders, 60 * 60 * 1000);
   processSessionReminders(); // run once on startup too
+  // Run 30-min session reminder cron every 5 minutes
+  setInterval(process30MinReminders, 5 * 60 * 1000);
+  process30MinReminders(); // run once on startup too
   console.log(`🚀 Server running on port ${PORT}`);
 });
 

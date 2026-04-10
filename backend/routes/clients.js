@@ -19,6 +19,43 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 // ─── Static routes first (must come before /:id routes) ──────────────────────
 
+// GET /api/clients/clinical-profile/view?url=... - Generate signed Cloudinary URL
+router.get('/clinical-profile/view', async (req, res) => {
+    try {
+        const { url } = req.query;
+        if (!url || !url.includes('cloudinary.com')) {
+            return res.status(400).json({ error: 'Invalid URL' });
+        }
+
+        // Extract public_id and resource_type from the stored URL
+        // URL format: https://res.cloudinary.com/<cloud>/<resource_type>/upload/v<ver>/<public_id>.<ext>
+        const urlObj = new URL(url);
+        const parts = urlObj.pathname.split('/');
+        // parts: ['', '<cloud>', '<resource_type>', 'upload', 'v<ver>', ...path, 'filename.ext']
+        const resourceType = parts[2]; // 'image' or 'raw'
+        const uploadIdx = parts.indexOf('upload');
+        // public_id is everything after 'upload/v<version>/' without extension, or after 'upload/' if no version
+        let pathParts = parts.slice(uploadIdx + 1);
+        // Remove version segment if present (starts with 'v' followed by digits)
+        if (/^v\d+$/.test(pathParts[0])) pathParts = pathParts.slice(1);
+        const publicIdWithExt = pathParts.join('/');
+        const publicId = publicIdWithExt.replace(/\.[^/.]+$/, '');
+
+        const signedUrl = cloudinary.url(publicId, {
+            resource_type: resourceType,
+            sign_url: true,
+            secure: true,
+            expires_at: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
+            ...(resourceType !== 'raw' && { flags: 'attachment:false' }),
+        });
+
+        res.redirect(signedUrl);
+    } catch (err) {
+        console.error('Error generating signed URL:', err);
+        res.status(500).json({ error: 'Failed to generate file URL' });
+    }
+});
+
 // GET /api/clients/lookup-therapist?email=...
 router.get('/lookup-therapist', async (req, res) => {
     const { email } = req.query;
@@ -541,25 +578,36 @@ router.post('/:id/clinical-profile', upload.single('file'), async (req, res) => 
             }
         }
 
+        const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+        const isImage = req.file.mimetype.startsWith('image/');
+
         const uploadResult = await new Promise((resolve, reject) => {
             const stream = cloudinary.uploader.upload_stream(
                 {
                     folder: 'mellominds/clinical-profiles',
                     public_id: `therapist_${therapistId}_client_${clientId}_${Date.now()}`,
-                    resource_type: 'auto',
+                    // PDFs and images use 'image' type so Cloudinary serves them inline.
+                    // Everything else (doc, docx, txt) uses 'raw'.
+                    resource_type: (isPdf || isImage) ? 'image' : 'raw',
+                    ...(isPdf && { format: 'pdf', flags: 'attachment:false' }),
                 },
                 (error, result) => { if (error) reject(error); else resolve(result); }
             );
             stream.end(req.file.buffer);
         });
 
+        // For raw files (doc/docx/txt) force inline delivery flag in the URL
+        const finalUrl = uploadResult.resource_type === 'raw'
+            ? uploadResult.secure_url.replace('/raw/upload/', '/raw/upload/fl_attachment:false/')
+            : uploadResult.secure_url;
+
         await pool.query(
             'UPDATE Clients SET clinical_profile_url = $1 WHERE id = $2',
-            [uploadResult.secure_url, clientId]
+            [finalUrl, clientId]
         );
 
         res.json({
-            url: uploadResult.secure_url,
+            url: finalUrl,
             original_name: req.file.originalname,
         });
     } catch (error) {

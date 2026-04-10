@@ -43,20 +43,28 @@ router.post('/upload-attachment', upload.single('file'), async (req, res) => {
             return res.status(403).json({ error: 'Appointment not found or access denied' });
         }
 
+        const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+        const isImage = req.file.mimetype.startsWith('image/');
+
         const uploadResult = await new Promise((resolve, reject) => {
             const stream = cloudinary.uploader.upload_stream(
                 {
                     folder: 'mellominds/session-notes',
                     public_id: `therapist_${therapistId}_appt_${appointment_id}_${Date.now()}`,
-                    resource_type: 'auto',
+                    resource_type: (isPdf || isImage) ? 'image' : 'raw',
+                    ...(isPdf && { format: 'pdf', flags: 'attachment:false' }),
                 },
                 (error, result) => { if (error) reject(error); else resolve(result); }
             );
             stream.end(req.file.buffer);
         });
 
+        const finalUrl = uploadResult.resource_type === 'raw'
+            ? uploadResult.secure_url.replace('/raw/upload/', '/raw/upload/fl_attachment:false/')
+            : uploadResult.secure_url;
+
         res.json({
-            url: uploadResult.secure_url,
+            url: finalUrl,
             original_name: req.file.originalname,
             resource_type: uploadResult.resource_type,
             format: uploadResult.format,
@@ -112,7 +120,7 @@ router.post('/template/me', async (req, res) => {
 router.post('/', async (req, res) => {
     const client = await pool.connect();
     try {
-        const { appointment_id, content } = req.body;
+        const { appointment_id, content, attachments } = req.body;
         const therapist_id = req.user.id;
 
         if (!appointment_id || !content) {
@@ -128,11 +136,13 @@ router.post('/', async (req, res) => {
             return res.status(403).json({ error: 'Appointment not found or access denied' });
         }
 
+        const safeAttachments = Array.isArray(attachments) ? attachments : [];
+
         const result = await client.query(
-            `INSERT INTO SessionNotes (appointment_id, therapist_id, note_content)
-             VALUES ($1, $2, $3)
+            `INSERT INTO SessionNotes (appointment_id, therapist_id, note_content, attachments)
+             VALUES ($1, $2, $3, $4)
              RETURNING *`,
-            [appointment_id, therapist_id, content]
+            [appointment_id, therapist_id, content, JSON.stringify(safeAttachments)]
         );
 
         res.status(201).json(result.rows[0]);
@@ -149,15 +159,20 @@ router.post('/', async (req, res) => {
 // PUT /api/notes/:id - Edit an existing note
 router.put('/:id', async (req, res) => {
     try {
-        const { content } = req.body;
+        const { content, attachments } = req.body;
         const therapist_id = req.user.id;
 
         if (!content) return res.status(400).json({ error: 'Content is required' });
 
+        const safeAttachments = Array.isArray(attachments) ? attachments : undefined;
+
         const result = await pool.query(
-            `UPDATE SessionNotes SET note_content = $1, updated_at = NOW()
-             WHERE id = $2 AND therapist_id = $3 RETURNING *`,
-            [content, req.params.id, therapist_id]
+            `UPDATE SessionNotes
+             SET note_content = $1,
+                 attachments = COALESCE($2::jsonb, attachments),
+                 updated_at = NOW()
+             WHERE id = $3 AND therapist_id = $4 RETURNING *`,
+            [content, safeAttachments ? JSON.stringify(safeAttachments) : null, req.params.id, therapist_id]
         );
 
         if (result.rows.length === 0) return res.status(404).json({ error: 'Note not found' });
