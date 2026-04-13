@@ -968,7 +968,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                             {app.status === 'noshow' ? 'No Show' : app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)) : 'Scheduled'}
                           </span>
                         </div>
-                        {!(isTransferredClient && transferCutoffDate) && !(app.notes?.length > 0) && (
+                        {!(isTransferredClient && transferCutoffDate) && !(app.notes?.length > 0) && new Date(app.end_time) <= new Date() && (
                           <button
                             className={styles.noteEditBtn}
                             onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
@@ -1045,7 +1045,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   ); })}
                 </div>
 
-                {!(isTransferredClient && transferCutoffDate) && (
+                {!(isTransferredClient && transferCutoffDate) && appointments.some(app => app.status !== 'cancelled' && !(app.notes?.length > 0) && new Date(app.end_time) <= new Date()) && (
                   <div className={styles.addNotesSection}>
                     <button className={styles.addNotesButton} onClick={() => { setSelectedAppointmentId(''); setShowAddNotesModal(true); }}>+ Add Note</button>
                   </div>
@@ -1221,7 +1221,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                 >
                   <option value="">Select booking</option>
                   {appointments
-                    .filter(app => app.status !== 'cancelled' && !(app.notes?.length > 0))
+                    .filter(app => app.status !== 'cancelled' && !(app.notes?.length > 0) && new Date(app.end_time) <= new Date())
                     .map(app => (
                       <option key={app.id} value={app.id}>
                         {formatDateTime(app.start_time)} - {app.title}
