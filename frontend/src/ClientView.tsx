@@ -327,6 +327,17 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       return;
     }
 
+    // Guard: notes can only be added to completed sessions whose end time has passed
+    if (!editingNote && selectedAppointmentId) {
+      const selectedApp = appointments.find(a => a.id.toString() === selectedAppointmentId.toString());
+      if (selectedApp) {
+        if (selectedApp.status !== 'completed' || new Date(selectedApp.end_time) >= new Date()) {
+          toast.warning('Notes can only be added after the session has ended.');
+          return;
+        }
+      }
+    }
+
     // Validate required fields
     for (const field of noteTemplate) {
       if (field.required) {
@@ -968,7 +979,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                             {app.status === 'noshow' ? 'No Show' : app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)) : 'Scheduled'}
                           </span>
                         </div>
-                        {!(isTransferredClient && transferCutoffDate) && !(app.notes?.length > 0) && new Date(app.end_time) <= new Date() && (
+                        {!(isTransferredClient && transferCutoffDate) && !(app.notes?.length > 0) && (
                           <button
                             className={styles.noteEditBtn}
                             onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
@@ -1045,9 +1056,27 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   ); })}
                 </div>
 
-                {!(isTransferredClient && transferCutoffDate) && appointments.some(app => app.status !== 'cancelled' && !(app.notes?.length > 0) && new Date(app.end_time) <= new Date()) && (
+                {!(isTransferredClient && transferCutoffDate) && (
                   <div className={styles.addNotesSection}>
-                    <button className={styles.addNotesButton} onClick={() => { setSelectedAppointmentId(''); setShowAddNotesModal(true); }}>+ Add Note</button>
+                    {(() => {
+                      const hasPendingNotes = appointments.some(
+                        app =>
+                          app.status === 'completed' &&
+                          new Date(app.end_time) < new Date() &&
+                          !(app.notes?.length > 0)
+                      );
+                      return (
+                        <button
+                          className={styles.addNotesButton}
+                          onClick={() => { setSelectedAppointmentId(''); setShowAddNotesModal(true); }}
+                          disabled={!hasPendingNotes}
+                          title={!hasPendingNotes ? 'Notes can only be added after a session is completed and has no notes yet.' : undefined}
+                          style={!hasPendingNotes ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                        >
+                          + Add Note
+                        </button>
+                      );
+                    })()}
                   </div>
                 )}
               </>
@@ -1221,7 +1250,11 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                 >
                   <option value="">Select booking</option>
                   {appointments
-                    .filter(app => app.status !== 'cancelled' && !(app.notes?.length > 0) && new Date(app.end_time) <= new Date())
+                    .filter(app =>
+                      app.status === 'completed' &&
+                      new Date(app.end_time) < new Date() &&
+                      !(app.notes?.length > 0)
+                    )
                     .map(app => (
                       <option key={app.id} value={app.id}>
                         {formatDateTime(app.start_time)} - {app.title}
