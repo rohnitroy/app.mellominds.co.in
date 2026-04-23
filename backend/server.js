@@ -27,6 +27,7 @@ import enterpriseRoutes from './routes/enterprise.js';
 import emailPreferencesRoutes from './routes/emailPreferences.js';
 import profileLinkRoutes from './routes/profileLink.js';
 import gmailRoutes from './routes/gmail.js';
+import publicProfileRoutes from './routes/publicProfile.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -144,6 +145,7 @@ app.use('/api/enterprise', apiLimiter, enterpriseRoutes);
 app.use('/api/email-preferences', apiLimiter, emailPreferencesRoutes);
 app.use('/api/profile-link', apiLimiter, profileLinkRoutes);
 app.use('/api/gmail', apiLimiter, gmailRoutes);
+app.use('/api/public', apiLimiter, publicProfileRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

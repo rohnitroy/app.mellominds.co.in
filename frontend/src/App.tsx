@@ -18,6 +18,7 @@ import SignUpPage from './components/SignUpPage';
 import PublicBookingPage from './components/PublicBookingPage';
 import BookingStatus from './components/BookingStatus';
 import ManageBooking from './components/ManageBooking';
+import TherapistProfilePage from './components/TherapistProfilePage';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
 import CreateEventPage from './components/CreateEventPage';
@@ -1241,6 +1242,7 @@ const AppContent: React.FC = () => {
           </Route>
 
           {/* Public Booking Route */}
+          <Route path="/book/:userId" element={<TherapistProfilePage />} />
           <Route path="/book/:userId/:slug" element={<PublicBookingPage />} />
           <Route path="/booking-status" element={<BookingStatus />} />
           <Route path="/manage-booking/:token" element={<ManageBooking />} />
