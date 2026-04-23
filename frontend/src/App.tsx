@@ -682,13 +682,11 @@ const DashboardHome: React.FC = () => {
     setShowDateDropdown(false);
   };
 
-  // Dynamically calculate profile progress based on available user fields
-  const calculateProfileProgress = () => {
+  // Dynamically calculate profile progress based on optional user fields (email & user_name excluded as they are always filled)
+  const profileProgress = useMemo(() => {
     if (!user) return 0;
 
     const profileFields = [
-      user.user_name,
-      user.email,
       user.phone,
       user.dob,
       user.gender,
@@ -705,9 +703,7 @@ const DashboardHome: React.FC = () => {
     const totalFields = profileFields.length;
 
     return filledFields === totalFields ? 100 : Math.floor((filledFields / totalFields) * 100);
-  };
-
-  const profileProgress = calculateProfileProgress();
+  }, [user]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any>({
     revenue: '₹0',

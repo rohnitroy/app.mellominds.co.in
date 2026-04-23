@@ -110,6 +110,36 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   };
 
   const handleSaveChanges = async () => {
+    // Validate required fields before hitting the API
+    if (!formData.phoneNumber.trim()) {
+      toast.error('Phone number is required.');
+      return;
+    }
+    if (!/^\d{10}$/.test(formData.phoneNumber.trim())) {
+      toast.error('Phone number must be 10 digits.');
+      return;
+    }
+    if (!formData.dateOfBirth.trim()) {
+      toast.error('Date of birth is required.');
+      return;
+    }
+    if (!formData.country.trim()) {
+      toast.error('Country is required.');
+      return;
+    }
+    if (!formData.state.trim()) {
+      toast.error('State is required.');
+      return;
+    }
+    if (!formData.pincode.trim()) {
+      toast.error('Pincode is required.');
+      return;
+    }
+    if (!formData.address.trim()) {
+      toast.error('Office or clinic address is required.');
+      return;
+    }
+
     try {
       const payload = {
         fullName: formData.fullName,
