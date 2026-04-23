@@ -62,12 +62,29 @@ router.get('/lookup-therapist', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email is required' });
     try {
         const result = await pool.query(
-            'SELECT id, user_name FROM Users WHERE LOWER(email) = LOWER($1)',
+            'SELECT id, user_name, org_role, org_owner_id FROM Users WHERE LOWER(email) = LOWER($1)',
             [email.trim()]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({ exists: false, error: 'No therapist found with this email' });
         }
+
+        const targetUser = result.rows[0];
+
+        // If current user is a member (org_role='member'), restrict transfer targets
+        if (req.user.org_role === 'member') {
+            const myOwnerId = req.user.org_owner_id;
+            // Can only transfer to: (1) their owner, or (2) sibling members under same owner
+            const isOwner = targetUser.id === myOwnerId;
+            const isSibling = targetUser.org_owner_id === myOwnerId && targetUser.org_role === 'member';
+            if (!isOwner && !isSibling) {
+                return res.status(403).json({
+                    exists: false,
+                    error: 'You can only transfer clients to your organization owner or other members in your team.'
+                });
+            }
+        }
+
         res.json({ exists: true, name: result.rows[0].user_name });
     } catch (err) {
         console.error('Lookup error:', err);
@@ -477,13 +494,25 @@ router.post('/:id/transfer', async (req, res) => {
         }
 
         const targetRes = await dbClient.query(
-            'SELECT id, user_name, email FROM Users WHERE LOWER(email) = LOWER($1)',
+            'SELECT id, user_name, email, org_role, org_owner_id FROM Users WHERE LOWER(email) = LOWER($1)',
             [target_email.trim()]
         );
         if (targetRes.rows.length === 0) return res.status(404).json({ error: 'No therapist found with that email address' });
 
         const toTherapistId = targetRes.rows[0].id;
         if (toTherapistId === fromTherapistId) return res.status(400).json({ error: 'Cannot transfer to yourself' });
+
+        // If current user is a member, enforce org transfer restrictions
+        if (req.user.org_role === 'member') {
+            const myOwnerId = req.user.org_owner_id;
+            const isOwner = toTherapistId === myOwnerId;
+            const isSibling = targetRes.rows[0].org_owner_id === myOwnerId && targetRes.rows[0].org_role === 'member';
+            if (!isOwner && !isSibling) {
+                return res.status(403).json({
+                    error: 'You can only transfer clients to your organization owner or other members in your team.'
+                });
+            }
+        }
 
         const existingTransfer = await dbClient.query(
             `SELECT id FROM ClientTransfers WHERE client_id = $1 AND from_therapist_id = $2 AND status = 'pending'`,

@@ -17,6 +17,9 @@ const CreateEventPage: React.FC = () => {
     // Check if we're in edit mode
     const isEditMode = location.state?.isEditing || false;
     const existingCalendar = location.state?.calendar;
+    // If set, the owner is managing a member's calendar
+    const managingUserId = location.state?.managingUserId || null;
+    const managingUserName = location.state?.managingUserName || null;
     
     // Retrieve type passed from previous screen if available
     const initialType = existingCalendar?.type || location.state?.type || 'one_on_one';
@@ -27,6 +30,7 @@ const CreateEventPage: React.FC = () => {
     const [showAddLocationModal, setShowAddLocationModal] = useState(false);
     const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
     const [isGoogleConnected, setIsGoogleConnected] = useState(false);
+    const [managedUserGoogleConnected, setManagedUserGoogleConnected] = useState(false);
     // Group calendar capacity
     const [maxAttendees, setMaxAttendees] = useState<string>(
         existingCalendar?.max_attendees ? String(existingCalendar.max_attendees) : '10'
@@ -37,8 +41,15 @@ const CreateEventPage: React.FC = () => {
             .then(r => r.ok ? r.json() : { connected: false })
             .then(data => setIsGoogleConnected(data.connected))
             .catch(() => setIsGoogleConnected(false));
-    }, []);
-    const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
+
+        // If managing a member's calendar, also check their Google connection status
+        if (managingUserId) {
+            fetch(`${API_BASE_URL}/api/connect-calendar/status?for_user_id=${managingUserId}`, { credentials: 'include' })
+                .then(r => r.ok ? r.json() : { connected: false })
+                .then(data => setManagedUserGoogleConnected(data.connected))
+                .catch(() => setManagedUserGoogleConnected(false));
+        }
+    }, []);    const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
 
     const applyFormat = (format: 'bold' | 'italic' | 'bullet' | 'link') => {
         const el = descriptionRef.current;
@@ -95,7 +106,7 @@ const CreateEventPage: React.FC = () => {
         color: '#3787F8',
         locations: existingCalendar?.locations || [{ type: 'google_meet' }],
         duration: existingCalendar?.duration?.replace(' m', '') || '60',
-        owner: user?.user_name || 'Therapist',
+        owner: managingUserName || user?.user_name || 'Therapist',
     });
 
     // Parse existing duration "60 m" -> { duration: '60', durationUnit: 'Minutes' }
@@ -391,7 +402,13 @@ const CreateEventPage: React.FC = () => {
     };
 
     const handleSave = async () => {
-        if (!isGoogleConnected) {
+        // For managed member calendars, check the member's Google connection
+        if (managingUserId) {
+            if (!managedUserGoogleConnected) {
+                toast.error(`${managingUserName || 'This therapist'} has not connected their Google Calendar yet. Ask them to connect it from their Settings.`);
+                return;
+            }
+        } else if (!isGoogleConnected) {
             toast.error('Please connect your Google Calendar in Settings before creating a calendar.');
             return;
         }
@@ -438,7 +455,8 @@ const CreateEventPage: React.FC = () => {
                     minNoticeUnit: scheduleData.minNoticeUnit,
                 },
                 form_data: formData,
-                payment_data: paymentData
+                payment_data: paymentData,
+                ...(managingUserId ? { for_user_id: managingUserId } : {}),
             };
 
             const url = isEditMode 
@@ -456,8 +474,12 @@ const CreateEventPage: React.FC = () => {
 
             if (response.ok) {
                 toast.success(isEditMode ? 'Calendar updated successfully!' : 'Calendar created successfully!');
-                // Success: Redirect back to My Calendars
-                navigate('/my-calendar');
+                // If managing a member, go back to their profile; otherwise go to My Calendars
+                if (managingUserId && location.state?.returnTo) {
+                    navigate(location.state.returnTo);
+                } else {
+                    navigate('/my-calendar');
+                }
             } else {
                 const errorData = await response.json();
                 if (response.status === 409) {

@@ -5,6 +5,7 @@ import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import express from 'express';
 import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -28,6 +29,7 @@ import emailPreferencesRoutes from './routes/emailPreferences.js';
 import profileLinkRoutes from './routes/profileLink.js';
 import gmailRoutes from './routes/gmail.js';
 import publicProfileRoutes from './routes/publicProfile.js';
+import therapistsRoutes from './routes/therapists.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -112,7 +114,14 @@ app.use(cors({
 }));
 
 // Session configuration - required for Passport
+const PgSession = connectPgSimple(session);
 app.use(session({
+  store: new PgSession({
+    pool,                     // reuse existing pg pool
+    tableName: 'user_sessions',
+    createTableIfMissing: true, // auto-create sessions table
+    pruneSessionInterval: 60 * 15, // prune expired sessions every 15 min
+  }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -146,6 +155,7 @@ app.use('/api/email-preferences', apiLimiter, emailPreferencesRoutes);
 app.use('/api/profile-link', apiLimiter, profileLinkRoutes);
 app.use('/api/gmail', apiLimiter, gmailRoutes);
 app.use('/api/public', apiLimiter, publicProfileRoutes);
+app.use('/api/therapists', apiLimiter, therapistsRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -361,6 +371,42 @@ async function processActivityReminders() {
     }
 }
 
+// Auto-migrate organization_therapists table on startup
+async function ensureOrganizationTherapistsSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS organization_therapists (
+        id SERIAL PRIMARY KEY,
+        owner_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        therapist_user_id INT REFERENCES Users(id) ON DELETE SET NULL,
+        invite_email VARCHAR(254) NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active')),
+        invite_token VARCHAR(64),
+        invite_expires_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (owner_id, invite_email)
+      )
+    `);
+    console.log('✅ organization_therapists schema verified');
+  } catch (err) {
+    console.error('⚠️  organization_therapists schema migration warning:', err.message);
+  }
+}
+
+// Auto-migrate org_role and org_owner_id columns on Users table
+async function ensureOrgRoleSchema() {
+  try {
+    await pool.query(`
+      ALTER TABLE Users
+      ADD COLUMN IF NOT EXISTS org_role VARCHAR(20) DEFAULT NULL CHECK (org_role IN ('owner', 'member')),
+      ADD COLUMN IF NOT EXISTS org_owner_id INT DEFAULT NULL REFERENCES Users(id) ON DELETE SET NULL
+    `);
+    console.log('✅ Users org_role schema verified');
+  } catch (err) {
+    console.error('⚠️  Users org_role schema migration warning:', err.message);
+  }
+}
+
 // Auto-migrate Users table columns on startup
 async function ensureUsersSchema() {
   try {
@@ -394,6 +440,8 @@ httpServer.listen(PORT, async () => {
   await ensureAppointmentsSchema();
   await ensureUsersSchema();
   await ensureSessionNotesSchema();
+  await ensureOrganizationTherapistsSchema();
+  await ensureOrgRoleSchema();
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);
   processActivityReminders(); // run once on startup too

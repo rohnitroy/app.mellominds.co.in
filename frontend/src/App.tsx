@@ -25,6 +25,8 @@ import CreateEventPage from './components/CreateEventPage';
 import ManageReminders from './components/ManageReminders';
 import ProfileLink from './components/ProfileLink';
 import ResetPassword from './components/ResetPassword';
+import Therapists from './Therapists';
+import TherapistProfileView from './TherapistProfileView';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
@@ -386,6 +388,9 @@ const DashboardLayout: React.FC = () => {
   const navItems: NavItem[] = [
     { name: 'Dashboard', icon: 'Category1.svg', path: '/dashboard' },
     { name: 'All Clients', icon: '3 User.svg', path: '/clients' },
+    ...(user?.plan_name === 'enterprise' && user?.org_role !== 'member'
+      ? [{ name: 'Therapists', icon: '', path: '/therapists' }]
+      : []),
     { name: 'Bookings', icon: 'Calendar1.svg', path: '/bookings' },
     { name: 'My Calendars', icon: 'Category.svg', path: '/my-calendar' },
     { name: 'Payments & Invoice', icon: 'Wallet.svg', path: '/payment-invoice' }
@@ -408,6 +413,14 @@ const DashboardLayout: React.FC = () => {
     switch (name) {
       case 'Dashboard':          return <Category {...props} />;
       case 'All Clients':        return <TwoUsers {...props} />;
+      case 'Therapists':         return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      );
       case 'Bookings':           return <Paper {...props} />;
       case 'My Calendars':       return <Calendar {...props} />;
       case 'Payments & Invoice': return <Wallet {...props} />;
@@ -1225,6 +1238,8 @@ const AppContent: React.FC = () => {
               <Route path="clients/list/:listTab" element={<AllClients />} />
               <Route path="clients/:clientId" element={<AllClients />} />
               <Route path="clients/:clientId/:tab" element={<AllClients />} />
+              <Route path="therapists" element={<Therapists />} />
+              <Route path="therapists/:id" element={<TherapistProfileView />} />
               <Route path="bookings" element={<Appointments />} />
               <Route path="bookings/:tab" element={<Appointments />} />
               <Route path="my-calendar" element={<CalendarPage />} />

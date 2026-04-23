@@ -90,9 +90,25 @@ router.get('/callback', async (req, res) => {
 // GET /api/connect-calendar/status - Check if connected
 router.get('/status', async (req, res) => {
     try {
+        let targetUserId = req.user.id;
+
+        // Enterprise owner can check a member's connection status
+        const { for_user_id } = req.query;
+        if (for_user_id) {
+            const ownerCheck = await pool.query(
+                `SELECT id FROM organization_therapists
+                 WHERE owner_id = $1 AND therapist_user_id = $2 AND status = 'active'`,
+                [req.user.id, for_user_id]
+            );
+            if (ownerCheck.rows.length === 0) {
+                return res.status(403).json({ error: 'Not authorized.' });
+            }
+            targetUserId = for_user_id;
+        }
+
         const result = await pool.query(
             "SELECT id FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
-            [req.user.id]
+            [targetUserId]
         );
         res.json({ connected: result.rows.length > 0 });
     } catch (error) {

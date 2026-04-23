@@ -117,8 +117,21 @@ router.get('/', async (req, res) => {
 // POST /api/calendars
 router.post('/', async (req, res) => {
     try {
-        const userId = req.user.id;
-        const { title, duration, description, slug, form_data, payment_data, locations, schedule_settings, max_attendees } = req.body;
+        const { title, duration, description, slug, form_data, payment_data, locations, schedule_settings, max_attendees, for_user_id } = req.body;
+
+        // If for_user_id is provided, verify the requester is the org owner of that user
+        let targetUserId = req.user.id;
+        if (for_user_id) {
+            const ownerCheck = await pool.query(
+                `SELECT id FROM organization_therapists
+                 WHERE owner_id = $1 AND therapist_user_id = $2 AND status = 'active'`,
+                [req.user.id, for_user_id]
+            );
+            if (ownerCheck.rows.length === 0) {
+                return res.status(403).json({ error: 'You are not authorized to create calendars for this user.' });
+            }
+            targetUserId = for_user_id;
+        }
 
         if (!title || !duration) {
             return res.status(400).json({ error: 'Title and duration are required' });
@@ -130,13 +143,16 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Slug must be lowercase alphanumeric and hyphens only.' });
         }
 
-        // Require Google Calendar connection before creating a calendar
+        // Require Google Calendar connection — check for the target user
         const googleCheck = await pool.query(
             "SELECT id FROM UserIntegrations WHERE user_id = $1 AND provider = 'google'",
-            [userId]
+            [targetUserId]
         );
         if (googleCheck.rows.length === 0) {
-            return res.status(403).json({ error: 'Please connect your Google Calendar in Settings before creating a calendar.' });
+            const msg = for_user_id
+                ? 'This therapist has not connected their Google Calendar yet.'
+                : 'Please connect your Google Calendar in Settings before creating a calendar.';
+            return res.status(403).json({ error: msg });
         }
 
         const finalSlug = slug || `/${title.toLowerCase().replace(/ /g, '-')}-${Date.now()}`;
@@ -149,7 +165,7 @@ router.post('/', async (req, res) => {
              VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) 
              RETURNING *`,
             [
-                userId, title, duration, description, finalSlug,
+                targetUserId, title, duration, description, finalSlug,
                 form_data ? JSON.stringify(form_data) : null,
                 payment_data?.acceptPayment || false,
                 payment_data?.paymentGateways?.[0] || null,
@@ -174,7 +190,21 @@ router.put('/:id', async (req, res) => {
     try {
         const userId = req.user.id;
         const calendarId = req.params.id;
-        const { title, duration, description, slug, is_active, form_data, payment_data, locations, schedule_settings, max_attendees } = req.body;
+        const { title, duration, description, slug, is_active, form_data, payment_data, locations, schedule_settings, max_attendees, for_user_id } = req.body;
+
+        // If for_user_id provided, verify ownership and use that as the target
+        let targetUserId = userId;
+        if (for_user_id) {
+            const ownerCheck = await pool.query(
+                `SELECT id FROM organization_therapists
+                 WHERE owner_id = $1 AND therapist_user_id = $2 AND status = 'active'`,
+                [userId, for_user_id]
+            );
+            if (ownerCheck.rows.length === 0) {
+                return res.status(403).json({ error: 'You are not authorized to edit calendars for this user.' });
+            }
+            targetUserId = for_user_id;
+        }
 
         const fields = [];
         const values = [];
@@ -201,7 +231,7 @@ router.put('/:id', async (req, res) => {
 
         if (fields.length === 0) return res.status(400).json({ error: 'No fields to update' });
 
-        values.push(calendarId, userId);
+        values.push(calendarId, targetUserId);
         const idIdx = values.length - 1;
         const uidIdx = values.length;
 

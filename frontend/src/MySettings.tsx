@@ -13,6 +13,7 @@ const MySettings: React.FC = () => {
   const { user } = useAuth();
   const toast = useToast();
   const isEnterprise = user?.plan_name === 'enterprise';
+  const isMember = user?.org_role === 'member'; // member of an org, not the owner
 
   const [googleConnected, setGoogleConnected] = useState(false);
   const [cashfreeConnected, setCashfreeConnected] = useState(false);
@@ -268,6 +269,7 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
+          {!isMember && (
           <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75 }}>
             {!isEnterprise && (
               <div style={{
@@ -318,6 +320,7 @@ const MySettings: React.FC = () => {
               )}
             </div>
           </div>
+          )}
         </div>
       </div>
     </div>

@@ -19,6 +19,8 @@ interface User {
     clinic_address?: string;
     plan_name?: 'free' | 'enterprise';
     profile_slug?: string | null;
+    org_role?: 'owner' | 'member' | null;
+    org_owner_id?: number | null;
 }
 
 interface AuthContextType {

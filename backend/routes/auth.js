@@ -82,6 +82,34 @@ router.post('/register', async (req, res) => {
     sendEmail({ to: 'sarafaastha13@gmail.com', cc: 'adosolve@gmail.com', ...alertEmail })
       .catch(err => console.error('New user alert email failed:', err.message));
 
+    const newUserId = result.rows[0].id;
+
+    // Handle invite token — grant enterprise member role if valid
+    const inviteToken = req.body.inviteToken;
+    if (inviteToken && typeof inviteToken === 'string') {
+      try {
+        const inviteRes = await pool.query(
+          `SELECT id, owner_id FROM organization_therapists
+           WHERE invite_token = $1 AND LOWER(invite_email) = $2
+             AND status = 'pending' AND invite_expires_at > NOW()`,
+          [inviteToken.trim(), email]
+        );
+        if (inviteRes.rows.length > 0) {
+          const { id: inviteId, owner_id } = inviteRes.rows[0];
+          await pool.query(
+            `UPDATE Users SET plan_name = 'enterprise', org_role = 'member', org_owner_id = $1 WHERE id = $2`,
+            [owner_id, newUserId]
+          );
+          await pool.query(
+            `UPDATE organization_therapists SET status = 'active', therapist_user_id = $1, invite_token = NULL WHERE id = $2`,
+            [newUserId, inviteId]
+          );
+        }
+      } catch (inviteErr) {
+        console.error('Invite token processing failed (non-fatal):', inviteErr.message);
+      }
+    }
+
     res.status(201).json({ message: 'Registration successful', user: result.rows[0] });
   } catch (error) {
     console.error('Registration error:', error);
@@ -289,8 +317,8 @@ router.post('/logout', (req, res) => {
 // Get current user (check if logged in)
 router.get('/me', (req, res) => {
   if (req.isAuthenticated()) {
-    const { password, ...userWithoutPassword } = req.user;
-    res.json({ user: userWithoutPassword });
+    const { password, reset_token, reset_token_expires, ...userWithoutSensitive } = req.user;
+    res.json({ user: userWithoutSensitive });
   } else {
     res.status(401).json({ error: 'Not authenticated' });
   }

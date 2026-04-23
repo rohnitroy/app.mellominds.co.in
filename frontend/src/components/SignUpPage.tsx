@@ -17,6 +17,9 @@ const SignUpPage: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Read invite token from URL query param
+  const inviteToken = new URLSearchParams(window.location.search).get('invite') || ''
   
   const [phoneNumber, setPhoneNumber] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
@@ -88,7 +91,8 @@ const SignUpPage: React.FC = () => {
           state,
           city,
           pincode,
-          address
+          address,
+          inviteToken,
         }),
       })
 
@@ -176,10 +180,11 @@ const SignUpPage: React.FC = () => {
                     <input
                       type="email"
                       id="email"
+                      name="invite-email"
                       placeholder="enter email address"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      autoComplete="off"
+                      autoComplete="new-password"
                     />
                   </div>
                 </div>
