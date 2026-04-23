@@ -1085,9 +1085,11 @@ const CreateEventPage: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        <button className={styles.addPriceBtn} onClick={() => setShowPriceInput(true)}>
-                            + Add Price
-                        </button>
+                        paymentData.prices.length === 0 && (
+                            <button className={styles.addPriceBtn} onClick={() => setShowPriceInput(true)}>
+                                + Add Price
+                            </button>
+                        )
                     )}
                 </div>
             </div>
