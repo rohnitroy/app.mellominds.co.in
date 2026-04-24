@@ -23,6 +23,7 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
 import CreateEventPage from './components/CreateEventPage';
 import ManageReminders from './components/ManageReminders';
+import EditDashboard from './components/EditDashboard';
 import ProfileLink from './components/ProfileLink';
 import ResetPassword from './components/ResetPassword';
 import Therapists from './Therapists';
@@ -34,7 +35,7 @@ import { SocketProvider } from './context/SocketContext';
 import ToastContainer from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
 import API_BASE_URL from './config/api';
-import { Category, TwoUsers, Calendar, Discovery, Wallet, Setting, Paper } from 'react-iconly';
+import { Category, TwoUsers, Calendar, Discovery, Wallet, Setting, Paper, AddUser } from 'react-iconly';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import QuickActionMenu from './components/QuickActionMenu';
@@ -372,6 +373,12 @@ const AddClientModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   );
 };
 
+const MemberGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.org_role === 'member') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+};
+
 const DashboardLayout: React.FC = () => {
   const [showSendLinkModal, setShowSendLinkModal] = useState<boolean>(false);
   const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
@@ -393,7 +400,9 @@ const DashboardLayout: React.FC = () => {
       : []),
     { name: 'Bookings', icon: 'Calendar1.svg', path: '/bookings' },
     { name: 'My Calendars', icon: 'Category.svg', path: '/my-calendar' },
-    { name: 'Payments & Invoice', icon: 'Wallet.svg', path: '/payment-invoice' }
+    ...(user?.org_role !== 'member'
+      ? [{ name: 'Payments & Invoice', icon: 'Wallet.svg', path: '/payment-invoice' }]
+      : []),
   ];
 
   const bottomNavItems: NavItem[] = [
@@ -413,14 +422,7 @@ const DashboardLayout: React.FC = () => {
     switch (name) {
       case 'Dashboard':          return <Category {...props} />;
       case 'All Clients':        return <TwoUsers {...props} />;
-      case 'Therapists':         return (
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
-      );
+      case 'Therapists':         return <AddUser {...props} />;
       case 'Bookings':           return <Paper {...props} />;
       case 'My Calendars':       return <Calendar {...props} />;
       case 'Payments & Invoice': return <Wallet {...props} />;
@@ -742,6 +744,23 @@ const DashboardHome: React.FC = () => {
   const [rescheduling, setRescheduling] = useState(false);
   const [cancelConfirmId, setCancelConfirmId] = useState<number | null>(null);
 
+  // Dashboard widget prefs (enterprise only)
+  const isEnterprise = user?.plan_name === 'enterprise';
+  const ALL_WIDGETS = ['Revenue', 'Refund', 'Sessions', 'Cancelled', 'No Show', 'Pending Notes', 'Pending Payment', 'No of Clients'];
+  const defaultWidgets = Object.fromEntries(ALL_WIDGETS.map(k => [k, true]));
+  const [widgetPrefs, setWidgetPrefs] = useState<Record<string, boolean>>(defaultWidgets);
+  const [showEditDashboard, setShowEditDashboard] = useState(false);
+  const [editWidgets, setEditWidgets] = useState<Record<string, boolean>>(defaultWidgets);
+  const [savingWidgets, setSavingWidgets] = useState(false);
+
+  useEffect(() => {
+    if (!isEnterprise) return;
+    fetch(`${API_BASE_URL}/auth/dashboard-prefs`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.widgets) { setWidgetPrefs(d.widgets); setEditWidgets(d.widgets); } })
+      .catch(() => {});
+  }, [isEnterprise]);
+
   // Close menu on outside click
   useEffect(() => {
     if (activeMenuId === null) return;
@@ -877,7 +896,24 @@ const DashboardHome: React.FC = () => {
     { label: 'Pending Notes', value: stats.pendingNotes.toString() },
     { label: 'Pending Payment', value: stats.pendingPayment.toString() },
     { label: 'No of Clients', value: stats.noOfClients.toString() }
-  ];
+  ].filter(s => !isEnterprise || widgetPrefs[s.label] !== false);
+
+  const handleSaveWidgetPrefs = async () => {
+    setSavingWidgets(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/dashboard-prefs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ widgets: editWidgets }),
+      });
+      if (res.ok) {
+        setWidgetPrefs({ ...editWidgets });
+        setShowEditDashboard(false);
+      }
+    } catch { /* silent */ }
+    finally { setSavingWidgets(false); }
+  };
 
 
   const formatDateTime = (isoString: string) => {
@@ -1058,6 +1094,53 @@ const DashboardHome: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Edit Dashboard Modal */}
+      {showEditDashboard && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
+          onClick={() => !savingWidgets && setShowEditDashboard(false)}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '28px', width: '100%', maxWidth: '420px' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '20px', margin: 0 }}>Edit Dashboard</h2>
+              <button onClick={() => setShowEditDashboard(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+            </div>
+            <p style={{ fontFamily: 'Urbanist', fontSize: '13px', color: '#6E6E6E', margin: '0 0 20px 0' }}>Show or hide analytics modules on your dashboard.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+              {ALL_WIDGETS.map(key => (
+                <div key={key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+                  <span style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '15px', color: '#111' }}>{key}</span>
+                  <button
+                    onClick={() => setEditWidgets(prev => ({ ...prev, [key]: !prev[key] }))}
+                    style={{
+                      position: 'relative', width: '44px', height: '24px', borderRadius: '12px',
+                      background: editWidgets[key] ? '#082421' : '#d1d5db',
+                      border: 'none', cursor: 'pointer', padding: 0, transition: 'background 0.2s',
+                    }}
+                    role="switch" aria-checked={editWidgets[key]}
+                  >
+                    <span style={{
+                      position: 'absolute', top: '3px', left: editWidgets[key] ? '23px' : '3px',
+                      width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                      transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                    }} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button onClick={() => setShowEditDashboard(false)} disabled={savingWidgets}
+                style={{ padding: '9px 20px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={handleSaveWidgetPrefs} disabled={savingWidgets}
+                style={{ padding: '9px 20px', borderRadius: '8px', border: 'none', background: '#082421', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '14px', color: '#fff', cursor: savingWidgets ? 'not-allowed' : 'pointer', opacity: savingWidgets ? 0.7 : 1 }}>
+                {savingWidgets ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="content-sections">
         <div>
@@ -1245,12 +1328,13 @@ const AppContent: React.FC = () => {
               <Route path="my-calendar" element={<CalendarPage />} />
               <Route path="my-calendar/new" element={<CreateEventPage />} />
               <Route path="my-calendar/edit" element={<CreateEventPage />} />
-              <Route path="payment-invoice" element={<PaymentsInvoice />} />
-              <Route path="payment-invoice/:tab" element={<PaymentsInvoice />} />
+              <Route path="payment-invoice" element={<MemberGuard><PaymentsInvoice /></MemberGuard>} />
+              <Route path="payment-invoice/:tab" element={<MemberGuard><PaymentsInvoice /></MemberGuard>} />
               <Route path="settings" element={<MySettings />} />
               <Route path="settings/my-profile" element={<MyProfile onBack={() => window.history.back()} />} />
               <Route path="settings/client-notes-template" element={<ClientNotesTemplate onBack={() => window.history.back()} />} />
               <Route path="settings/reminders" element={<ManageReminders onBack={() => window.history.back()} />} />
+              <Route path="settings/edit-dashboard" element={<EditDashboard onBack={() => window.history.back()} />} />
               <Route path="settings/profile-link" element={<ProfileLink onBack={() => window.history.back()} />} />
               <Route path="notifications" element={<NotificationsPage onBack={() => {}} />} />
             </Route>

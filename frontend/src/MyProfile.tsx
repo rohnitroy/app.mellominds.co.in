@@ -14,9 +14,21 @@ interface MyProfileProps {
   onBack: () => void;
 }
 
+interface OrgData {
+  company_name: string;
+  company_email: string;
+  gst: string;
+  street: string;
+  city: string;
+  pincode: string;
+  state: string;
+  country: string;
+}
+
 const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   const toast = useToast();
   const [profilePicture, setProfilePicture] = useState<string>('');
+  const [isEnterpriseOwner, setIsEnterpriseOwner] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     phoneNumber: '',
@@ -30,6 +42,16 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     city: '',
     pincode: '',
     address: ''
+  });
+  const [orgData, setOrgData] = useState<OrgData>({
+    company_name: '',
+    company_email: '',
+    gst: '',
+    street: '',
+    city: '',
+    pincode: '',
+    state: '',
+    country: 'India',
   });
   const [loading, setLoading] = useState(true);
 
@@ -48,6 +70,9 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
               profilePicUrl = `${API_BASE_URL}${profilePicUrl}`;
             }
             setProfilePicture(profilePicUrl);
+
+            const enterpriseOwner = data.user.plan_name === 'enterprise' && data.user.org_role !== 'member';
+            setIsEnterpriseOwner(enterpriseOwner);
             
             setFormData({
               fullName: data.user.user_name || '',
@@ -63,6 +88,25 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
               pincode: data.user.pincode || '',
               address: data.user.clinic_address || ''
             });
+
+            if (enterpriseOwner) {
+              const orgRes = await fetch(`${API_BASE_URL}/auth/organization`, { credentials: 'include' });
+              if (orgRes.ok) {
+                const orgJson = await orgRes.json();
+                if (orgJson.organization) {
+                  setOrgData({
+                    company_name: orgJson.organization.company_name || '',
+                    company_email: orgJson.organization.company_email || '',
+                    gst: orgJson.organization.gst || '',
+                    street: orgJson.organization.street || '',
+                    city: orgJson.organization.city || '',
+                    pincode: orgJson.organization.pincode || '',
+                    state: orgJson.organization.state || '',
+                    country: orgJson.organization.country || 'India',
+                  });
+                }
+              }
+            }
           }
         }
       } catch (error) {
@@ -83,6 +127,31 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     // Auto-fill city and state when pincode is entered
     if (field === 'pincode' && value.length === 6) {
       fetchLocationByPincode(value);
+    }
+  };
+
+  const handleOrgChange = (field: keyof OrgData, value: string) => {
+    setOrgData(prev => ({ ...prev, [field]: value }));
+    if (field === 'pincode' && value.length === 6) {
+      fetchOrgLocationByPincode(value);
+    }
+  };
+
+  const fetchOrgLocationByPincode = async (pincode: string) => {
+    if (!/^\d{6}$/.test(pincode)) return;
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+      const data = await response.json();
+      if (data && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
+        const location = data[0].PostOffice[0];
+        setOrgData(prev => ({
+          ...prev,
+          city: location.District || prev.city,
+          state: location.State || prev.state
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching org location:', error);
     }
   };
 
@@ -165,6 +234,19 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
       });
 
       if (response.ok) {
+        // Save org details if enterprise owner
+        if (isEnterpriseOwner) {
+          const orgRes = await fetch(`${API_BASE_URL}/auth/organization`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(orgData)
+          });
+          if (!orgRes.ok) {
+            toast.error('Profile saved but failed to save organization details.');
+            return;
+          }
+        }
         toast.success('Profile changes saved successfully!');
       } else {
         toast.error('Failed to save profile changes.');
@@ -226,7 +308,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
           </button>
           <div>
             <h1>My Profile</h1>
-            <p>Manage your personal information and preferences.</p>
+            <p style={{ fontSize: '14px' }}>Manage your personal information and preferences.</p>
           </div>
         </div>
         <button className={styles.saveBtn} onClick={handleSaveChanges}>Save Changes</button>
@@ -238,7 +320,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
             {profilePicture ? (
               <img src={profilePicture} alt="Profile" className={styles.profileImage} />
             ) : (
-              <svg width="48" height="48" viewBox="0 0 28 24" fill="none">
+              <svg width="24" height="24" viewBox="0 0 28 24" fill="none">
                 <circle cx="12" cy="7" r="4" stroke="#2D7579" strokeWidth="2" fill="none" />
                 <path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2" stroke="#2D7579" strokeWidth="2" fill="none" />
                 <path d="M20 8h4m-2-2v4" stroke="#2D7579" strokeWidth="2" strokeLinecap="round" />
@@ -370,6 +452,95 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
           </div>
         </div>
       </div>
+
+      {isEnterpriseOwner && (
+        <div className={styles.profileContent} style={{ marginTop: '24px' }}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>Organization Details</h2>
+            <p className={styles.sectionSubtitle}>Billing and legal information for your enterprise account.</p>
+          </div>
+          <div className={styles.formGrid}>
+            <div className={styles.formGroup}>
+              <label>Company Name</label>
+              <input
+                type="text"
+                value={orgData.company_name}
+                onChange={(e) => handleOrgChange('company_name', e.target.value)}
+                placeholder="Acme Wellness Pvt. Ltd."
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Company Email</label>
+              <input
+                type="email"
+                value={orgData.company_email}
+                onChange={(e) => handleOrgChange('company_email', e.target.value)}
+                placeholder="billing@company.com"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>GST Number</label>
+              <input
+                type="text"
+                value={orgData.gst}
+                onChange={(e) => handleOrgChange('gst', e.target.value.toUpperCase())}
+                placeholder="22AAAAA0000A1Z5"
+                maxLength={15}
+              />
+            </div>
+
+            <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+              <label>Street Address</label>
+              <input
+                type="text"
+                value={orgData.street}
+                onChange={(e) => handleOrgChange('street', e.target.value)}
+                placeholder="123, MG Road, Sector 5"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Pincode</label>
+              <input
+                type="text"
+                value={orgData.pincode}
+                onChange={(e) => handleOrgChange('pincode', e.target.value)}
+                maxLength={6}
+                placeholder="400001"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>City</label>
+              <input
+                type="text"
+                value={orgData.city}
+                onChange={(e) => handleOrgChange('city', e.target.value)}
+                placeholder="Mumbai"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>State</label>
+              <StateSelect
+                country={orgData.country}
+                value={orgData.state}
+                onChange={(val) => handleOrgChange('state', val)}
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Country</label>
+              <CountrySelect
+                value={orgData.country}
+                onChange={(val) => handleOrgChange('country', val)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

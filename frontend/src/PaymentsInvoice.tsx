@@ -51,6 +51,17 @@ const PaymentsInvoice: React.FC = () => {
   const [refundingId, setRefundingId] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
+  const [orgDetails, setOrgDetails] = useState<any>(null);
+
+  // Fetch org details for enterprise users
+  useEffect(() => {
+    if (user?.plan_name === 'enterprise') {
+      fetch(`${API_BASE_URL}/auth/organization`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.organization) setOrgDetails(d.organization); })
+        .catch(() => {});
+    }
+  }, [user]);
 
   const tabs = ['All Payments', 'All Cancellations', 'Pending Payments'];
 
@@ -226,6 +237,15 @@ const PaymentsInvoice: React.FC = () => {
   };
 
   const buildReceiptHTML = (b: any) => {
+    // Use org details if available, otherwise fall back to user details
+    const fromName = orgDetails?.company_name || user?.user_name || 'MelloMinds';
+    const fromEmail = orgDetails?.company_email || user?.email || 'support@mellominds.co.in';
+    const fromAddress = orgDetails
+      ? [orgDetails.street, orgDetails.city, orgDetails.state, orgDetails.pincode, orgDetails.country].filter(Boolean).join(', ')
+      : '';
+    const gst = orgDetails?.gst || '';
+    const therapistLine = orgDetails ? `<div style="font-size:12px;color:#666;margin-top:2px;">Therapist: ${user?.user_name || ''}</div>` : '';
+
     const display = derivePaymentDisplay(b.payment_status || 'Pending', b.status);
     const sc = PAYMENT_STATUS_COLORS[display] || PAYMENT_STATUS_COLORS.Pending;
     return `
@@ -248,7 +268,10 @@ const PaymentsInvoice: React.FC = () => {
     </style></head><body>
     <div class="header">
       <div>
-        <div class="brand">${user?.user_name || 'MelloMinds'}</div>
+        <div class="brand">${fromName}</div>
+        ${therapistLine}
+        ${fromAddress ? `<div style="font-size:12px;color:#666;margin-top:2px;">${fromAddress}</div>` : ''}
+        ${gst ? `<div style="font-size:12px;color:#666;margin-top:2px;">GST: ${gst}</div>` : ''}
         <div class="receipt-title">Payment Receipt</div>
       </div>
       <div class="meta">
@@ -273,7 +296,7 @@ const PaymentsInvoice: React.FC = () => {
       <div class="row"><span class="label">Payment Status</span><span class="value"><span class="status-badge">${display}</span></span></div>
       <div class="total-row"><span>Total Amount</span><span>₹${parseFloat(b.payment_amount || 0).toFixed(2)}</span></div>
     </div>
-    <div class="footer">Thank you for choosing ${user?.user_name || 'MelloMinds'}. For queries, contact ${user?.email || 'support@mellominds.co.in'}</div>
+    <div class="footer">Thank you for choosing ${fromName}. For queries, contact ${fromEmail}</div>
     </body></html>
   `;
   };
@@ -490,7 +513,12 @@ const PaymentsInvoice: React.FC = () => {
             <div ref={receiptRef} style={{ padding: '24px', fontFamily: 'Urbanist' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', paddingBottom: '16px', borderBottom: '2px solid #082421' }}>
                 <div>
-                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#082421' }}>{user?.user_name || 'MelloMinds'}</div>
+                  <div style={{ fontSize: '20px', fontWeight: 700, color: '#082421' }}>{orgDetails?.company_name || user?.user_name || 'MelloMinds'}</div>
+                  {orgDetails && <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>Therapist: {user?.user_name}</div>}
+                  {orgDetails && [orgDetails.street, orgDetails.city, orgDetails.state, orgDetails.pincode].filter(Boolean).join(', ') && (
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>{[orgDetails.street, orgDetails.city, orgDetails.state, orgDetails.pincode].filter(Boolean).join(', ')}</div>
+                  )}
+                  {orgDetails?.gst && <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>GST: {orgDetails.gst}</div>}
                   <div style={{ fontSize: '12px', color: '#999', marginTop: '2px' }}>Payment Receipt</div>
                 </div>
                 <div style={{ textAlign: 'right', fontSize: '13px', color: '#555' }}>

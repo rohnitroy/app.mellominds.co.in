@@ -58,6 +58,8 @@ const CalendarPage: React.FC = () => {
       const response = await fetch(`${API_BASE_URL}/api/calendars`, { credentials: 'include' });
       if (response.ok) {
         setCalendars(await response.json());
+      } else if (response.status === 401) {
+        navigate('/login', { replace: true });
       } else {
         setFetchError(true);
       }
@@ -195,7 +197,21 @@ const CalendarPage: React.FC = () => {
           >
             Available Hours
           </button>
-          <button className="create-calendar-btn" onClick={() => navigate('/my-calendar/new')}>
+          <button
+            className="create-calendar-btn"
+            onClick={() => {
+              if (!isGoogleConnected) {
+                toast.error('Please connect your Google Calendar in Settings before creating a calendar.');
+                return;
+              }
+              navigate('/my-calendar/new');
+            }}
+            title={!isGoogleConnected ? 'Connect Google Calendar in Settings first' : ''}
+            style={{
+              cursor: isGoogleConnected ? 'pointer' : 'not-allowed',
+              opacity: isGoogleConnected === null ? 0.5 : 1,
+            }}
+          >
             + Create Calendar
           </button>
         </div>

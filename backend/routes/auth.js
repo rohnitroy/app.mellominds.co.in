@@ -324,6 +324,208 @@ router.get('/me', (req, res) => {
   }
 });
 
+// GET /auth/dashboard-prefs — fetch dashboard widget preferences
+router.get('/dashboard-prefs', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  if (req.user.plan_name !== 'enterprise') {
+    return res.status(403).json({ error: 'Dashboard customization is available for Enterprise plan users.' });
+  }
+  try {
+    const result = await pool.query(
+      'SELECT enterprise_settings FROM organization_details WHERE user_id = $1',
+      [req.user.id]
+    );
+    const saved = result.rows[0]?.enterprise_settings?.dashboard_widgets;
+    // Default: all visible
+    const defaults = {
+      Revenue: true, Refund: true, Sessions: true, Cancelled: true,
+      'No Show': true, 'Pending Notes': true, 'Pending Payment': true, 'No of Clients': true,
+    };
+    res.json({ widgets: saved ? { ...defaults, ...saved } : defaults });
+  } catch (err) {
+    console.error('Fetch dashboard prefs error:', err);
+    res.status(500).json({ error: 'Failed to fetch dashboard preferences' });
+  }
+});
+
+// PUT /auth/dashboard-prefs — save dashboard widget preferences
+router.put('/dashboard-prefs', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  if (req.user.plan_name !== 'enterprise') {
+    return res.status(403).json({ error: 'Dashboard customization is available for Enterprise plan users.' });
+  }
+  try {
+    const { widgets } = req.body;
+    if (!widgets || typeof widgets !== 'object') {
+      return res.status(400).json({ error: 'Invalid widgets payload' });
+    }
+    await pool.query(
+      `INSERT INTO organization_details (user_id, enterprise_settings, updated_at)
+       VALUES ($1, jsonb_build_object('dashboard_widgets', $2::jsonb), NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         enterprise_settings = organization_details.enterprise_settings || jsonb_build_object('dashboard_widgets', $2::jsonb),
+         updated_at = NOW()`,
+      [req.user.id, JSON.stringify(widgets)]
+    );
+    res.json({ message: 'Dashboard preferences saved', widgets });
+  } catch (err) {
+    console.error('Save dashboard prefs error:', err);
+    res.status(500).json({ error: 'Failed to save dashboard preferences' });
+  }
+});
+router.get('/enterprise-settings', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+    return res.status(403).json({ error: 'Only enterprise owners can access these settings' });
+  }
+  try {
+    const result = await pool.query(
+      'SELECT enterprise_settings FROM organization_details WHERE user_id = $1',
+      [req.user.id]
+    );
+    const defaults = {
+      allow_client_transfers: true,
+      require_transfer_approval: false,
+    };
+    const saved = result.rows[0]?.enterprise_settings || {};
+    res.json({ settings: { ...defaults, ...saved } });
+  } catch (err) {
+    console.error('Fetch enterprise settings error:', err);
+    res.status(500).json({ error: 'Failed to fetch enterprise settings' });
+  }
+});
+
+// PUT /auth/enterprise-settings — save enterprise control center settings
+router.put('/enterprise-settings', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+    return res.status(403).json({ error: 'Only enterprise owners can update these settings' });
+  }
+  try {
+    const allowed = ['allow_client_transfers', 'require_transfer_approval'];
+    const settings = {};
+    for (const key of allowed) {
+      if (typeof req.body[key] === 'boolean') settings[key] = req.body[key];
+    }
+    await pool.query(
+      `INSERT INTO organization_details (user_id, enterprise_settings, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         enterprise_settings = organization_details.enterprise_settings || $2::jsonb,
+         updated_at = NOW()`,
+      [req.user.id, JSON.stringify(settings)]
+    );
+    res.json({ message: 'Enterprise settings saved', settings });
+  } catch (err) {
+    console.error('Save enterprise settings error:', err);
+    res.status(500).json({ error: 'Failed to save enterprise settings' });
+  }
+});
+
+// GET /auth/enterprise-analytics — aggregated analytics for all therapists under the owner
+router.get('/enterprise-analytics', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+    return res.status(403).json({ error: 'Only enterprise owners can access analytics' });
+  }
+  try {
+    // Get all therapist IDs under this owner (including the owner themselves)
+    const therapistIds = [req.user.id];
+    const membersRes = await pool.query(
+      'SELECT therapist_user_id FROM organization_therapists WHERE owner_id = $1 AND status = $2 AND therapist_user_id IS NOT NULL',
+      [req.user.id, 'active']
+    );
+    therapistIds.push(...membersRes.rows.map(r => r.therapist_user_id));
+
+    // Aggregate analytics across all therapists
+    const analyticsRes = await pool.query(
+      `SELECT
+        COALESCE(SUM(payment_amount) FILTER (WHERE payment_status IN ('Paid', 'Partial Refund') AND status != 'cancelled'), 0) AS revenue,
+        COALESCE(SUM(payment_amount) FILTER (WHERE payment_status IN ('Refunded', 'Partial Refund')), 0) AS refund,
+        COUNT(*) FILTER (WHERE status NOT IN ('cancelled')) AS sessions,
+        COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled,
+        COUNT(*) FILTER (WHERE status = 'noshow') AS noshow,
+        COUNT(*) FILTER (WHERE payment_status = 'Pending' AND status != 'cancelled') AS pending_payment
+      FROM Appointments WHERE therapist_id = ANY($1)`,
+      [therapistIds]
+    );
+
+    const pendingNotesRes = await pool.query(
+      `SELECT COUNT(*) FROM Appointments a
+       WHERE a.therapist_id = ANY($1) AND a.status = 'completed'
+       AND NOT EXISTS (SELECT 1 FROM SessionNotes WHERE appointment_id = a.id)`,
+      [therapistIds]
+    );
+
+    const clientsRes = await pool.query(
+      'SELECT COUNT(*) FROM Clients WHERE therapist_id = ANY($1)',
+      [therapistIds]
+    );
+
+    const a = analyticsRes.rows[0];
+    res.json({
+      revenue: parseFloat(a.revenue || 0),
+      refund: parseFloat(a.refund || 0),
+      sessions: parseInt(a.sessions || 0),
+      cancelled: parseInt(a.cancelled || 0),
+      noshow: parseInt(a.noshow || 0),
+      pending_notes: parseInt(pendingNotesRes.rows[0].count || 0),
+      pending_payment: parseInt(a.pending_payment || 0),
+      clients: parseInt(clientsRes.rows[0].count || 0),
+    });
+  } catch (err) {
+    console.error('Fetch enterprise analytics error:', err);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+router.get('/organization', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+    return res.status(403).json({ error: 'Only enterprise owners can access organization details' });
+  }
+  try {
+    const result = await pool.query(
+      'SELECT * FROM organization_details WHERE user_id = $1',
+      [req.user.id]
+    );
+    res.json({ organization: result.rows[0] || null });
+  } catch (err) {
+    console.error('Fetch org details error:', err);
+    res.status(500).json({ error: 'Failed to fetch organization details' });
+  }
+});
+
+// PUT /auth/organization — upsert org details for the current enterprise owner
+router.put('/organization', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+    return res.status(403).json({ error: 'Only enterprise owners can update organization details' });
+  }
+  try {
+    const { company_name, company_email, gst, street, city, pincode, state, country } = req.body;
+    const result = await pool.query(
+      `INSERT INTO organization_details (user_id, company_name, company_email, gst, street, city, pincode, state, country, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         company_name = EXCLUDED.company_name,
+         company_email = EXCLUDED.company_email,
+         gst = EXCLUDED.gst,
+         street = EXCLUDED.street,
+         city = EXCLUDED.city,
+         pincode = EXCLUDED.pincode,
+         state = EXCLUDED.state,
+         country = EXCLUDED.country,
+         updated_at = NOW()
+       RETURNING *`,
+      [req.user.id, company_name || null, company_email || null, gst || null, street || null, city || null, pincode || null, state || null, country || null]
+    );
+    res.json({ message: 'Organization details saved', organization: result.rows[0] });
+  } catch (err) {
+    console.error('Save org details error:', err);
+    res.status(500).json({ error: 'Failed to save organization details' });
+  }
+});
+
 // Upload profile picture
 router.post('/upload-profile-picture', upload.single('profilePicture'), async (req, res) => {
   try {

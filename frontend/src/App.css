@@ -222,6 +222,13 @@ body {
   object-fit: cover;
 }
 
+/* Placeholder SVG — constrain to 24x24 centered, don't stretch */
+.user-avatar img[src="Profile.svg"] {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
 .logout-btn {
   background: none;
   border: none;

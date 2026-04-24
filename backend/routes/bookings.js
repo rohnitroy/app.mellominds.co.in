@@ -1380,7 +1380,8 @@ router.post('/:id/send-invoice', async (req, res) => {
         const bookingId = parseInt(req.params.id);
 
         const result = await pool.query(
-            `SELECT a.*, u.user_name as therapist_name, u.email as therapist_email
+            `SELECT a.*, u.user_name as therapist_name, u.email as therapist_email,
+                    u.org_owner_id
              FROM Appointments a
              JOIN Users u ON a.therapist_id = u.id
              WHERE a.id = $1 AND a.therapist_id = $2`,
@@ -1396,6 +1397,26 @@ router.post('/:id/send-invoice', async (req, res) => {
         if (!b.client_email) {
             return res.status(400).json({ error: 'Client has no email address on record' });
         }
+
+        // Fetch org details — use owner's org if enterprise member, or own org if owner
+        const orgOwnerId = b.org_owner_id || (req.user.plan_name === 'enterprise' ? userId : null);
+        let org = null;
+        if (orgOwnerId) {
+            const orgRes = await pool.query(
+                'SELECT * FROM organization_details WHERE user_id = $1',
+                [orgOwnerId]
+            );
+            if (orgRes.rows.length > 0) org = orgRes.rows[0];
+        }
+
+        const fromName = org?.company_name || b.therapist_name;
+        const fromEmail = org?.company_email || b.therapist_email;
+        const fromAddress = org
+            ? [org.street, org.city, org.state, org.pincode, org.country].filter(Boolean).join(', ')
+            : '';
+        const gstLine = org?.gst ? `<div style="font-size:12px;color:#ccc;margin-top:2px;">GST: ${org.gst}</div>` : '';
+        const therapistLine = org ? `<div style="font-size:13px;color:#ccc;margin-top:2px;">Therapist: ${b.therapist_name}</div>` : '';
+        const addressLine = fromAddress ? `<div style="font-size:12px;color:#ccc;margin-top:2px;">${fromAddress}</div>` : '';
 
         const PAYMENT_STATUS_COLORS = {
             Paid:             { bg: '#e8f5e9', color: '#2e7d32' },
@@ -1426,7 +1447,10 @@ router.post('/:id/send-invoice', async (req, res) => {
           <div style="background:#fff;border-radius:0 0 12px 12px;padding:32px;border:1px solid #e0e0e0;">
             <div style="display:flex;justify-content:space-between;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #082421;">
               <div>
-                <div style="font-size:20px;font-weight:700;color:#082421;">${b.therapist_name}</div>
+                <div style="font-size:20px;font-weight:700;color:#082421;">${fromName}</div>
+                ${therapistLine}
+                ${addressLine}
+                ${gstLine}
                 <div style="font-size:12px;color:#999;margin-top:2px;">Payment Receipt</div>
               </div>
               <div style="text-align:right;font-size:13px;color:#555;">
@@ -1468,7 +1492,7 @@ router.post('/:id/send-invoice', async (req, res) => {
             </div>
 
             <div style="margin-top:24px;text-align:center;font-size:12px;color:#999;border-top:1px solid #eee;padding-top:16px;">
-              Thank you for choosing ${b.therapist_name}. For queries, contact ${b.therapist_email}
+              Thank you for choosing ${fromName}. For queries, contact ${fromEmail}
             </div>
           </div>
         </body></html>`;

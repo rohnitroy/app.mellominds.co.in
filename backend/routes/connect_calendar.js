@@ -77,7 +77,30 @@ router.get('/callback', async (req, res) => {
             );
         }
 
-        // 3. Redirect back to frontend
+        // 3. Seed default availability (Mon–Fri, 9am–6pm IST) if none exists yet
+        const existingAvail = await pool.query(
+            'SELECT id FROM Availability WHERE user_id = $1 LIMIT 1',
+            [req.user.id]
+        );
+        if (existingAvail.rows.length === 0) {
+            const defaultSchedule = [
+                { day: 1, start: '09:00', end: '18:00' }, // Monday
+                { day: 2, start: '09:00', end: '18:00' }, // Tuesday
+                { day: 3, start: '09:00', end: '18:00' }, // Wednesday
+                { day: 4, start: '09:00', end: '18:00' }, // Thursday
+                { day: 5, start: '09:00', end: '18:00' }, // Friday
+            ];
+            for (const s of defaultSchedule) {
+                await pool.query(
+                    `INSERT INTO Availability (user_id, day_of_week, start_time, end_time, is_enabled)
+                     VALUES ($1, $2, $3, $4, true)`,
+                    [req.user.id, s.day, s.start, s.end]
+                );
+            }
+            console.log(`✅ Default availability seeded for user ${req.user.id}`);
+        }
+
+        // 4. Redirect back to frontend
         // Assuming frontend is running on process.env.FRONTEND_URL (e.g. localhost:5173)
         res.redirect(`${process.env.FRONTEND_URL}/dashboard?calendar_connected=true`);
 

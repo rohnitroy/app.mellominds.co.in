@@ -138,6 +138,24 @@ router.post('/transfers/:transferId/approve', async (req, res) => {
         }
 
         const transfer = transferRes.rows[0];
+
+        // ── Enterprise settings enforcement ──────────────────────────────────
+        // If require_transfer_approval is on, only the org owner can approve
+        const orgOwnerId = req.user.org_role === 'member' ? req.user.org_owner_id : null;
+        if (orgOwnerId) {
+            const settingsRes = await dbClient.query(
+                'SELECT enterprise_settings FROM organization_details WHERE user_id = $1',
+                [orgOwnerId]
+            );
+            const settings = settingsRes.rows[0]?.enterprise_settings || {};
+            if (settings.require_transfer_approval === true) {
+                return res.status(403).json({
+                    error: 'Your organization requires the admin to approve all client transfers. Please ask your admin to approve this transfer.'
+                });
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         const opts = transfer.transfer_options || {};
 
         await dbClient.query('BEGIN');
@@ -234,11 +252,22 @@ router.post('/transfers/:transferId/reject', async (req, res) => {
         const toTherapistId = req.user.id;
         const transferId = parseInt(req.params.transferId);
 
+        // Allow owner to reject on behalf of a member when require_transfer_approval is on
+        let queryCondition = 'ct.to_therapist_id = $2';
+        let queryParam = toTherapistId;
+        if (req.user.org_role !== 'member' && req.user.plan_name === 'enterprise') {
+            // Owner can reject any pending transfer within their org
+            queryCondition = `ct.to_therapist_id IN (
+                SELECT therapist_user_id FROM organization_therapists WHERE owner_id = $2 AND status = 'active'
+                UNION SELECT $2
+            )`;
+        }
+
         const transferRes = await pool.query(
             `SELECT ct.*, c.name as client_name FROM ClientTransfers ct
              JOIN Clients c ON ct.client_id = c.id
-             WHERE ct.id = $1 AND ct.to_therapist_id = $2 AND ct.status = 'pending'`,
-            [transferId, toTherapistId]
+             WHERE ct.id = $1 AND ${queryCondition} AND ct.status = 'pending'`,
+            [transferId, queryParam]
         );
 
         if (transferRes.rows.length === 0) {
@@ -275,6 +304,113 @@ router.post('/transfers/:transferId/reject', async (req, res) => {
     } catch (error) {
         console.error('Error rejecting transfer:', error);
         res.status(500).json({ error: 'Failed to reject transfer' });
+    }
+});
+
+// POST /api/clients/transfers/:transferId/owner-approve — owner approves when require_transfer_approval is on
+router.post('/transfers/:transferId/owner-approve', async (req, res) => {
+    const dbClient = await pool.connect();
+    try {
+        if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+            return res.status(403).json({ error: 'Only enterprise owners can use this endpoint.' });
+        }
+
+        const ownerId = req.user.id;
+        const transferId = parseInt(req.params.transferId);
+
+        // Verify the transfer belongs to a member of this owner's org
+        const transferRes = await dbClient.query(
+            `SELECT ct.*, c.* FROM ClientTransfers ct
+             JOIN Clients c ON ct.client_id = c.id
+             WHERE ct.id = $1 AND ct.status = 'pending'
+               AND ct.to_therapist_id IN (
+                 SELECT therapist_user_id FROM organization_therapists
+                 WHERE owner_id = $2 AND status = 'active'
+                 UNION SELECT $2
+               )`,
+            [transferId, ownerId]
+        );
+
+        if (transferRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Transfer not found or not in your organization.' });
+        }
+
+        const transfer = transferRes.rows[0];
+        const toTherapistId = transfer.to_therapist_id;
+        const opts = transfer.transfer_options || {};
+
+        await dbClient.query('BEGIN');
+
+        const existingClient = await dbClient.query(
+            'SELECT id FROM Clients WHERE therapist_id = $1 AND email = $2',
+            [toTherapistId, transfer.email]
+        );
+
+        if (existingClient.rows.length > 0) {
+            await dbClient.query(
+                `UPDATE Clients SET name=$1, phone=$2, age=$3, occupation=$4, gender=$5,
+                 marital_status=$6, emergency_name=$7, emergency_phone=$8, emergency_relation=$9,
+                 updated_at=CURRENT_TIMESTAMP WHERE id=$10`,
+                [transfer.name, transfer.phone, transfer.age, transfer.occupation, transfer.gender,
+                 transfer.marital_status, transfer.emergency_name, transfer.emergency_phone,
+                 transfer.emergency_relation, existingClient.rows[0].id]
+            );
+        } else {
+            await dbClient.query(
+                `INSERT INTO Clients (therapist_id, name, email, phone, age, occupation, gender,
+                 marital_status, emergency_name, emergency_phone, emergency_relation, manually_added)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)`,
+                [toTherapistId, transfer.name, transfer.email, transfer.phone, transfer.age,
+                 transfer.occupation, transfer.gender, transfer.marital_status,
+                 transfer.emergency_name, transfer.emergency_phone, transfer.emergency_relation]
+            );
+        }
+
+        if (opts.notes) {
+            await dbClient.query(
+                `UPDATE SessionNotes SET therapist_id = $1
+                 WHERE therapist_id = $2 AND appointment_id IN (
+                     SELECT id FROM Appointments WHERE therapist_id = $2 AND client_email = $3
+                 )`,
+                [toTherapistId, transfer.from_therapist_id, transfer.email]
+            );
+        }
+
+        if (opts.activities) {
+            await dbClient.query(
+                `UPDATE ClientActivities SET therapist_id = $1
+                 WHERE therapist_id = $2 AND client_id = $3`,
+                [toTherapistId, transfer.from_therapist_id, transfer.client_id]
+            );
+        }
+
+        await dbClient.query(
+            `UPDATE ClientTransfers SET status = 'approved', updated_at = NOW() WHERE id = $1`,
+            [transferId]
+        );
+
+        // Notify both therapists
+        await dbClient.query(
+            `INSERT INTO Notifications (user_id, type, title, description, related_id)
+             VALUES ($1, 'transfer_approved', $2, $3, $4)`,
+            [transfer.from_therapist_id, 'Transfer Approved',
+             `Your transfer request for client "${transfer.name}" has been approved by your admin.`, transferId]
+        );
+        await dbClient.query(
+            `INSERT INTO Notifications (user_id, type, title, description, related_id)
+             VALUES ($1, 'transfer_success', $2, $3, $4)`,
+            [toTherapistId, 'Client Transfer Complete',
+             `Client "${transfer.name}" has been transferred to you by your admin.`, transferId]
+        );
+
+        await dbClient.query('COMMIT');
+        res.json({ message: 'Transfer approved by owner.' });
+    } catch (error) {
+        await dbClient.query('ROLLBACK');
+        console.error('Error in owner-approve transfer:', error);
+        res.status(500).json({ error: 'Failed to approve transfer' });
+    } finally {
+        dbClient.release();
     }
 });
 
@@ -474,6 +610,22 @@ router.post('/:id/transfer', async (req, res) => {
         const { target_email, transfer_options } = req.body;
 
         if (!target_email) return res.status(400).json({ error: 'Target therapist email is required' });
+
+        // ── Enterprise settings enforcement ──────────────────────────────────
+        // Determine the org owner for this user (owner themselves, or their owner if member)
+        const orgOwnerId = req.user.org_role === 'member' ? req.user.org_owner_id : req.user.id;
+        if (orgOwnerId) {
+            const settingsRes = await dbClient.query(
+                'SELECT enterprise_settings FROM organization_details WHERE user_id = $1',
+                [orgOwnerId]
+            );
+            const settings = settingsRes.rows[0]?.enterprise_settings || {};
+            const allowTransfers = settings.allow_client_transfers !== false; // default true
+            if (!allowTransfers) {
+                return res.status(403).json({ error: 'Client transfers have been disabled by your organization admin.' });
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         const clientRes = await dbClient.query(
             'SELECT * FROM Clients WHERE id = $1 AND therapist_id = $2',

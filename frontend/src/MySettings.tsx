@@ -13,7 +13,8 @@ const MySettings: React.FC = () => {
   const { user } = useAuth();
   const toast = useToast();
   const isEnterprise = user?.plan_name === 'enterprise';
-  const isMember = user?.org_role === 'member'; // member of an org, not the owner
+  const isMember = user?.org_role === 'member';
+  const isEnterpriseOwner = isEnterprise && !isMember;
 
   const [googleConnected, setGoogleConnected] = useState(false);
   const [cashfreeConnected, setCashfreeConnected] = useState(false);
@@ -26,6 +27,15 @@ const MySettings: React.FC = () => {
   const [integrationsLoading, setIntegrationsLoading] = useState(true);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showGoogleDisconnectConfirm, setShowGoogleDisconnectConfirm] = useState(false);
+
+  const defaultEnterpriseSettings = {
+    allow_client_transfers: true,
+    require_transfer_approval: false,
+  };
+  const [enterpriseSettings, setEnterpriseSettings] = useState(defaultEnterpriseSettings);
+  const [enterpriseSettingsLoading, setEnterpriseSettingsLoading] = useState(false);
+  const [enterpriseSettingsSaving, setEnterpriseSettingsSaving] = useState(false);
+  const [controlsExpanded, setControlsExpanded] = useState(true);
 
   useEffect(() => {
     // Handle Gmail OAuth redirect result
@@ -59,9 +69,17 @@ const MySettings: React.FC = () => {
         .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
         .catch(() => {}),
     ]).finally(() => setIntegrationsLoading(false));
-  }, []);
 
-  const handleCashfreeConnect = async (e: React.FormEvent) => {
+    // Fetch enterprise settings for owners
+    if (isEnterpriseOwner) {
+      setEnterpriseSettingsLoading(true);
+      fetch(`${API_BASE_URL}/auth/enterprise-settings`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.settings) setEnterpriseSettings(s => ({ ...s, ...d.settings })); })
+        .catch(() => {})
+        .finally(() => setEnterpriseSettingsLoading(false));
+    }
+  }, []);  const handleCashfreeConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     setCashfreeLoading(true);
     try {
@@ -111,6 +129,29 @@ const MySettings: React.FC = () => {
     } finally {
       setDisconnectingGoogle(false);
       setShowGoogleDisconnectConfirm(false);
+    }
+  };
+
+  const handleEnterpriseToggle = async (key: keyof typeof defaultEnterpriseSettings, value: boolean) => {
+    const updated = { ...enterpriseSettings, [key]: value };
+    setEnterpriseSettings(updated);
+    setEnterpriseSettingsSaving(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/enterprise-settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ [key]: value }),
+      });
+      if (!res.ok) {
+        setEnterpriseSettings(s => ({ ...s, [key]: !value })); // revert
+        toast.error('Failed to save setting.');
+      }
+    } catch {
+      setEnterpriseSettings(s => ({ ...s, [key]: !value })); // revert
+      toast.error('Network error.');
+    } finally {
+      setEnterpriseSettingsSaving(false);
     }
   };
 
@@ -223,6 +264,98 @@ const MySettings: React.FC = () => {
               </svg>
             </div>
           </div>
+
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75, cursor: isEnterprise ? 'pointer' : 'not-allowed' }} onClick={isEnterprise ? () => navigate('/settings/edit-dashboard') : undefined}>
+            {!isEnterprise && (
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: '16px',
+                zIndex: 2, cursor: 'not-allowed',
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+                padding: '16px'
+              }}>
+                <span style={{
+                  background: '#F9E141',
+                  color: '#082421', fontSize: '11px', fontWeight: 700,
+                  padding: '4px 10px', borderRadius: '20px',
+                  fontFamily: 'Urbanist', letterSpacing: '0.3px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  ⭐ Upgrade your plan
+                </span>
+              </div>
+            )}
+            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
+              <h3>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#082421" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+                Edit Dashboard
+              </h3>
+              <p>show or hide analytics modules on your dashboard...</p>
+            </div>
+            <div className={styles.cardArrow} style={!isEnterprise ? { pointerEvents: 'none' } : {}}>
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          </div>
+
+          {isEnterpriseOwner && (
+            <div className={styles.settingCardColumn}>
+              {/* Controls Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: controlsExpanded ? '4px' : '0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#082421" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="7" width="20" height="14" rx="2"/>
+                    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                    <line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
+                  </svg>
+                  <h3 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '18px', color: '#000', margin: 0 }}>
+                    Enterprise Control Center
+                    {enterpriseSettingsSaving && <span style={{ fontSize: '12px', color: '#2D7579', fontWeight: 400, marginLeft: '10px' }}>Saving...</span>}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setControlsExpanded(v => !v)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: '#6E6E6E', display: 'flex', alignItems: 'center' }}
+                  aria-label={controlsExpanded ? 'Hide controls' : 'Show controls'}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transition: 'transform 0.2s', transform: controlsExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              </div>
+              {controlsExpanded && (enterpriseSettingsLoading ? (
+                <div style={{ color: '#6E6E6E', fontFamily: 'Urbanist', fontSize: '14px', marginTop: '12px' }}>Loading settings...</div>
+              ) : (
+                <div className={styles.enterpriseToggles}>
+                  {([
+                    { key: 'allow_client_transfers', label: 'Allow client transfers', desc: 'Therapists can transfer clients to other team members' },
+                    { key: 'require_transfer_approval', label: 'Require approval for transfers', desc: 'Only you (the admin) can approve client transfers — members cannot self-approve' },
+                  ] as { key: keyof typeof defaultEnterpriseSettings; label: string; desc: string }[]).map(({ key, label, desc }) => (
+                    <div key={key} className={styles.toggleRow}>
+                      <div className={styles.toggleInfo}>
+                        <span className={styles.toggleLabel}>{label}</span>
+                        <span className={styles.toggleDesc}>{desc}</span>
+                      </div>
+                      <button
+                        className={`${styles.toggleSwitch} ${enterpriseSettings[key] ? styles.toggleOn : ''}`}
+                        onClick={() => handleEnterpriseToggle(key, !enterpriseSettings[key])}
+                        disabled={enterpriseSettingsSaving}
+                        aria-label={label}
+                        role="switch"
+                        aria-checked={enterpriseSettings[key]}
+                      >
+                        <span className={styles.toggleThumb} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className={styles.settingsSection}>

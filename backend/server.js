@@ -371,6 +371,37 @@ async function processActivityReminders() {
     }
 }
 
+// Auto-migrate organization_details table on startup
+async function ensureOrganizationDetailsSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS organization_details (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL UNIQUE REFERENCES Users(id) ON DELETE CASCADE,
+        company_name VARCHAR(255),
+        company_email VARCHAR(150),
+        gst VARCHAR(50),
+        street TEXT,
+        city VARCHAR(100),
+        pincode VARCHAR(20),
+        state VARCHAR(100),
+        country VARCHAR(100),
+        enterprise_settings JSONB DEFAULT '{}'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    // Add enterprise_settings column if it doesn't exist (for existing installs)
+    await pool.query(`
+      ALTER TABLE organization_details
+      ADD COLUMN IF NOT EXISTS enterprise_settings JSONB DEFAULT '{}'::jsonb
+    `);
+    console.log('✅ organization_details schema verified');
+  } catch (err) {
+    console.error('⚠️  organization_details schema migration warning:', err.message);
+  }
+}
+
 // Auto-migrate organization_therapists table on startup
 async function ensureOrganizationTherapistsSchema() {
   try {
@@ -442,6 +473,7 @@ httpServer.listen(PORT, async () => {
   await ensureSessionNotesSchema();
   await ensureOrganizationTherapistsSchema();
   await ensureOrgRoleSchema();
+  await ensureOrganizationDetailsSchema();
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);
   processActivityReminders(); // run once on startup too
