@@ -9,6 +9,12 @@ const SignUpPage: React.FC = () => {
   const navigate = useNavigate()
   const toast = useToast()
   const [step, setStep] = useState(1)
+
+  // Enable body scroll on signup page, restore on unmount
+  React.useEffect(() => {
+    document.body.classList.add('scrollable')
+    return () => document.body.classList.remove('scrollable')
+  }, [])
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

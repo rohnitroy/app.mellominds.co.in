@@ -304,3 +304,124 @@
 .addClientBtn:hover {
   opacity: 0.85;
 }
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .clientsContent {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .clientsContent {
+    padding: 20px 16px;
+  }
+
+  .pageHeader {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .pageHeader h1 {
+    font-size: 20px;
+  }
+
+  .pageHeader p {
+    font-size: 13px;
+  }
+
+  .addClientBtn {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .pageActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .searchContainer {
+    width: 100%;
+  }
+
+  .exportBtn {
+    align-self: flex-end;
+  }
+
+  .addClientBtn {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .tableContainer {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .clientsTable {
+    min-width: 600px;
+  }
+
+  .clientsTable th,
+  .clientsTable td {
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+
+  .clientNameCell,
+  .contactInfoCell,
+  .sessionsCell,
+  .revenueCell,
+  .actionCell {
+    padding: 14px 16px;
+  }
+
+  .tableFooter {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 14px 16px;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .clientsContent {
+    padding: 16px 12px;
+  }
+
+  .pageHeader h1 {
+    font-size: 20px;
+  }
+
+  .clientsTable th,
+  .clientsTable td {
+    padding: 12px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .clientsContent {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 768px) {
+  .mobileHidden {
+    display: none !important;
+  }
+}

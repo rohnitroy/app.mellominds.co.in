@@ -20,6 +20,12 @@ const LoginPage: React.FC = () => {
   const detailsParam = searchParams.get('details')
   const toast = useToast()
 
+  // Enable body scroll on login page, restore on unmount
+  React.useEffect(() => {
+    document.body.classList.add('scrollable')
+    return () => document.body.classList.remove('scrollable')
+  }, [])
+
   // Show error if redirected back from Google OAuth
   React.useEffect(() => {
     if (errorParam) {

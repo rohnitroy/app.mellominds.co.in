@@ -363,3 +363,100 @@
   border: 1px solid #e8f0ef;
   border-radius: 12px;
 }
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .container {
+    padding: 24px;
+  }
+
+  .analyticsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 20px 16px;
+  }
+
+  .profileCard {
+    flex-direction: column;
+    padding: 20px 16px;
+    gap: 16px;
+  }
+
+  .profileName {
+    font-size: 20px;
+  }
+
+  .analyticsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .analyticsValue {
+    font-size: 22px;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .searchWrap {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .tableWrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table {
+    min-width: 500px;
+  }
+
+  .table th,
+  .table td {
+    font-size: 14px;
+  }
+
+  .calendarsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 16px 12px;
+  }
+
+  .profileCard {
+    padding: 16px 12px;
+  }
+
+  .profileName {
+    font-size: 20px;
+  }
+
+  .analyticsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .analyticsValue {
+    font-size: 22px;
+  }
+
+  .analyticsLabel {
+    font-size: 13px;
+  }
+
+  .analyticsCard {
+    padding: 14px 12px;
+  }
+}

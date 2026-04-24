@@ -310,7 +310,7 @@ const Appointments: React.FC = () => {
         {tabs.map(tab => (
           <button
             key={tab}
-            className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''}`}
+            className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''} ${(tab === 'All Bookings' || tab === 'Pending Session Notes') ? styles.desktopOnly : ''}`}
             onClick={() => handleTabChange(tab)}
           >
             {tab}
@@ -323,7 +323,7 @@ const Appointments: React.FC = () => {
           <Search size="small" primaryColor="#6E6E6E" />
           <input type="text" placeholder="Search users by name, or phone no" />
         </div>
-        <button className={styles.exportBtn} onClick={() => {
+        <button className={`${styles.exportBtn} ${styles.mobileHidden}`} onClick={() => {
           const toExport = selectedRows.length > 0 ? selectedRows : filteredAppointments;
           exportToCSV(toExport, 'bookings', {
             start_time: 'Session Time', title: 'Session Name',

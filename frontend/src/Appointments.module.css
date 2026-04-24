@@ -227,3 +227,137 @@
   align-items: center;
   justify-content: center;
 }
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .appointmentsPage {
+    padding: 24px;
+  }
+
+  .tabBtn {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .appointmentsPage {
+    padding: 20px 16px;
+  }
+
+  .appointmentsHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .headerContent h1 {
+    font-size: 20px;
+  }
+
+  .headerContent p {
+    font-size: 13px;
+  }
+
+  .headerActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 0;
+  }
+
+  .searchContainer {
+    width: 100%;
+  }
+
+  .exportBtn {
+    align-self: flex-end;
+  }
+
+  .appointmentsTabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .appointmentsTabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabBtn {
+    padding: 12px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .appointmentsTable {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .appointmentsTable th,
+  .appointmentsTable td {
+    padding: 14px 16px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .clientName {
+    font-size: 14px;
+  }
+
+  .clientPhone {
+    font-size: 11px;
+  }
+
+  .tableFooter {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 16px;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .appointmentsPage {
+    padding: 16px 12px;
+  }
+
+  .headerContent h1 {
+    font-size: 20px;
+  }
+
+  .tabBtn {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .appointmentsTable th,
+  .appointmentsTable td {
+    padding: 12px;
+    font-size: 14px;
+  }
+}
+
+/* Hide desktop-only tabs on mobile */
+@media (max-width: 768px) {
+  .desktopOnly {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .mobileHidden {
+    display: none !important;
+  }
+}

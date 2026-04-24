@@ -225,3 +225,111 @@
   align-items: center;
   justify-content: center;
 }
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .paymentsPage {
+    padding: 24px;
+  }
+
+  .tableHeader,
+  .tableRow {
+    grid-template-columns: 2fr 1.5fr 1.5fr 1fr 1fr;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .paymentsPage {
+    padding: 20px 16px;
+  }
+
+  .paymentsHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .headerContent h1 {
+    font-size: 20px;
+  }
+
+  .headerContent p {
+    font-size: 13px;
+  }
+
+  .headerActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 0;
+  }
+
+  .searchContainer {
+    width: 100%;
+  }
+
+  .exportBtn {
+    align-self: flex-end;
+  }
+
+  .paymentsTabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .paymentsTabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabBtn {
+    padding: 12px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .paymentsTable {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .tableHeader,
+  .tableRow {
+    min-width: 600px;
+    grid-template-columns: 2fr 1.5fr 1.5fr 1fr 1fr;
+    gap: 12px;
+    padding: 14px 16px;
+    font-size: 14px;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .paymentsPage {
+    padding: 16px 12px;
+  }
+
+  .headerContent h1 {
+    font-size: 20px;
+  }
+
+  .tabBtn {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .tableHeader,
+  .tableRow {
+    padding: 12px;
+    font-size: 14px;
+  }
+}

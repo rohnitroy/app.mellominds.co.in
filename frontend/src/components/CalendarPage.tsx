@@ -184,7 +184,7 @@ const CalendarPage: React.FC = () => {
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            className="create-calendar-btn"
+            className="create-calendar-btn mobile-hidden"
             onClick={() => isGoogleConnected && setShowAvailabilityModal(true)}
             title={!isGoogleConnected ? 'Connect Google Calendar in Settings first' : ''}
             style={{
@@ -198,7 +198,7 @@ const CalendarPage: React.FC = () => {
             Available Hours
           </button>
           <button
-            className="create-calendar-btn"
+            className="create-calendar-btn mobile-hidden"
             onClick={() => {
               if (!isGoogleConnected) {
                 toast.error('Please connect your Google Calendar in Settings before creating a calendar.');
@@ -243,7 +243,7 @@ const CalendarPage: React.FC = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     {/* Active toggle */}
                     <div
-                      className="toggle-switch"
+                      className="toggle-switch mobile-hidden"
                       onClick={() => handleToggleActive(resource.id, resource.is_active)}
                       style={{ marginRight: '8px', opacity: togglingId === resource.id ? 0.5 : 1, pointerEvents: togglingId === resource.id ? 'none' : 'auto' }}
                     >
@@ -252,7 +252,7 @@ const CalendarPage: React.FC = () => {
                     </div>
 
                     {/* 3-dot menu */}
-                    <div className="menu-container">
+                    <div className="menu-container mobile-hidden">
                       <button className="menu-btn" onClick={() => toggleMenu(resource.id)}>
                         <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                           <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z" />

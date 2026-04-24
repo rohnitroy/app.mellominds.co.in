@@ -469,7 +469,7 @@ const AllClients: React.FC = () => {
               className={styles.searchInput}
             />
           </div>
-          <button className={styles.exportBtn} onClick={() => {
+          <button className={`${styles.exportBtn} ${styles.mobileHidden}`} onClick={() => {
             const toExport = selectedRows.length > 0 ? selectedRows : filteredClients;
             exportToCSV(toExport, 'clients', {
               name: 'Name', email: 'Email', phone: 'Phone',

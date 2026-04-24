@@ -230,3 +230,140 @@
 .fullWidth {
   grid-column: 1 / -1;
 }
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .formGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .profilePage {
+    padding: 16px 16px 100px 16px;
+  }
+
+  /* Header: title left, save button right — single row */
+  .profileHeader {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .headerLeft {
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .profileHeader h1 {
+    font-size: 20px;
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .profileHeader p {
+    display: none;
+  }
+
+  /* Save button — compact, right-aligned */
+  .saveBtn {
+    flex-shrink: 0;
+    padding: 10px 16px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .profileContent {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  /* Profile image section — horizontal row */
+  .profileImageSection {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .profileAvatar {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+  }
+
+  .changeImageBtn {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+
+  /* Form — single column */
+  .formGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .fullWidth {
+    grid-column: 1;
+  }
+
+  .formGroup label {
+    font-size: 14px;
+    margin-left: 4px;
+  }
+
+  .formGroup input {
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+
+  .sectionTitle {
+    font-size: 17px;
+  }
+
+  .sectionSubtitle {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .profilePage {
+    padding: 12px 12px 100px 12px;
+  }
+
+  .profileContent {
+    padding: 14px 12px;
+  }
+
+  .profileAvatar {
+    width: 60px;
+    height: 60px;
+  }
+
+  .changeImageBtn {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .profileHeader h1 {
+    font-size: 20px;
+  }
+
+  .saveBtn {
+    padding: 9px 14px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .backBtn {
+    display: none;
+  }
+}

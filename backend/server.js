@@ -85,10 +85,10 @@ const authLimiter = rateLimit({
   message: { error: 'Too many attempts. Please try again in 15 minutes.' },
 });
 
-// General rate limiter for all API endpoints — 200 requests per 15 minutes per IP
+// General rate limiter for all API endpoints — disabled in development
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: isProduction ? 200 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down and try again later.' },

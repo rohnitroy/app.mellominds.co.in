@@ -942,3 +942,237 @@
 .modalSubmitBtn:hover {
   background: #1f5a5e;
 }
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .leftPanel {
+    width: 340px;
+    padding: 24px;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  /* Stack layout vertically */
+  .clientLayout {
+    flex-direction: column;
+    min-height: auto;
+    gap: 0;
+  }
+
+  /* Left panel: full width, compact */
+  .leftPanel {
+    width: 100%;
+    padding: 16px;
+    gap: 20px;
+    border-bottom: 1px solid #f1f3f4;
+  }
+
+  /* Client title row: name left, action menu right */
+  .clientTitleSection {
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  /* Hide back button on mobile — use bottom nav */
+  .backButton {
+    display: none;
+  }
+
+  .clientInfo h1 {
+    font-size: 20px;
+    margin: 0 0 2px 0;
+  }
+
+  .clientInfo p {
+    font-size: 13px;
+  }
+
+  /* Info sections: tighter spacing */
+  .infoSection h3 {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .contactItem {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .emergencyContactCard {
+    padding: 14px;
+  }
+
+  .emergencyName {
+    font-size: 14px;
+  }
+
+  .emergencyPhone {
+    font-size: 13px;
+  }
+
+  .demoLabel {
+    font-size: 14px;
+  }
+
+  .demoValue {
+    font-size: 13px;
+  }
+
+  /* Right panel: full width */
+  .rightPanel {
+    padding: 0;
+  }
+
+  /* Tabs: scrollable row */
+  .tabNavigation {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: flex-start;
+    padding: 0 16px;
+    margin: 0;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .tabNavigation::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabButton {
+    padding: 16px 14px;
+    font-size: 13px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* Tab content padding */
+  .tabContent {
+    padding: 0 16px;
+  }
+
+  .overviewContent {
+    padding: 16px 0;
+  }
+
+  /* Stats: 2x3 grid */
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .statCard {
+    padding: 14px 12px;
+  }
+
+  .statLabel {
+    font-size: 13px;
+  }
+
+  .statValue {
+    font-size: 22px;
+  }
+
+  /* Sessions header */
+  .sessionsHeader {
+    margin-bottom: 12px;
+  }
+
+  /* Session items */
+  .sessionHeader {
+    padding: 12px 14px;
+  }
+
+  .sessionTime {
+    font-size: 13px;
+  }
+
+  .sessionNotes {
+    padding: 12px 14px;
+  }
+
+  /* Appointments table */
+  .appointmentsSection h3 {
+    font-size: 17px;
+    margin-bottom: 16px;
+  }
+
+  /* Floating action buttons */
+  .addNotesSection,
+  .addDocumentsBtn,
+  .addActivitiesBtn {
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .addNotesButton,
+  .addDocumentsBtn,
+  .addActivitiesBtn {
+    font-size: 14px;
+    padding: 10px 18px;
+  }
+
+  /* Modals */
+  .modalContent {
+    padding: 20px 16px;
+    width: 95%;
+    max-height: 80vh;
+  }
+
+  .modalContent h2 {
+    font-size: 20px;
+  }
+
+  .formGroup label {
+    font-size: 14px;
+  }
+
+  .formInput,
+  .formSelect,
+  .formTextarea {
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .leftPanel {
+    padding: 14px 12px;
+    gap: 16px;
+  }
+
+  .clientInfo h1 {
+    font-size: 20px;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .statCard {
+    padding: 12px 10px;
+  }
+
+  .statValue {
+    font-size: 22px;
+  }
+
+  .tabButton {
+    padding: 14px 12px;
+    font-size: 13px;
+  }
+
+  .tabContent {
+    padding: 0 12px;
+  }
+
+  .modalContent {
+    padding: 16px 12px;
+  }
+}

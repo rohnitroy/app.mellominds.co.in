@@ -97,8 +97,15 @@ const NotificationBell: React.FC<{
 
   return (
     <div className="notification-container" ref={dropdownRef} style={{ fontSize: '20px', cursor: 'pointer' }}
-      onClick={() => setShowNotificationDropdown(!showNotificationDropdown)}>
-      <img src={showNotificationDropdown ? 'Notification-tap.svg' : 'Notification.svg'} alt="bell" style={{ width: '35px', height: '35px' }} />
+      onClick={() => {
+        // On mobile (≤768px) navigate directly to notifications page
+        if (window.innerWidth <= 768) {
+          navigate('/notifications');
+          return;
+        }
+        setShowNotificationDropdown(!showNotificationDropdown);
+      }}>
+      <img src={showNotificationDropdown ? 'Notification-tap.svg' : 'Notification.svg'} alt="bell" className="notification-bell-icon" style={{ width: '35px', height: '35px' }} />
       {unreadCount > 0 && !showNotificationsPage && <div className="notification-badge"></div>}
       {showNotificationDropdown && (
         <div className="notification-dropdown" onClick={e => e.stopPropagation()}>
@@ -385,6 +392,7 @@ const DashboardLayout: React.FC = () => {
   const [showCreateBookingModal, setShowCreateBookingModal] = useState<boolean>(false);
   const [showAddClientModal, setShowAddClientModal] = useState<boolean>(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const { logout, user } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
@@ -403,6 +411,19 @@ const DashboardLayout: React.FC = () => {
     ...(user?.org_role !== 'member'
       ? [{ name: 'Payments & Invoice', icon: 'Wallet.svg', path: '/payment-invoice' }]
       : []),
+  ];
+
+  // Mobile-only nav: Dashboard, All Clients, Bookings, My Calendars, Notifications, My Profile
+  const mobileNavItems: NavItem[] = [
+    { name: 'Dashboard', icon: 'Category1.svg', path: '/dashboard' },
+    { name: 'All Clients', icon: '3 User.svg', path: '/clients' },
+    { name: 'Bookings', icon: 'Calendar1.svg', path: '/bookings' },
+    { name: 'My Calendars', icon: 'Category.svg', path: '/my-calendar' },
+  ];
+
+  const mobileBottomNavItems: NavItem[] = [
+    { name: 'Notifications', icon: 'Notification.svg', path: '/notifications' },
+    { name: 'My Profile', icon: 'Profile.svg', path: '/settings/my-profile' },
   ];
 
   const bottomNavItems: NavItem[] = [
@@ -427,22 +448,40 @@ const DashboardLayout: React.FC = () => {
       case 'My Calendars':       return <Calendar {...props} />;
       case 'Payments & Invoice': return <Wallet {...props} />;
       case 'My Settings':        return <Setting {...props} />;
+      case 'My Profile':         return <Setting {...props} />;
       default:                   return null;
     }
   };
 
   const renderSidebar = (): JSX.Element => (
-    <div className="sidebar">
+    <div className={`sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
       <div className="logo">
         <img src="Frame 2 1 (1).svg" alt="MelloMinds Logo" />
       </div>
 
-      <div className="nav-menu">
+      {/* Desktop nav */}
+      <div className="nav-menu desktop-nav">
         {navItems.map((item) => (
           <div
             key={item.name}
             className={`nav-item ${isNavActive(item) ? 'active' : ''}`}
-            onClick={() => { navigate(item.path); }}
+            onClick={() => { navigate(item.path); setMobileSidebarOpen(false); }}
+          >
+            <span className={`nav-icon ${item.name === 'My Calendars' ? 'calendar-icon' : ''}`}>
+              {renderNavIcon(item.name, isNavActive(item))}
+            </span>
+            {item.name}
+          </div>
+        ))}
+      </div>
+
+      {/* Mobile nav */}
+      <div className="nav-menu mobile-nav">
+        {mobileNavItems.map((item) => (
+          <div
+            key={item.name}
+            className={`nav-item ${isNavActive(item) ? 'active' : ''}`}
+            onClick={() => { navigate(item.path); setMobileSidebarOpen(false); }}
           >
             <span className={`nav-icon ${item.name === 'My Calendars' ? 'calendar-icon' : ''}`}>
               {renderNavIcon(item.name, isNavActive(item))}
@@ -454,7 +493,8 @@ const DashboardLayout: React.FC = () => {
 
       <div className="nav-divider"></div>
 
-      <div className="nav-bottom">
+      {/* Desktop bottom nav */}
+      <div className="nav-bottom desktop-nav">
         {bottomNavItems.map((item) => (
           <div key={item.name} className={`nav-item ${
             !showNotificationsPage && location.pathname === item.path ? 'active' :
@@ -465,6 +505,7 @@ const DashboardLayout: React.FC = () => {
             } else {
               navigate(item.path);
             }
+            setMobileSidebarOpen(false);
           }}>
             {item.name === 'Notifications' ? (
               <span className="nav-icon" style={{ position: 'relative' }}>
@@ -490,6 +531,41 @@ const DashboardLayout: React.FC = () => {
         ))}
       </div>
 
+      {/* Mobile bottom nav */}
+      <div className="nav-bottom mobile-nav">
+        {mobileBottomNavItems.map((item) => (
+          <div key={item.name} className={`nav-item ${
+            item.name === 'Notifications' && showNotificationsPage ? 'active' :
+            !showNotificationsPage && location.pathname === item.path ? 'active' :
+            !showNotificationsPage && item.path !== '/notifications' && location.pathname.startsWith(item.path) ? 'active' : ''
+          }`} onClick={() => {
+            navigate(item.path);
+            setMobileSidebarOpen(false);
+          }}>
+            {item.name === 'Notifications' ? (
+              <span className="nav-icon" style={{ position: 'relative' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+                {unreadCount > 0 && !showNotificationsPage && (
+                  <span style={{
+                    position: 'absolute', top: '-4px', right: '-4px',
+                    width: '8px', height: '8px', borderRadius: '50%',
+                    background: '#ff0000', border: '1.5px solid #082421'
+                  }} />
+                )}
+              </span>
+            ) : (
+              <span className="nav-icon">
+                {renderNavIcon(item.name, !showNotificationsPage && location.pathname.startsWith(item.path))}
+              </span>
+            )}
+            {item.name}
+          </div>
+        ))}
+      </div>
+
       <div className="hello-section">
         <div style={{ transform: 'translate(-5px, 20px)' }}>
           Say 👋 hello<br />
@@ -507,27 +583,50 @@ const DashboardLayout: React.FC = () => {
 
     return (
     <div className="header">
-      <div className="plan-info">
-        <span>Your Plan:</span>
-        <span
-          className="free-tier"
-          onClick={!isEnterprise ? () => setShowUpgradeModal(true) : undefined}
-          style={!isEnterprise ? { cursor: 'pointer' } : {}}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <button
+          className="mobile-menu-toggle"
+          onClick={() => setMobileSidebarOpen(prev => !prev)}
+          aria-label="Toggle navigation menu"
+          aria-expanded={mobileSidebarOpen}
         >
-          {planLabel} {!isEnterprise && <img src="Danger Circle.svg" alt="Info" style={{ width: '17px', height: '17px', verticalAlign: 'middle' }} />}
-        </span>
+          {mobileSidebarOpen ? (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          )}
+        </button>
+        <div className="plan-info">
+          <span>Your Plan:</span>
+          <span
+            className="free-tier"
+            onClick={!isEnterprise ? () => setShowUpgradeModal(true) : undefined}
+            style={!isEnterprise ? { cursor: 'pointer' } : {}}
+          >
+            {planLabel} {!isEnterprise && <img src="Danger Circle.svg" alt="Info" style={{ width: '17px', height: '17px', verticalAlign: 'middle' }} />}
+          </span>
+        </div>
       </div>
 
       <div className="user-info">
-        <QuickActionMenu
-          onAddClient={() => setShowAddClientModal(true)}
-        />
+        <span className="header-desktop-only">
+          <QuickActionMenu
+            onAddClient={() => setShowAddClientModal(true)}
+          />
+        </span>
         <NotificationBell
           showNotificationsPage={showNotificationsPage}
           showNotificationDropdown={showNotificationDropdown}
           setShowNotificationDropdown={setShowNotificationDropdown}
         />
-        <div className="user-info-card">
+        <div className="user-info-card header-desktop-only">
           <div className="user-avatar">
             <img 
               src={
@@ -559,11 +658,97 @@ const DashboardLayout: React.FC = () => {
 
   return (
     <div className="dashboard">
+      <div
+        className={`mobile-overlay${mobileSidebarOpen ? ' active' : ''}`}
+        onClick={() => setMobileSidebarOpen(false)}
+        aria-hidden="true"
+      />
       {renderSidebar()}
       <div className="main-content">
         {renderHeader()}
         <Outlet context={{ setShowSendLinkModal }} />
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        <div className="mobile-bottom-nav-items">
+          {/* Dashboard */}
+          <div
+            className={`mobile-nav-item ${isNavActive({ name: 'Dashboard', icon: '', path: '/dashboard' }) ? 'active' : ''}`}
+            onClick={() => navigate('/dashboard')}
+          >
+            <div className="mobile-nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+            </div>
+            <span>Dashboard</span>
+          </div>
+
+          {/* All Clients */}
+          <div
+            className={`mobile-nav-item ${isNavActive({ name: 'All Clients', icon: '', path: '/clients' }) ? 'active' : ''}`}
+            onClick={() => navigate('/clients')}
+          >
+            <div className="mobile-nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <span>Clients</span>
+          </div>
+
+          {/* Bookings */}
+          <div
+            className={`mobile-nav-item ${isNavActive({ name: 'Bookings', icon: '', path: '/bookings' }) ? 'active' : ''}`}
+            onClick={() => navigate('/bookings')}
+          >
+            <div className="mobile-nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </div>
+            <span>Bookings</span>
+          </div>
+
+          {/* My Calendars */}
+          <div
+            className={`mobile-nav-item ${isNavActive({ name: 'My Calendars', icon: '', path: '/my-calendar' }) ? 'active' : ''}`}
+            onClick={() => navigate('/my-calendar')}
+          >
+            <div className="mobile-nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              </svg>
+            </div>
+            <span>Calendars</span>
+          </div>
+
+          {/* My Profile */}
+          <div
+            className={`mobile-nav-item ${!showNotificationsPage && location.pathname.startsWith('/settings/my-profile') ? 'active' : ''}`}
+            onClick={() => navigate('/settings/my-profile')}
+          >
+            <div className="mobile-nav-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <span>Profile</span>
+          </div>
+        </div>
+      </nav>
+
       <SendBookingLinkModal
         isOpen={showSendLinkModal}
         onClose={() => setShowSendLinkModal(false)}

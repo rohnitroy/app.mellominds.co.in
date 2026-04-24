@@ -408,3 +408,75 @@
 .calendarDropdown * {
   font-size: 14px !important;
 }
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 768px) {
+  .createBookingContent {
+    padding: 20px 16px;
+  }
+
+  .formContainer {
+    padding: 20px 16px;
+  }
+
+  .formRow {
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .grandTotal {
+    justify-content: space-between;
+  }
+
+  .actionButtons {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .payLaterBtn,
+  .sendPaymentBtn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .timeSlots {
+    gap: 10px;
+  }
+
+  .timeSlot {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .sessionTypeOptions {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .createBookingContent {
+    padding: 16px 12px;
+  }
+
+  .formContainer {
+    padding: 16px 12px;
+  }
+
+  .pageHeader h1 {
+    font-size: 20px;
+  }
+
+  .timeSlot {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+}

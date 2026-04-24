@@ -110,3 +110,17 @@
   color: #7f8c8d;
   line-height: 1.4;
 }
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 480px) {
+  .trigger {
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .dropdown {
+    min-width: calc(100vw - 32px);
+    right: -8px;
+  }
+}

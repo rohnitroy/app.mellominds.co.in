@@ -316,3 +316,104 @@
   font-size: 12px;
   color: #6E6E6E;
 }
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .settingsPage {
+    padding: 24px;
+  }
+
+  .settingsContent {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .analyticsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .settingsPage {
+    padding: 20px 16px;
+  }
+
+  .settingsHeader h1 {
+    font-size: 20px;
+  }
+
+  .settingsHeader p {
+    font-size: 13px;
+  }
+
+  .settingsContent {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .settingCard {
+    padding: 18px;
+    gap: 12px;
+  }
+
+  .cardContent h3 {
+    font-size: 17px;
+  }
+
+  .cardContent p {
+    font-size: 13px;
+  }
+
+  .connectBtn {
+    font-size: 14px;
+  }
+
+  .analyticsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .settingsPage {
+    padding: 16px 12px;
+  }
+
+  .settingsHeader h1 {
+    font-size: 20px;
+  }
+
+  .settingsHeader p {
+    font-size: 13px;
+  }
+
+  .settingCard {
+    padding: 14px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cardArrow {
+    display: none;
+  }
+
+  .analyticsGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .analyticsValue {
+    font-size: 22px;
+  }
+
+  .analyticsLabel {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 768px) {
+  .settingsPage {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+}
