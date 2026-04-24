@@ -1003,25 +1003,49 @@ body.scrollable {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .dashboard-header > div:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dashboard-header h1 {
+    font-size: 20px;
+  }
+
+  .dashboard-header p {
+    font-size: 13px;
   }
 
   .header-right {
     flex-wrap: nowrap;
     flex-shrink: 0;
+    max-width: 45%;
   }
 
   .date-selector-wrapper {
     order: 2;
     margin-left: 0;
+    max-width: 100%;
   }
 
-  /* Constrain filter width on mobile */
+  /* Constrain filter width — truncate label if too long */
   .date-selector {
-    padding: 8px 12px;
-    font-size: 13px;
+    padding: 8px 10px;
+    font-size: 12px;
     white-space: nowrap;
-    min-width: 0;
-    width: auto;
+    max-width: 140px;
+    overflow: hidden;
+  }
+
+  .date-selector span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 80px;
+    display: inline-block;
   }
 
   .profile-completion {
@@ -1110,17 +1134,25 @@ body.scrollable {
 
   .header {
     padding: 12px 16px;
-    flex-wrap: wrap;
-    gap: 12px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    justify-content: space-between;
   }
 
   .plan-info {
+    flex-wrap: nowrap;
+    white-space: nowrap;
     font-size: 12px;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .free-tier {
     padding: 6px 8px;
     font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .user-info {
@@ -1251,35 +1283,7 @@ body.scrollable {
   }
 
   .dashboard-header {
-    margin-bottom: 20px;
-  }
-
-  .dashboard-header h1 {
-    font-size: 20px;
-  }
-
-  .dashboard-header p {
-    font-size: 13px;
-  }
-
-  .header-right {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .date-selector-wrapper {
-    width: 100%;
-  }
-
-  .date-selector {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .profile-completion {
-    width: 100%;
-    justify-content: flex-start;
+    margin-bottom: 16px;
   }
 
   .stat-card {
