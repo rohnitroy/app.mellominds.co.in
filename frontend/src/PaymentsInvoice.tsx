@@ -343,18 +343,28 @@ const PaymentsInvoice: React.FC = () => {
     {
       accessorKey: 'status',
       header: 'Booking Status',
-      cell: ({ getValue }) => {
-        const s = getValue() || 'scheduled';
+      cell: ({ row }) => {
+        const s = row.original.status || 'scheduled';
+        const isPendingNotes = s === 'scheduled' && new Date(row.original.end_time) < new Date();
+        const displayStatus = isPendingNotes ? 'pending_notes' : s;
         const colors: Record<string, { bg: string; color: string }> = {
-          scheduled: { bg: '#e8f5e9', color: '#2e7d32' },
-          cancelled:  { bg: '#fdecea', color: '#c62828' },
-          completed:  { bg: '#e3f2fd', color: '#1565c0' },
-          noshow:     { bg: '#fff3e0', color: '#e65100' },
+          scheduled:     { bg: '#e8f5e9', color: '#2e7d32' },
+          cancelled:     { bg: '#fdecea', color: '#c62828' },
+          completed:     { bg: '#e3f2fd', color: '#1565c0' },
+          noshow:        { bg: '#fff3e0', color: '#e65100' },
+          pending_notes: { bg: '#fff8e1', color: '#f57f17' },
         };
-        const c = colors[s] || colors.scheduled;
+        const labels: Record<string, string> = {
+          scheduled:     'Scheduled',
+          cancelled:     'Cancelled',
+          completed:     'Completed',
+          noshow:        'No Show',
+          pending_notes: 'Pending Notes',
+        };
+        const c = colors[displayStatus] || colors.scheduled;
         return (
-          <span style={{ background: c.bg, color: c.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, textTransform: 'capitalize' }}>
-            {s}
+          <span style={{ background: c.bg, color: c.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600 }}>
+            {labels[displayStatus] || displayStatus}
           </span>
         );
       },

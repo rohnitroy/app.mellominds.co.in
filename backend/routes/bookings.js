@@ -749,6 +749,7 @@ router.get('/clients', async (req, res) => {
             sessions: row.sessions.toString(),
             revenue: `₹${parseFloat(row.total_revenue).toLocaleString('en-IN')}`,
             lastSession: row.last_session ? new Date(row.last_session).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+            lastSessionRaw: row.last_session || null,
             lastSessionStatus: row.last_session_status || null,
             // Include other details for ClientView
             age: row.age || '-',

@@ -689,16 +689,26 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       enableSorting: false,
       cell: ({ row }) => {
         const s = row.original.status || 'scheduled';
+        const isPendingNotes = s === 'scheduled' && new Date(row.original.end_time) < new Date();
+        const displayStatus = isPendingNotes ? 'pending_notes' : s;
         const colors: Record<string, { bg: string; color: string }> = {
-          scheduled: { bg: '#e8f5e9', color: '#2e7d32' },
-          completed: { bg: '#e3f2fd', color: '#1565c0' },
-          cancelled: { bg: '#fdecea', color: '#c62828' },
-          noshow: { bg: '#fff3e0', color: '#e65100' },
+          scheduled:     { bg: '#e8f5e9', color: '#2e7d32' },
+          completed:     { bg: '#e3f2fd', color: '#1565c0' },
+          cancelled:     { bg: '#fdecea', color: '#c62828' },
+          noshow:        { bg: '#fff3e0', color: '#e65100' },
+          pending_notes: { bg: '#fff8e1', color: '#f57f17' },
         };
-        const c = colors[s] || colors.scheduled;
+        const labels: Record<string, string> = {
+          scheduled:     'Scheduled',
+          completed:     'Completed',
+          cancelled:     'Cancelled',
+          noshow:        'No Show',
+          pending_notes: 'Pending Notes',
+        };
+        const c = colors[displayStatus] || colors.scheduled;
         return (
-          <span style={{ fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: c.bg, color: c.color, textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
-            {s === 'noshow' ? 'No Show' : s.charAt(0).toUpperCase() + s.slice(1)}
+          <span style={{ fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '12px', background: c.bg, color: c.color, whiteSpace: 'nowrap' }}>
+            {labels[displayStatus] || displayStatus}
           </span>
         );
       },

@@ -223,13 +223,40 @@ const ManageBooking: React.FC = () => {
                     <div style={{ fontSize: '14px', color: '#555', marginBottom: '4px' }}>👨‍⚕️ {booking.therapist_name}</div>
                     {booking.meet_link && <div style={{ fontSize: '14px' }}><a href={booking.meet_link} style={{ color: '#2D7579' }}>🔗 Join Google Meet</a></div>}
                     <div style={{ marginTop: '10px' }}>
-                        <span style={{
-                            padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-                            background: isCancelled ? '#fdecea' : '#e8f5e9',
-                            color: isCancelled ? '#c62828' : '#2e7d32'
-                        }}>
-                            {booking.status || 'Scheduled'}
-                        </span>
+                        {(() => {
+                            const isPendingNotes = !isCancelled && isPast;
+                            const displayStatus = isCancelled ? 'cancelled' : isPendingNotes ? 'pending_notes' : (booking.status || 'scheduled');
+                            const bgMap: Record<string, string> = {
+                                scheduled:     '#e8f5e9',
+                                cancelled:     '#fdecea',
+                                completed:     '#e3f2fd',
+                                noshow:        '#fff3e0',
+                                pending_notes: '#fff8e1',
+                            };
+                            const colorMap: Record<string, string> = {
+                                scheduled:     '#2e7d32',
+                                cancelled:     '#c62828',
+                                completed:     '#1565c0',
+                                noshow:        '#e65100',
+                                pending_notes: '#f57f17',
+                            };
+                            const labelMap: Record<string, string> = {
+                                scheduled:     'Scheduled',
+                                cancelled:     'Cancelled',
+                                completed:     'Completed',
+                                noshow:        'No Show',
+                                pending_notes: 'Pending Notes',
+                            };
+                            return (
+                                <span style={{
+                                    padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+                                    background: bgMap[displayStatus] || bgMap.scheduled,
+                                    color: colorMap[displayStatus] || colorMap.scheduled,
+                                }}>
+                                    {labelMap[displayStatus] || displayStatus}
+                                </span>
+                            );
+                        })()}
                     </div>
                 </div>
 

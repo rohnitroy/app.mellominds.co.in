@@ -18,6 +18,7 @@ interface Client {
   sessions: string;
   revenue: string;
   lastSession?: string;
+  lastSessionRaw?: string;
   lastSessionStatus?: string;
   age?: string;
   occupation?: string;
@@ -272,11 +273,16 @@ const AllClients: React.FC = () => {
       cell: ({ row }) => {
         const date = row.original.lastSession;
         const status = row.original.lastSessionStatus;
-        const color =
-          status === 'cancelled' ? '#c62828' :
-          status === 'completed' ? '#2e7d32' :
-          status === 'noshow'    ? '#e65100' :
-          undefined;
+        const rawDate = row.original.lastSessionRaw;
+        const isPendingNotes = status === 'scheduled' && rawDate && new Date(rawDate) < new Date();
+        const displayStatus = isPendingNotes ? 'pending_notes' : status;
+        const colorMap: Record<string, string> = {
+          cancelled:     '#c62828',
+          completed:     '#2e7d32',
+          noshow:        '#e65100',
+          pending_notes: '#f57f17',
+        };
+        const color = colorMap[displayStatus || ''];
         return (
           <span className={styles.sessionCount} style={color ? { color, fontWeight: 600 } : undefined}>
             {date || '—'}
