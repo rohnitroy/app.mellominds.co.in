@@ -1015,6 +1015,15 @@ body.scrollable {
     margin-left: 0;
   }
 
+  /* Constrain filter width on mobile */
+  .date-selector {
+    padding: 8px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+    min-width: 0;
+    width: auto;
+  }
+
   .profile-completion {
     order: 1;
     display: none;
@@ -1198,10 +1207,12 @@ body.scrollable {
   }
 
   .plan-info {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
     gap: 4px;
     font-size: 11px;
+    white-space: nowrap;
   }
 
   .user-info {

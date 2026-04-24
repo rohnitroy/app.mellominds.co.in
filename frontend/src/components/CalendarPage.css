@@ -561,11 +561,13 @@ input[type="checkbox"]:checked+.switch:before {
     padding: 20px 16px;
   }
 
+  /* Header: just the title, no buttons visible on mobile */
   .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 24px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0;
+    margin-bottom: 16px;
   }
 
   .page-title {
@@ -577,22 +579,23 @@ input[type="checkbox"]:checked+.switch:before {
   }
 
   .header-actions {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    width: 100%;
+    display: none;
   }
 
-  .create-calendar-btn,
-  .connect-google-btn {
-    width: 100%;
-    justify-content: center;
-    font-size: 14px;
-  }
-
+  /* Full-width single column cards */
   .calendar-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: 12px;
+  }
+
+  .calendar-card {
+    padding: 16px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .card-title {
+    font-size: 17px;
   }
 
   .modal-content {
