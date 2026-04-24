@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './Appointments.module.css';
@@ -171,19 +171,20 @@ const Appointments: React.FC = () => {
     });
   };
 
+  // "pending notes" state = scheduled + end_time in the past (inlined where needed)
+
   const filteredAppointments = useMemo(() => {
     const now = new Date();
     return appointments.filter(app => {
       switch (activeTab) {
         case 'Upcoming':
-          // Future sessions that haven't been cancelled or marked no-show
-          return new Date(app.start_time) > now && app.status === 'scheduled';
+          // Future sessions that are still scheduled (end_time in future)
+          return app.status === 'scheduled' && new Date(app.end_time) >= now;
         case 'Completed':
-          // Only explicitly completed sessions
           return app.status === 'completed';
         case 'Pending Session Notes':
-          // Completed sessions with no notes attached
-          return app.status === 'completed' && (!app.notes || app.notes.length === 0);
+          // Scheduled sessions whose end_time has passed — therapist still needs to add notes
+          return app.status === 'scheduled' && new Date(app.end_time) < now;
         case 'Cancelled':
           return app.status === 'cancelled';
         case 'No Show':
@@ -249,18 +250,32 @@ const Appointments: React.FC = () => {
     {
       accessorKey: 'status',
       header: 'Status',
-      cell: ({ getValue }) => {
-        const status = (getValue() || 'scheduled') as string;
+      cell: ({ row }) => {
+        const status = (row.original.status || 'scheduled') as string;
+        const endTime = new Date(row.original.end_time);
+        const now = new Date();
+
+        // Derive display status: scheduled + past end_time = pending_notes
+        const displayStatus = (status === 'scheduled' && endTime < now) ? 'pending_notes' : status;
+
         const colors: Record<string, { bg: string; color: string }> = {
-          scheduled: { bg: '#e8f5e9', color: '#2e7d32' },
-          cancelled:  { bg: '#fdecea', color: '#c62828' },
-          completed:  { bg: '#e3f2fd', color: '#1565c0' },
-          noshow:     { bg: '#fff3e0', color: '#e65100' },
+          scheduled:     { bg: '#e8f5e9', color: '#2e7d32' },
+          cancelled:     { bg: '#fdecea', color: '#c62828' },
+          completed:     { bg: '#e3f2fd', color: '#1565c0' },
+          noshow:        { bg: '#fff3e0', color: '#e65100' },
+          pending_notes: { bg: '#fff8e1', color: '#f57f17' },
         };
-        const style = colors[status] || colors.scheduled;
+        const style = colors[displayStatus] || colors.scheduled;
+        const label: Record<string, string> = {
+          scheduled:     'Scheduled',
+          cancelled:     'Cancelled',
+          completed:     'Completed',
+          noshow:        'No Show',
+          pending_notes: 'Pending Notes',
+        };
         return (
-          <span style={{ background: style.bg, color: style.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, textTransform: 'capitalize' }}>
-            {status}
+          <span style={{ background: style.bg, color: style.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            {label[displayStatus] || displayStatus}
           </span>
         );
       },
@@ -270,9 +285,7 @@ const Appointments: React.FC = () => {
       header: 'Actions',
       enableSorting: false,
       cell: ({ row }) => {
-        const { id, status, payment_status } = row.original;
-        const isPast = new Date(row.original.start_time) < new Date();
-        const isUpcoming = !isPast;
+        const { id, status } = row.original;
         // No actions for cancelled or noshow
         if (status === 'cancelled' || status === 'noshow') return <span style={{ color: '#ccc', fontSize: '12px', fontFamily: 'Urbanist' }}>—</span>;
         const isMenuOpen = activeMenuId === id;
@@ -295,7 +308,7 @@ const Appointments: React.FC = () => {
         );
       },
     },
-  ], [appointments, activeMenuId]);
+  ], [activeMenuId, actionLoading]);
 
   return (
     <div className={styles.appointmentsPage}>
@@ -355,17 +368,18 @@ const Appointments: React.FC = () => {
         const row = appointments.find(a => a.id === activeMenuId);
         if (!row) return null;
         const { id, status, payment_status } = row;
-        const isPast = new Date(row.start_time) < new Date();
+        const isPast = new Date(row.end_time) < new Date();
         const isUpcoming = !isPast;
+        const isInPendingNotes = status === 'scheduled' && isPast;
         const canReschedule = status === 'scheduled' && isUpcoming;
         const canCancel = status === 'scheduled';
         const canMarkPaid = payment_status === 'Pending' && status !== 'cancelled' && status !== 'noshow';
-        // Can mark complete: past sessions still in scheduled state
-        const canComplete = status === 'scheduled' && isPast;
+        // Can mark complete: past sessions still in scheduled state (pending_notes)
+        const canComplete = isInPendingNotes || (status === 'scheduled' && isPast);
         // Can mark no-show: past sessions still in scheduled state
         const canMarkNoShow = status === 'scheduled' && isPast;
         const canSendReminder = status === 'scheduled' && isUpcoming;
-        const canAddNote = status === 'completed';
+        const canAddNote = status === 'completed' || isInPendingNotes;
 
         return createPortal(
           <div

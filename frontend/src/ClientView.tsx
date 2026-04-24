@@ -970,32 +970,60 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                           <span className={styles.sessionTime}>{formatDateTime(app.start_time)}</span>
                           <span className={styles.sessionMode}>{app.meet_link ? 'Google Meet' : (app.location_type === 'in_person' ? 'In-person' : 'Google Meet')}</span>
                           <span className={styles.sessionType}>{app.title}</span>
-                          <span style={{
-                            fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '6px',
-                            background: app.status === 'cancelled' ? '#fdecea' : app.status === 'noshow' ? '#fff3e0' : app.status === 'completed' ? '#e3f2fd' : '#e8f5e9',
-                            color: app.status === 'cancelled' ? '#c62828' : app.status === 'noshow' ? '#e65100' : app.status === 'completed' ? '#1565c0' : '#2e7d32',
-                            fontFamily: 'Urbanist',
-                          }}>
-                            {app.status === 'noshow' ? 'No Show' : app.status ? (app.status.charAt(0).toUpperCase() + app.status.slice(1)) : 'Scheduled'}
-                          </span>
+                          {(() => {
+                            const isPendingNotes = app.status === 'scheduled' && new Date(app.end_time) < new Date();
+                            const displayStatus = isPendingNotes ? 'pending_notes' : app.status;
+                            const bgMap: Record<string, string> = {
+                              scheduled:     '#e8f5e9',
+                              completed:     '#e3f2fd',
+                              cancelled:     '#fdecea',
+                              noshow:        '#fff3e0',
+                              pending_notes: '#fff8e1',
+                            };
+                            const colorMap: Record<string, string> = {
+                              scheduled:     '#2e7d32',
+                              completed:     '#1565c0',
+                              cancelled:     '#c62828',
+                              noshow:        '#e65100',
+                              pending_notes: '#f57f17',
+                            };
+                            const labelMap: Record<string, string> = {
+                              scheduled:     'Scheduled',
+                              completed:     'Completed',
+                              cancelled:     'Cancelled',
+                              noshow:        'No Show',
+                              pending_notes: 'Pending Notes',
+                            };
+                            return (
+                              <span style={{
+                                fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '6px',
+                                background: bgMap[displayStatus] || bgMap.scheduled,
+                                color: colorMap[displayStatus] || colorMap.scheduled,
+                                fontFamily: 'Urbanist',
+                              }}>
+                                {labelMap[displayStatus] || displayStatus}
+                              </span>
+                            );
+                          })()}
                         </div>
-                        {!(isTransferredClient && transferCutoffDate) && !(app.notes?.length > 0) && (
-                          <button
-                            className={styles.noteEditBtn}
-                            onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
-                            + Add Note
-                          </button>
-                        )}
                         {!(isTransferredClient && transferCutoffDate) && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                            <button
-                              className={styles.noteEditBtn}
-                              style={{ marginLeft: '4px' }}
-                              disabled={uploadingNoteFile}
-                              onClick={() => handleUploadNoteFile(app.id.toString())}>
-                              {uploadingNoteFile ? 'Uploading...' : '↑ Upload File'}
-                            </button>
-                            <span style={{ fontSize: '10px', color: '#9CA3AF', fontFamily: 'Urbanist' }}>5–10MB · PDF, DOC, TXT, Image</span>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              {!(app.notes?.length > 0) && (
+                                <button
+                                  className={styles.noteEditBtn}
+                                  onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
+                                  + Add Note
+                                </button>
+                              )}
+                              <button
+                                className={styles.noteEditBtn}
+                                disabled={uploadingNoteFile}
+                                onClick={() => handleUploadNoteFile(app.id.toString())}>
+                                {uploadingNoteFile ? 'Uploading...' : '↑ Upload File'}
+                              </button>
+                            </div>
+                            <span style={{ fontSize: '10px', color: '#9CA3AF', fontFamily: 'Urbanist' }}>PDF, DOC, Image · max 10MB</span>
                           </div>
                         )}
                       </div>

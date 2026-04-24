@@ -145,6 +145,18 @@ router.post('/', async (req, res) => {
             [appointment_id, therapist_id, content, JSON.stringify(safeAttachments)]
         );
 
+        // Auto-complete the appointment if it's still 'scheduled' and the session has ended
+        // This handles the "pending_notes" → "completed" transition
+        await client.query(
+            `UPDATE Appointments
+             SET status = 'completed'
+             WHERE id = $1
+               AND therapist_id = $2
+               AND status = 'scheduled'
+               AND end_time < NOW()`,
+            [appointment_id, therapist_id]
+        );
+
         res.status(201).json(result.rows[0]);
     } catch (error) {
         console.error('Error adding note:', error);
