@@ -28,15 +28,15 @@
 .profileHeader h1 {
   font-family: 'Urbanist', sans-serif;
   font-weight: 700;
-  font-size: 22px;
+  font-size: 30px;
   color: #000000;
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
 }
 
 .profileHeader p {
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 16px;
   color: #6E6E6E;
   margin: 0;
 }

@@ -24,7 +24,7 @@
   font-weight: 700;
   color: #1a1a1a;
   margin: 0;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   font-family: 'Urbanist', sans-serif;
 }
 
@@ -33,6 +33,7 @@
   color: #666;
   margin: 0;
   font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
 }
 
 .create-calendar-btn {
