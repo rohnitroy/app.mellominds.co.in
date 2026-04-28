@@ -153,7 +153,7 @@ const CalendarPage: React.FC = () => {
         body: JSON.stringify({ slug: slugFormData.slug }),
       });
       if (response.ok) {
-        toast.success('Slug updated.');
+        toast.success('URL updated.');
         setShowSlugModal(false);
         fetchCalendars();
       } else {
@@ -161,7 +161,7 @@ const CalendarPage: React.FC = () => {
         toast.error(`Error: ${err.error}`);
       }
     } catch {
-      toast.error('Error updating slug.');
+      toast.error('Error updating URL.');
     } finally {
       setSlugSaving(false);
     }
@@ -277,7 +277,7 @@ const CalendarPage: React.FC = () => {
                               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                             </svg>
-                            Edit Slug
+                            Edit URL
                           </button>
                           <button
                             onClick={() => { setDeleteConfirmId(resource.id); setActiveMenuId(null); }}
@@ -329,17 +329,17 @@ const CalendarPage: React.FC = () => {
         )}
       </div>
 
-      {/* Slug Edit Modal */}
+      {/* URL Edit Modal */}
       {showSlugModal && (
         <div className="modal-overlay" onClick={() => !slugSaving && setShowSlugModal(false)}>
           <div className="modal-content" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Edit Slug</h2>
+              <h2 className="modal-title">Edit URL</h2>
               <button className="close-btn" onClick={() => setShowSlugModal(false)}>×</button>
             </div>
             <form onSubmit={handleSlugUpdate}>
               <div className="form-group">
-                <label className="form-label">Slug URL</label>
+                <label className="form-label">Booking URL</label>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                   <span style={{ color: '#666', marginRight: '5px', fontSize: '14px' }}>/</span>
                   <input
@@ -347,14 +347,14 @@ const CalendarPage: React.FC = () => {
                     className="form-input"
                     value={slugFormData.slug}
                     onChange={e => setSlugFormData({ ...slugFormData, slug: e.target.value })}
-                    placeholder="my-calendar-slug"
+                    placeholder="my-calendar-url"
                     required
                   />
                 </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="cancel-btn" onClick={() => setShowSlugModal(false)} disabled={slugSaving}>Cancel</button>
-                <button type="submit" className="submit-btn" disabled={slugSaving}>{slugSaving ? 'Saving...' : 'Update Slug'}</button>
+                <button type="submit" className="submit-btn" disabled={slugSaving}>{slugSaving ? 'Saving...' : 'Update URL'}</button>
               </div>
             </form>
           </div>

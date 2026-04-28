@@ -390,14 +390,14 @@ const CreateEventPage: React.FC = () => {
 
     const handleCopyLink = () => {
         const url = getBookingUrl();
-        if (!url) { toast.error('Enter a slug / save the calendar first to get a link.'); return; }
+        if (!url) { toast.error('Enter a URL / save the calendar first to get a link.'); return; }
         navigator.clipboard.writeText(url);
         toast.success('Booking link copied!');
     };
 
     const handlePreview = () => {
         const url = getBookingUrl();
-        if (!url) { toast.error('Enter a slug / save the calendar first to preview.'); return; }
+        if (!url) { toast.error('Enter a URL / save the calendar first to preview.'); return; }
         window.open(url, '_blank');
     };
 
@@ -483,7 +483,7 @@ const CreateEventPage: React.FC = () => {
             } else {
                 const errorData = await response.json();
                 if (response.status === 409) {
-                    toast.error('This slug is already used by one of your calendars. Please choose a different one.');
+                    toast.error('This URL is already used by one of your calendars. Please choose a different one.');
                     setActiveTab('basic');
                     setIsSlugEdited(true);
                 } else {
@@ -536,7 +536,7 @@ const CreateEventPage: React.FC = () => {
 
                 <div className={styles.row}>
                     <div className={`${styles.formGroup} ${styles.col}`}>
-                        <label className={styles.label}>Slug</label>
+                        <label className={styles.label}>URL</label>
                         <div className={styles.input} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isSlugEdited ? 'white' : '#f8f9fa' }}>
                             <span style={{ color: '#666' }}>/</span>
                             <input
@@ -544,7 +544,7 @@ const CreateEventPage: React.FC = () => {
                                 style={{ border: 'none', outline: 'none', flex: 1, background: 'transparent' }}
                                 value={eventData.url}
                                 readOnly={!isSlugEdited}
-                                placeholder="your-event-slug"
+                                placeholder="your-event-url"
                                 onChange={e => {
                                     // sanitize: lowercase, only alphanumeric and hyphens
                                     const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
