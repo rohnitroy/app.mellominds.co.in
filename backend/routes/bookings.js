@@ -31,7 +31,7 @@ const ensureAuthenticated = (req, res, next) => {
 router.post('/public', publicBookingLimiter, async (req, res) => {
     const client = await pool.connect();
     try {
-        let { calendar_id, start_time, client_email, client_name, client_phone, form_responses, location_type, cashfree_order_id, partner_name, partner_email, partner_phone } = req.body;
+        let { calendar_id, start_time, client_email, client_name, client_phone, form_responses, location_type, cashfree_order_id, razorpay_order_id, razorpay_payment_id, partner_name, partner_email, partner_phone } = req.body;
 
         if (!calendar_id || !start_time || !client_email || !client_name) {
             return res.status(400).json({ error: 'Missing required fields' });
@@ -67,6 +67,17 @@ router.post('/public', publicBookingLimiter, async (req, res) => {
             const existing = await client.query(
                 `SELECT * FROM Appointments WHERE cashfree_order_id = $1 LIMIT 1`,
                 [cashfree_order_id]
+            );
+            if (existing.rows.length > 0) {
+                return res.status(200).json(existing.rows[0]);
+            }
+        }
+
+        // Idempotency: if a booking already exists for this razorpay_order_id, return it directly
+        if (razorpay_order_id) {
+            const existing = await client.query(
+                `SELECT * FROM Appointments WHERE razorpay_order_id = $1 LIMIT 1`,
+                [razorpay_order_id]
             );
             if (existing.rows.length > 0) {
                 return res.status(200).json(existing.rows[0]);
@@ -175,8 +186,8 @@ router.post('/public', publicBookingLimiter, async (req, res) => {
 
         const insertRes = await client.query(
             `INSERT INTO Appointments 
-       (therapist_id, calendar_id, title, start_time, end_time, google_event_id, meet_link, client_email, client_name, client_phone, payment_amount, payment_status, form_responses, location_type, cashfree_order_id, cancel_token)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, md5(random()::text || clock_timestamp()::text))
+       (therapist_id, calendar_id, title, start_time, end_time, google_event_id, meet_link, client_email, client_name, client_phone, payment_amount, payment_status, form_responses, location_type, cashfree_order_id, razorpay_order_id, razorpay_payment_id, cancel_token)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, md5(random()::text || clock_timestamp()::text))
        RETURNING *`,
             [
                 userId,
@@ -193,7 +204,9 @@ router.post('/public', publicBookingLimiter, async (req, res) => {
                 cashfree_order_id ? 'Pending' : 'Pending',
                 form_responses ? JSON.stringify(form_responses) : null,
                 location_type || 'google_meet',
-                cashfree_order_id || null
+                cashfree_order_id || null,
+                razorpay_order_id || null,
+                razorpay_payment_id || null,
             ]
         );
 

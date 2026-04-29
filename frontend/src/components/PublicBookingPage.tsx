@@ -268,6 +268,104 @@ const PublicBookingPage: React.FC = () => {
                 return;
             }
 
+            if (calendar.payment_enabled && calendar.payment_gateway === 'razorpay') {
+                const orderRes = await fetch(`${API_BASE_URL}/api/razorpay/create-order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        calendar_id: calendar.id,
+                        client_name: formData.client_name,
+                        client_email: formData.client_email,
+                        client_phone: formData.whatsapp_number,
+                        start_time: selectedSlot,
+                        form_responses: allFormResponses,
+                    }),
+                });
+                if (!orderRes.ok) {
+                    const err = await orderRes.json();
+                    toast.error(`Payment setup failed: ${err.error}`);
+                    setSubmitting(false);
+                    return;
+                }
+                const { order_id, amount, currency, key_id } = await orderRes.json();
+
+                // Load Razorpay checkout script if not already loaded
+                if (!(window as any).Razorpay) {
+                    await new Promise<void>((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+                        script.onload = () => resolve();
+                        script.onerror = () => reject(new Error('Failed to load Razorpay SDK'));
+                        document.head.appendChild(script);
+                    });
+                }
+
+                await new Promise<void>((resolve, reject) => {
+                    const options = {
+                        key: key_id,
+                        amount,
+                        currency,
+                        order_id,
+                        name: calendar.therapist_name || 'MelloMinds',
+                        description: calendar.title,
+                        prefill: {
+                            name: formData.client_name,
+                            email: formData.client_email,
+                            contact: formData.whatsapp_number || '',
+                        },
+                        handler: async (response: any) => {
+                            try {
+                                const verifyRes = await fetch(`${API_BASE_URL}/api/razorpay/verify-payment`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        razorpay_order_id: response.razorpay_order_id,
+                                        razorpay_payment_id: response.razorpay_payment_id,
+                                        razorpay_signature: response.razorpay_signature,
+                                        calendar_id: calendar.id,
+                                        start_time: selectedSlot,
+                                        client_name: formData.client_name,
+                                        client_email: formData.client_email,
+                                        client_phone: formData.whatsapp_number,
+                                        form_responses: allFormResponses,
+                                    }),
+                                });
+                                if (verifyRes.ok) {
+                                    const bookingData = await verifyRes.json();
+                                    setConfirmedBooking({
+                                        cancel_token: bookingData.booking?.cancel_token,
+                                        start_time: bookingData.booking?.start_time || selectedSlot,
+                                        end_time: bookingData.booking?.end_time,
+                                        meet_link: bookingData.booking?.meet_link || null,
+                                        location_type: bookingData.booking?.location_type || formData.location,
+                                    });
+                                    setStep('success');
+                                    window.scrollTo(0, 0);
+                                    resolve();
+                                } else {
+                                    const err = await verifyRes.json();
+                                    toast.error(`Payment verification failed: ${err.error}`);
+                                    reject(new Error(err.error));
+                                }
+                            } catch (e) {
+                                toast.error('Payment verification failed. Please contact support.');
+                                reject(e);
+                            }
+                        },
+                        modal: {
+                            ondismiss: () => {
+                                toast.warning('Payment cancelled.');
+                                reject(new Error('Payment dismissed'));
+                            },
+                        },
+                        theme: { color: '#082421' },
+                    };
+                    const rzp = new (window as any).Razorpay(options);
+                    rzp.open();
+                });
+                return;
+            }
+
             const response = await fetch(`${API_BASE_URL}/api/bookings/public`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

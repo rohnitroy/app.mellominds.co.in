@@ -28,6 +28,14 @@ const MySettings: React.FC = () => {
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showGoogleDisconnectConfirm, setShowGoogleDisconnectConfirm] = useState(false);
 
+  // Razorpay state
+  const [razorpayConnected, setRazorpayConnected] = useState(false);
+  const [showRazorpayForm, setShowRazorpayForm] = useState(false);
+  const [razorpayForm, setRazorpayForm] = useState({ key_id: '', key_secret: '' });
+  const [razorpayLoading, setRazorpayLoading] = useState(false);
+  const [disconnectingRazorpay, setDisconnectingRazorpay] = useState(false);
+  const [showRazorpayDisconnectConfirm, setShowRazorpayDisconnectConfirm] = useState(false);
+
   const defaultEnterpriseSettings = {
     allow_client_transfers: true,
     require_transfer_approval: false,
@@ -68,6 +76,10 @@ const MySettings: React.FC = () => {
         .then(r => r.ok ? r.json() : { connected: false })
         .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
         .catch(() => {}),
+      fetch(`${API_BASE_URL}/api/razorpay/status`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : { connected: false })
+        .then(d => { setRazorpayConnected(d.connected); })
+        .catch(() => {}),
     ]).finally(() => setIntegrationsLoading(false));
 
     // Fetch enterprise settings for owners
@@ -95,6 +107,8 @@ const MySettings: React.FC = () => {
         setCashfreeEnv(cashfreeForm.environment);
         setShowCashfreeForm(false);
         setCashfreeForm({ app_id: '', secret_key: '', environment: 'sandbox' });
+        // One PG at a time — backend removes Razorpay when Cashfree connects
+        setRazorpayConnected(false);
       } else {
         alert(data.error || 'Failed to connect Cashfree');
       }
@@ -112,6 +126,43 @@ const MySettings: React.FC = () => {
     setShowCashfreeForm(false);
     setShowDisconnectConfirm(false);
     setDisconnectingCashfree(false);
+  };
+
+  const handleRazorpayConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRazorpayLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/razorpay/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(razorpayForm),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRazorpayConnected(true);
+        setShowRazorpayForm(false);
+        setRazorpayForm({ key_id: '', key_secret: '' });
+        // One PG at a time — backend removes Cashfree when Razorpay connects
+        setCashfreeConnected(false);
+        toast.success('Razorpay connected successfully!');
+      } else {
+        toast.error(data.error || 'Failed to connect Razorpay');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    } finally {
+      setRazorpayLoading(false);
+    }
+  };
+
+  const handleRazorpayDisconnect = async () => {
+    setDisconnectingRazorpay(true);
+    await fetch(`${API_BASE_URL}/api/razorpay/disconnect`, { method: 'DELETE', credentials: 'include' });
+    setRazorpayConnected(false);
+    setShowRazorpayForm(false);
+    setShowRazorpayDisconnectConfirm(false);
+    setDisconnectingRazorpay(false);
   };
 
   const handleGoogleDisconnect = async () => {
@@ -454,6 +505,61 @@ const MySettings: React.FC = () => {
             </div>
           </div>
           )}
+
+          {/* ── Razorpay Integration ── */}
+          {!isMember && (
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75 }}>
+            {!isEnterprise && (
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: '16px',
+                zIndex: 2, cursor: 'not-allowed',
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+                padding: '16px'
+              }}>
+                <span style={{
+                  background: '#F9E141',
+                  color: '#082421', fontSize: '11px', fontWeight: 700,
+                  padding: '4px 10px', borderRadius: '20px',
+                  fontFamily: 'Urbanist', letterSpacing: '0.3px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  ⭐ Upgrade your plan
+                </span>
+              </div>
+            )}
+            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
+              <h3>
+                <Wallet set="bulk" size="medium" primaryColor="#082421" />
+                Connect Razorpay
+              </h3>
+              <p>Accept appointment payments via Razorpay payment gateway</p>
+              {isEnterprise ? (
+                razorpayConnected ? (
+                  <div>
+                    <div className={styles.connectedTag}>✓ Connected</div>
+                    <button className={styles.connectBtn} style={{ marginTop: '8px', background: '#fee2e2', color: '#dc2626' }} onClick={() => setShowRazorpayDisconnectConfirm(true)} disabled={disconnectingRazorpay}>{disconnectingRazorpay ? 'Disconnecting...' : 'Disconnect'}</button>
+                  </div>
+                ) : showRazorpayForm ? (
+                  <form onSubmit={handleRazorpayConnect} style={{ marginTop: '8px' }}>
+                    {cashfreeConnected && (
+                      <p style={{ fontSize: '12px', color: '#b45309', background: '#fef3c7', padding: '8px', borderRadius: '6px', marginBottom: '8px' }}>
+                        ⚠️ Connecting Razorpay will disconnect your existing Cashfree integration.
+                      </p>
+                    )}
+                    <input placeholder="Key ID" value={razorpayForm.key_id} onChange={e => setRazorpayForm(f => ({ ...f, key_id: e.target.value }))} required style={{ display: 'block', marginBottom: '6px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
+                    <input placeholder="Key Secret" type="password" value={razorpayForm.key_secret} onChange={e => setRazorpayForm(f => ({ ...f, key_secret: e.target.value }))} required style={{ display: 'block', marginBottom: '8px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
+                    <button type="submit" className={styles.connectBtn} disabled={razorpayLoading}>{razorpayLoading ? 'Connecting...' : 'Save'}</button>
+                    <button type="button" className={styles.connectBtn} style={{ marginLeft: '8px', background: '#f3f4f6', color: '#374151' }} onClick={() => setShowRazorpayForm(false)}>Cancel</button>
+                  </form>
+                ) : (
+                  <button className={styles.connectBtn} onClick={() => setShowRazorpayForm(true)}>+ Connect Razorpay</button>
+                )
+              ) : (
+                <button className={styles.connectBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>+ Connect Razorpay</button>
+              )}
+            </div>
+          </div>
+          )}
         </div>
       </div>
     </div>
@@ -477,6 +583,16 @@ const MySettings: React.FC = () => {
       danger
       onConfirm={handleGoogleDisconnect}
       onCancel={() => setShowGoogleDisconnectConfirm(false)}
+    />
+    <ConfirmModal
+      isOpen={showRazorpayDisconnectConfirm}
+      title="Disconnect Razorpay"
+      message="Disconnect Razorpay? Payments will stop working for your calendars that use it."
+      confirmLabel={disconnectingRazorpay ? 'Disconnecting...' : 'Disconnect'}
+      cancelLabel="Keep Connected"
+      danger
+      onConfirm={handleRazorpayDisconnect}
+      onCancel={() => setShowRazorpayDisconnectConfirm(false)}
     />
     </>
   );

@@ -24,6 +24,7 @@ import notesRoutes from './routes/notes.js';
 import notificationsRoutes from './routes/notifications.js';
 import activitiesRoutes from './routes/activities.js';
 import cashfreeRoutes from './routes/cashfree.js';
+import razorpayRoutes from './routes/razorpay.js';
 import enterpriseRoutes from './routes/enterprise.js';
 import emailPreferencesRoutes from './routes/emailPreferences.js';
 import profileLinkRoutes from './routes/profileLink.js';
@@ -150,6 +151,7 @@ app.use('/api/notifications', apiLimiter, notificationsRoutes);
 app.use('/api/activities', apiLimiter, activitiesRoutes);
 app.use('/api/availability', apiLimiter, availabilityRoutes);
 app.use('/api/cashfree', apiLimiter, cashfreeRoutes);
+app.use('/api/razorpay', apiLimiter, razorpayRoutes);
 app.use('/api/enterprise', apiLimiter, enterpriseRoutes);
 app.use('/api/email-preferences', apiLimiter, emailPreferencesRoutes);
 app.use('/api/profile-link', apiLimiter, profileLinkRoutes);
@@ -209,7 +211,7 @@ async function ensureCalendarsSchema() {
 
 // Auto-migrate Appointments table columns on startup
 async function ensureAppointmentsSchema() {
-  const required = ['client_phone','payment_status','payment_amount','form_responses','location_type','cancel_token','cashfree_order_id','cashfree_payment_link'];
+  const required = ['client_phone','payment_status','payment_amount','form_responses','location_type','cancel_token','cashfree_order_id','cashfree_payment_link','razorpay_order_id','razorpay_payment_id'];
   const { rows } = await pool.query(
     `SELECT column_name FROM information_schema.columns WHERE table_name = 'appointments' AND column_name = ANY($1)`,
     [required]
@@ -234,7 +236,9 @@ async function ensureAppointmentsSchema() {
       ADD COLUMN IF NOT EXISTS location_type VARCHAR(50) DEFAULT 'google_meet',
       ADD COLUMN IF NOT EXISTS cancel_token VARCHAR(64) UNIQUE DEFAULT NULL,
       ADD COLUMN IF NOT EXISTS cashfree_order_id VARCHAR(255) DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS cashfree_payment_link TEXT DEFAULT NULL
+      ADD COLUMN IF NOT EXISTS cashfree_payment_link TEXT DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(255) DEFAULT NULL,
+      ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(255) DEFAULT NULL
     `);
     await pool.query(`
       UPDATE Appointments

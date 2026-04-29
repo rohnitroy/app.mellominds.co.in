@@ -52,6 +52,12 @@ router.post('/connect', ensureAuthenticated, async (req, res) => {
     }
 
     try {
+        // Remove any existing Razorpay integration (one PG at a time)
+        await pool.query(
+            `DELETE FROM UserIntegrations WHERE user_id = $1 AND provider = 'razorpay'`,
+            [req.user.id]
+        );
+
         await pool.query(
             `INSERT INTO UserIntegrations (user_id, provider, app_id, secret_key, environment)
              VALUES ($1, 'cashfree', $2, $3, $4)
