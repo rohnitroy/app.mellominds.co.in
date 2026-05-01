@@ -512,13 +512,7 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Name and email are required' });
         }
 
-        // Encrypt sensitive fields before storing
-        const encryptedData = encryptClientData({
-            emergency_name: emergencyName,
-            emergency_phone: emergencyPhone,
-            emergency_relation: emergencyRelation
-        }, userId);
-
+        // Store emergency data as plaintext for now (until migration is run)
         const result = await pool.query(
             `INSERT INTO Clients 
                 (therapist_id, name, email, phone, age, occupation, gender, marital_status,
@@ -528,7 +522,7 @@ router.post('/', async (req, res) => {
              RETURNING *`,
             [userId, name.trim(), email.trim().toLowerCase(), phone || null, age || null,
              occupation || null, gender || null, maritalStatus || null,
-             encryptedData.emergency_name, encryptedData.emergency_phone, encryptedData.emergency_relation]
+             emergencyName || null, emergencyPhone || null, emergencyRelation || null]
         );
 
         if (result.rows.length === 0) {
@@ -573,16 +567,16 @@ router.post('/', async (req, res) => {
             }
         }
 
-        // Decrypt data for response
-        const decryptedRow = decryptClientData(row, userId);
+        // Decrypt data for response (no decryption needed for now)
+        const row = result.rows[0];
 
         res.status(201).json({
-            id: decryptedRow.id, name: decryptedRow.name, phone: decryptedRow.phone || '', email: decryptedRow.email,
+            id: row.id, name: row.name, phone: row.phone || '', email: row.email,
             sessions: '0', revenue: '₹0', lastSession: '—',
-            age: decryptedRow.age || '', occupation: decryptedRow.occupation || '',
-            gender: decryptedRow.gender || 'Male', maritalStatus: decryptedRow.marital_status || 'Single',
-            emergencyName: decryptedRow.emergency_name || '', emergencyPhone: decryptedRow.emergency_phone || '',
-            emergencyRelation: decryptedRow.emergency_relation || '', manually_added: true
+            age: row.age || '', occupation: row.occupation || '',
+            gender: row.gender || 'Male', maritalStatus: row.marital_status || 'Single',
+            emergencyName: row.emergency_name || '', emergencyPhone: row.emergency_phone || '',
+            emergencyRelation: row.emergency_relation || '', manually_added: true
         });
 
         // Notify therapist of new manually added client (fire-and-forget)
@@ -845,16 +839,16 @@ router.get('/:id', verifyClientOwnership, async (req, res) => {
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Client not found' });
         
-        // Decrypt sensitive fields
-        const decryptedClient = decryptClientData(result.rows[0], req.user.id);
+        // For now, return data as-is (no decryption until migration is run)
+        const client = result.rows[0];
         
         // Log client access
         await logClientAccess(req, 'read', req.params.id, { 
-            client_name: decryptedClient.name,
-            client_email: decryptedClient.email
+            client_name: client.name,
+            client_email: client.email
         });
         
-        res.json(decryptedClient);
+        res.json(client);
     } catch (err) {
         console.error('Error fetching client:', err);
         res.status(500).json({ error: 'Failed to fetch client' });
@@ -869,13 +863,8 @@ router.put('/:id', verifyClientOwnership, async (req, res) => {
         const { name, phone, email, age, occupation, gender, maritalStatus,
                 emergencyName, emergencyPhone, emergencyRelation } = req.body;
 
-        // Encrypt sensitive fields before updating
-        const encryptedData = encryptClientData({
-            emergency_name: emergencyName,
-            emergency_phone: emergencyPhone,
-            emergency_relation: emergencyRelation
-        }, userId);
-
+        // For now, store emergency data as plaintext until migration is run
+        // TODO: Enable encryption after running migration script
         const result = await pool.query(
             `UPDATE Clients SET
                 name = COALESCE($1, name), phone = COALESCE($2, phone), email = COALESCE($3, email),
@@ -885,19 +874,16 @@ router.put('/:id', verifyClientOwnership, async (req, res) => {
                 updated_at = CURRENT_TIMESTAMP
              WHERE id = $11 AND therapist_id = $12 RETURNING *`,
             [name, phone, email, age, occupation, gender, maritalStatus,
-             encryptedData.emergency_name, encryptedData.emergency_phone, encryptedData.emergency_relation, 
+             emergencyName, emergencyPhone, emergencyRelation, 
              clientId, userId]
         );
 
         const row = result.rows[0];
-        
-        // Decrypt for response
-        const decryptedRow = decryptClientData(row, userId);
 
         // Log client update
         await logClientAccess(req, 'update', clientId, { 
-            client_name: decryptedRow.name,
-            client_email: decryptedRow.email,
+            client_name: row.name,
+            client_email: row.email,
             fields_updated: Object.keys(req.body)
         });
 
@@ -906,10 +892,10 @@ router.put('/:id', verifyClientOwnership, async (req, res) => {
         if (io) io.to(`user:${userId}`).emit('clients_updated');
 
         res.json({
-            id: decryptedRow.id, name: decryptedRow.name, phone: decryptedRow.phone, email: decryptedRow.email,
-            age: decryptedRow.age, occupation: decryptedRow.occupation, gender: decryptedRow.gender,
-            maritalStatus: decryptedRow.marital_status, emergencyName: decryptedRow.emergency_name,
-            emergencyPhone: decryptedRow.emergency_phone, emergencyRelation: decryptedRow.emergency_relation
+            id: row.id, name: row.name, phone: row.phone, email: row.email,
+            age: row.age, occupation: row.occupation, gender: row.gender,
+            maritalStatus: row.marital_status, emergencyName: row.emergency_name,
+            emergencyPhone: row.emergency_phone, emergencyRelation: row.emergency_relation
         });
     } catch (error) {
         console.error('Error updating client:', error);
