@@ -5,6 +5,22 @@ import cloudinary from '../config/cloudinary.js';
 import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail, transferCancelledEmail, bookingLinkEmail, isEmailEnabled } from '../lib/email.js';
 import { createNotification } from '../lib/notifications.js';
 import { getIO } from '../lib/socket.js';
+import { encryptFields, decryptFields, encryptSensitiveData, decryptSensitiveData } from '../lib/encryption.js';
+import { logClientAccess, logAppointmentAccess } from '../lib/audit.js';
+import { verifyClientOwnership } from '../middleware/ownership.js';
+
+// Define which fields should be encrypted (sensitive PII only)
+const ENCRYPTED_CLIENT_FIELDS = ['emergency_name', 'emergency_phone', 'emergency_relation'];
+
+// Helper to encrypt client data before storing
+const encryptClientData = (clientData, userId) => {
+    return encryptFields(clientData, ENCRYPTED_CLIENT_FIELDS, userId);
+};
+
+// Helper to decrypt client data after fetching
+const decryptClientData = (clientData, userId) => {
+    return decryptFields(clientData, ENCRYPTED_CLIENT_FIELDS, userId);
+};
 
 const router = express.Router();
 
@@ -496,6 +512,13 @@ router.post('/', async (req, res) => {
             return res.status(400).json({ error: 'Name and email are required' });
         }
 
+        // Encrypt sensitive fields before storing
+        const encryptedData = encryptClientData({
+            emergency_name: emergencyName,
+            emergency_phone: emergencyPhone,
+            emergency_relation: emergencyRelation
+        }, userId);
+
         const result = await pool.query(
             `INSERT INTO Clients 
                 (therapist_id, name, email, phone, age, occupation, gender, marital_status,
@@ -505,7 +528,7 @@ router.post('/', async (req, res) => {
              RETURNING *`,
             [userId, name.trim(), email.trim().toLowerCase(), phone || null, age || null,
              occupation || null, gender || null, maritalStatus || null,
-             emergencyName || null, emergencyPhone || null, emergencyRelation || null]
+             encryptedData.emergency_name, encryptedData.emergency_phone, encryptedData.emergency_relation]
         );
 
         if (result.rows.length === 0) {
@@ -513,6 +536,12 @@ router.post('/', async (req, res) => {
         }
 
         const row = result.rows[0];
+
+        // Log client creation
+        await logClientAccess(req, 'create', row.id, { 
+            client_name: name.trim(),
+            client_email: email.trim().toLowerCase()
+        });
 
         // Send welcome email with booking link if a calendar was selected
         if (calendarId) {
@@ -544,13 +573,16 @@ router.post('/', async (req, res) => {
             }
         }
 
+        // Decrypt data for response
+        const decryptedRow = decryptClientData(row, userId);
+
         res.status(201).json({
-            id: row.id, name: row.name, phone: row.phone || '', email: row.email,
+            id: decryptedRow.id, name: decryptedRow.name, phone: decryptedRow.phone || '', email: decryptedRow.email,
             sessions: '0', revenue: '₹0', lastSession: '—',
-            age: row.age || '', occupation: row.occupation || '',
-            gender: row.gender || 'Male', maritalStatus: row.marital_status || 'Single',
-            emergencyName: row.emergency_name || '', emergencyPhone: row.emergency_phone || '',
-            emergencyRelation: row.emergency_relation || '', manually_added: true
+            age: decryptedRow.age || '', occupation: decryptedRow.occupation || '',
+            gender: decryptedRow.gender || 'Male', maritalStatus: decryptedRow.marital_status || 'Single',
+            emergencyName: decryptedRow.emergency_name || '', emergencyPhone: decryptedRow.emergency_phone || '',
+            emergencyRelation: decryptedRow.emergency_relation || '', manually_added: true
         });
 
         // Notify therapist of new manually added client (fire-and-forget)
@@ -798,7 +830,7 @@ router.post('/:id/clinical-profile', upload.single('file'), async (req, res) => 
 });
 
 // GET /api/clients/:id
-router.get('/:id', async (req, res) => {
+router.get('/:id', verifyClientOwnership, async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT id, name, email, phone, age, occupation, gender,
@@ -812,7 +844,17 @@ router.get('/:id', async (req, res) => {
             [req.params.id, req.user.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Client not found' });
-        res.json(result.rows[0]);
+        
+        // Decrypt sensitive fields
+        const decryptedClient = decryptClientData(result.rows[0], req.user.id);
+        
+        // Log client access
+        await logClientAccess(req, 'read', req.params.id, { 
+            client_name: decryptedClient.name,
+            client_email: decryptedClient.email
+        });
+        
+        res.json(decryptedClient);
     } catch (err) {
         console.error('Error fetching client:', err);
         res.status(500).json({ error: 'Failed to fetch client' });
@@ -820,18 +862,19 @@ router.get('/:id', async (req, res) => {
 });
 
 // PUT /api/clients/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', verifyClientOwnership, async (req, res) => {
     try {
         const userId = req.user.id;
         const clientId = parseInt(req.params.id);
         const { name, phone, email, age, occupation, gender, maritalStatus,
                 emergencyName, emergencyPhone, emergencyRelation } = req.body;
 
-        const checkRes = await pool.query(
-            'SELECT id FROM Clients WHERE id = $1 AND therapist_id = $2',
-            [clientId, userId]
-        );
-        if (checkRes.rows.length === 0) return res.status(404).json({ error: 'Client not found' });
+        // Encrypt sensitive fields before updating
+        const encryptedData = encryptClientData({
+            emergency_name: emergencyName,
+            emergency_phone: emergencyPhone,
+            emergency_relation: emergencyRelation
+        }, userId);
 
         const result = await pool.query(
             `UPDATE Clients SET
@@ -842,20 +885,31 @@ router.put('/:id', async (req, res) => {
                 updated_at = CURRENT_TIMESTAMP
              WHERE id = $11 AND therapist_id = $12 RETURNING *`,
             [name, phone, email, age, occupation, gender, maritalStatus,
-             emergencyName, emergencyPhone, emergencyRelation, clientId, userId]
+             encryptedData.emergency_name, encryptedData.emergency_phone, encryptedData.emergency_relation, 
+             clientId, userId]
         );
 
         const row = result.rows[0];
+        
+        // Decrypt for response
+        const decryptedRow = decryptClientData(row, userId);
+
+        // Log client update
+        await logClientAccess(req, 'update', clientId, { 
+            client_name: decryptedRow.name,
+            client_email: decryptedRow.email,
+            fields_updated: Object.keys(req.body)
+        });
 
         // Real-time update
         const io = getIO();
         if (io) io.to(`user:${userId}`).emit('clients_updated');
 
         res.json({
-            id: row.id, name: row.name, phone: row.phone, email: row.email,
-            age: row.age, occupation: row.occupation, gender: row.gender,
-            maritalStatus: row.marital_status, emergencyName: row.emergency_name,
-            emergencyPhone: row.emergency_phone, emergencyRelation: row.emergency_relation
+            id: decryptedRow.id, name: decryptedRow.name, phone: decryptedRow.phone, email: decryptedRow.email,
+            age: decryptedRow.age, occupation: decryptedRow.occupation, gender: decryptedRow.gender,
+            maritalStatus: decryptedRow.marital_status, emergencyName: decryptedRow.emergency_name,
+            emergencyPhone: decryptedRow.emergency_phone, emergencyRelation: decryptedRow.emergency_relation
         });
     } catch (error) {
         console.error('Error updating client:', error);
@@ -864,13 +918,13 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE /api/clients/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifyClientOwnership, async (req, res) => {
     try {
         const userId = req.user.id;
         const clientId = parseInt(req.params.id);
 
         const check = await pool.query(
-            'SELECT manually_added FROM Clients WHERE id = $1 AND therapist_id = $2',
+            'SELECT manually_added, name, email FROM Clients WHERE id = $1 AND therapist_id = $2',
             [clientId, userId]
         );
         if (check.rows.length === 0) return res.status(404).json({ error: 'Client not found' });
@@ -888,6 +942,12 @@ router.delete('/:id', async (req, res) => {
                 message: 'This client has been involved in a transfer and cannot be deleted. Please contact support at support@mellominds.co.in.'
             });
         }
+
+        // Log client deletion before actually deleting
+        await logClientAccess(req, 'delete', clientId, { 
+            client_name: check.rows[0].name,
+            client_email: check.rows[0].email
+        });
 
         await pool.query('DELETE FROM Clients WHERE id = $1 AND therapist_id = $2', [clientId, userId]);
         res.json({ message: 'Client deleted successfully' });

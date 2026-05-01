@@ -13,6 +13,7 @@ import passport from './config/passport.js';
 import pool from './config/database.js';
 import { setIO } from './lib/socket.js';
 import { sendEmail, activityNotificationEmail, sessionReminderEmail, sessionReminder30MinEmail, isEmailEnabled } from './lib/email.js';
+import { ensureAuditTable, auditMiddleware } from './lib/audit.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import calendarRoutes from './routes/calendars.js';
@@ -68,13 +69,30 @@ if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) {
   process.exit(1);
 }
 
+if (!process.env.ENCRYPTION_MASTER_SECRET || process.env.ENCRYPTION_MASTER_SECRET.length < 32) {
+  console.error('❌ ENCRYPTION_MASTER_SECRET is missing or too short (min 32 chars). Exiting.');
+  process.exit(1);
+}
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false,
-  hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      scriptSrc: ["'self'", "https://sdk.cashfree.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https:"],
+      fontSrc: ["'self'", "https:", "data:"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
 }));
 
 // Rate limiter for auth endpoints — disabled in development
@@ -98,6 +116,9 @@ const apiLimiter = rateLimit({
 // Middleware
 app.use(express.json({ limit: '50kb' }));
 app.use(express.urlencoded({ extended: true, limit: '50kb' }));
+
+// Add audit middleware for request tracking
+app.use(auditMiddleware);
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -130,7 +151,7 @@ app.use(session({
   cookie: {
     secure: isProduction,
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    maxAge: 8 * 60 * 60 * 1000, // 8 hours (reduced from 24h)
     sameSite: isProduction ? 'none' : 'lax',
     domain: isProduction ? '.mellominds.co.in' : undefined,
   }
@@ -478,6 +499,7 @@ httpServer.listen(PORT, async () => {
   await ensureOrganizationTherapistsSchema();
   await ensureOrgRoleSchema();
   await ensureOrganizationDetailsSchema();
+  await ensureAuditTable(); // Initialize audit logging
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);
   processActivityReminders(); // run once on startup too
