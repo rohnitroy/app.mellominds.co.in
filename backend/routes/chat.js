@@ -6,14 +6,23 @@ import { encryptSensitiveData, decryptSensitiveData } from '../lib/encryption.js
 
 const router = express.Router();
 
-// Dedicated rate limiter for the AI message endpoint — 30 messages per 15 min per IP
+// Dedicated rate limiter for the AI message endpoint — 30 messages per 15 min per user
 const chatMessageLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 15 * 60 * 1000, // 15 minutes
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => `chat_${req.user?.id || req.ip}`, // per-user, not per-IP
-  message: { error: 'Too many messages. Please wait a few minutes before sending more.' },
+  message: (req, res) => {
+    const resetTime = new Date(Date.now() + res.getHeader('RateLimit-Reset') * 1000);
+    const minutesLeft = Math.ceil((resetTime - Date.now()) / (1000 * 60));
+    return {
+      error: 'Chat limit reached',
+      message: `You've reached the limit of 30 messages per 15 minutes. Please wait ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''} before sending more messages.`,
+      resetTime: resetTime.toISOString(),
+      minutesLeft
+    };
+  },
 });
 
 // Allowed keys for context_data — prevents arbitrary data being stored
@@ -113,7 +122,7 @@ async function callSarvamAI(messages) {
           ...messages
         ],
         temperature: 0.4,
-        max_tokens: 800,
+        max_tokens: 1500, // Increased from 800 to allow longer responses
       }),
     });
 
@@ -127,11 +136,24 @@ async function callSarvamAI(messages) {
     const choice = data.choices?.[0]?.message;
     const raw = choice?.content || choice?.reasoning_content || '';
 
+    // Log for debugging incomplete responses
+    if (!raw || raw.length < 10) {
+      console.warn('Sarvam AI returned short/empty response:', { raw, choice, data });
+    }
+
     // Strip internal <think>...</think> reasoning blocks — keep only the final answer
     const answer = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-    return answer || getFallbackResponse('');
+    
+    // If answer is too short, log the issue and use fallback
+    if (!answer || answer.length < 10) {
+      console.warn('Processed answer too short, using fallback:', { answer, raw });
+      return getFallbackResponse(messages[messages.length - 1]?.content || '');
+    }
+    
+    return answer;
   } catch (error) {
     console.error('Error calling Sarvam AI:', error.message);
+    console.error('Full error details:', error);
     return getFallbackResponse(messages[messages.length - 1]?.content || '');
   }
 }
@@ -150,7 +172,7 @@ function getFallbackResponse(message) {
     return "To add a client manually:\n1. Go to **All Clients** in the sidebar\n2. Click **Add Client** at the top right\n3. Fill in their details\n4. Optionally send them a booking link right away\n\nClients are also added automatically when they book through your booking link.";
   }
   if (lower.includes('google calendar') || lower.includes('google meet') || lower.includes('sync')) {
-    return "To connect Google Calendar:\n1. Go to **My Settings** then **Integrations**\n2. Click **Connect Google Calendar**\n3. Sign in and grant calendar permissions\n\nOnce connected, appointments will sync automatically and Google Meet links will be created for each session.";
+    return "To connect Google Calendar:\n1. Go to **My Settings** in the left sidebar\n2. Click **Integrations**\n3. Find Google Calendar and click **Connect Google Calendar**\n4. Sign in with your Google account and grant calendar permissions\n5. Once connected, your appointments will sync automatically\n6. Google Meet links will be created for each session\n\n**Tip:** Ensure your Google Calendar has available slots matching your MelloMinds availability settings.";
   }
   if (lower.includes('payment') || lower.includes('cashfree')) {
     return "To set up payments:\n1. Go to **My Settings** then **Integrations** then **Cashfree**\n2. Add your Cashfree App ID and Secret Key\n3. Set the environment to **Production**\n4. Enable payments on any calendar service under **My Calendars**";

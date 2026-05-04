@@ -24,6 +24,12 @@ interface ChatWidgetProps {
   onMobileClose?: () => void;
 }
 
+interface RateLimitInfo {
+  remaining: number;
+  total: number;
+  resetTime: string;
+}
+
 // Render markdown-like formatting (bold, bullet points, line breaks)
 const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
   const lines = content.split('\n');
@@ -84,6 +90,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -139,7 +146,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
 
   const sendMessage = async (messageText?: string) => {
     const text = (messageText || inputValue).trim();
-    if (!text || isLoading) return;
+    if (!text || isLoading || rateLimitInfo?.remaining === 0) return;
 
     setInputValue('');
     // Reset textarea height
@@ -175,6 +182,41 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
         const data = await response.json();
         if (!conversation) setConversation(data.conversation);
         setMessages(prev => [...prev, data.message]);
+        
+        // Update rate limit info from response headers
+        const remaining = response.headers.get('RateLimit-Remaining');
+        const limit = response.headers.get('RateLimit-Limit');
+        const reset = response.headers.get('RateLimit-Reset');
+        
+        if (remaining && limit && reset) {
+          setRateLimitInfo({
+            remaining: parseInt(remaining),
+            total: parseInt(limit),
+            resetTime: new Date(Date.now() + parseInt(reset) * 1000).toISOString()
+          });
+        }
+      } else if (response.status === 429) {
+        // Rate limit exceeded
+        const errorData = await response.json().catch(() => ({}));
+        const message = errorData.message || 'Too many messages. Please wait a few minutes.';
+        setMessages(prev => [
+          ...prev,
+          {
+            id: Date.now(),
+            message_type: 'assistant',
+            content: `⏱️ ${message}`,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+        
+        // Update rate limit info from error response
+        if (errorData.resetTime) {
+          setRateLimitInfo({
+            remaining: 0,
+            total: 30,
+            resetTime: errorData.resetTime
+          });
+        }
       } else {
         throw new Error('Request failed');
       }
@@ -372,7 +414,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
           <button
             className={styles.sendBtn}
             onClick={() => sendMessage()}
-            disabled={isLoading || !inputValue.trim()}
+            disabled={isLoading || !inputValue.trim() || (rateLimitInfo?.remaining === 0)}
             aria-label="Send message"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -381,7 +423,19 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
             </svg>
           </button>
         </div>
-        <div className={styles.inputHint}>Press Enter to send · Shift+Enter for new line</div>
+        <div className={styles.inputHint}>
+          {rateLimitInfo && rateLimitInfo.remaining <= 5 && rateLimitInfo.remaining > 0 ? (
+            <span style={{ color: '#f59e0b' }}>
+              ⚠️ {rateLimitInfo.remaining} messages left in this 15-min window
+            </span>
+          ) : rateLimitInfo && rateLimitInfo.remaining === 0 ? (
+            <span style={{ color: '#ef4444' }}>
+              🚫 Rate limit reached. Try again in a few minutes.
+            </span>
+          ) : (
+            'Press Enter to send · Shift+Enter for new line'
+          )}
+        </div>
       </div>
     </>
   );
