@@ -12,7 +12,7 @@ const chatMessageLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => `chat_${req.user?.id || req.ip}`, // per-user, not per-IP
+  // Remove custom keyGenerator to use default IP-based limiting with proper IPv6 support
   message: (req, res) => {
     const resetTime = new Date(Date.now() + res.getHeader('RateLimit-Reset') * 1000);
     const minutesLeft = Math.ceil((resetTime - Date.now()) / (1000 * 60));
