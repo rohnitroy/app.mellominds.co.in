@@ -394,6 +394,8 @@ const DashboardLayout: React.FC = () => {
   const [showAddClientModal, setShowAddClientModal] = useState<boolean>(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState<boolean>(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
   const { logout, user } = useAuth();
   const { unreadCount } = useNotifications();
   const navigate = useNavigate();
@@ -627,6 +629,16 @@ const DashboardLayout: React.FC = () => {
           showNotificationDropdown={showNotificationDropdown}
           setShowNotificationDropdown={setShowNotificationDropdown}
         />
+        {/* Mobile-only chat button */}
+        <button
+          className="logout-btn mobile-chat-header-btn"
+          onClick={() => setMobileChatOpen(true)}
+          title="Ask Mello"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        </button>
         <div className="user-info-card header-desktop-only">
           <div className="user-avatar">
             <img 
@@ -645,7 +657,7 @@ const DashboardLayout: React.FC = () => {
             <div style={{ fontSize: '12px', color: '#7f8c8d' }}>{user?.email || ''}</div>
           </div>
         </div>
-        <button className="logout-btn" onClick={logout} title="Logout">
+        <button className="logout-btn" onClick={() => setShowLogoutConfirm(true)} title="Logout">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/>
@@ -773,9 +785,24 @@ const DashboardLayout: React.FC = () => {
         <AddClientModal onClose={() => setShowAddClientModal(false)} />
       )}
       <UpgradePlanModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
+
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        title="Log out"
+        message="Are you sure you want to log out?"
+        confirmLabel="Yes, log out"
+        cancelLabel="Stay logged in"
+        danger
+        onConfirm={() => { setShowLogoutConfirm(false); logout(); }}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
       
       {/* AI Chat Widget */}
-      <ChatWidget user={user ? { id: user.id, user_name: user.user_name, profile_picture: user.profile_picture } : null} />
+      <ChatWidget
+        user={user ? { id: user.id, user_name: user.user_name, profile_picture: user.profile_picture } : null}
+        mobileOpen={mobileChatOpen}
+        onMobileClose={() => setMobileChatOpen(false)}
+      />
     </div>
   );
 };

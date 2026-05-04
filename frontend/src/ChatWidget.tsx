@@ -20,6 +20,8 @@ interface ChatWidgetProps {
     user_name: string;
     profile_picture?: string;
   } | null;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 // Render markdown-like formatting (bold, bullet points, line breaks)
@@ -74,7 +76,7 @@ const QUICK_ACTIONS = [
   "How do I write session notes?",
 ];
 
-const ChatWidget: React.FC<ChatWidgetProps> = ({ user }) => {
+const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMobileClose }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -123,10 +125,17 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user }) => {
 
   // Focus input when chat opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen || mobileOpen) {
       setTimeout(() => inputRef.current?.focus(), 300);
     }
-  }, [isOpen]);
+  }, [isOpen, mobileOpen]);
+
+  // Load conversation when mobile chat opens
+  useEffect(() => {
+    if (mobileOpen && !hasLoaded && !conversation) {
+      loadConversation();
+    }
+  }, [mobileOpen, hasLoaded, conversation, loadConversation]);
 
   const sendMessage = async (messageText?: string) => {
     const text = (messageText || inputValue).trim();
@@ -233,162 +242,176 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user }) => {
         : `${API_BASE_URL}${user.profile_picture}`)
     : null;
 
-  return (
-    <div className={styles.chatWidget}>
-      {/* Toggle Button */}
-      <button
-        className={`${styles.chatToggle} ${isOpen ? styles.open : ''}`}
-        onClick={() => setIsOpen(prev => !prev)}
-        aria-label={isOpen ? 'Close AI Assistant' : 'Open AI Assistant'}
-      >
-        {isOpen ? (
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#D5FFFA' }}>
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        ) : (
-          <>
-            <img src="/MelloFevicon 1.png" alt="Mello" className={styles.toggleFavicon} />
-            <div className={styles.chatBadge}>AI</div>
-          </>
-        )}
-      </button>
-
-      {/* Chat Panel */}
-      <div className={`${styles.chatContainer} ${isOpen ? styles.open : ''}`} role="dialog" aria-label="AI Assistant">
-        {/* Header */}
-        <div className={styles.chatHeader}>
-          <div className={styles.chatHeaderLeft}>
-            <div className={styles.chatAvatar}>
-              <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
-            </div>
-            <div className={styles.chatHeaderInfo}>
-              <h3>Mello</h3>
-              <p>Platform assistant · Always here</p>
-            </div>
+  // Shared chat panel content (used in both desktop and mobile)
+  const chatPanelContent = (isMobile: boolean) => (
+    <>
+      {/* Header */}
+      <div className={styles.chatHeader}>
+        <div className={styles.chatHeaderLeft}>
+          <div className={styles.chatAvatar}>
+            <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
           </div>
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            {messages.length > 0 && (
-              <button
-                className={styles.chatCloseBtn}
-                onClick={handleNewChat}
-                title="Clear chat"
-                aria-label="Clear chat"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                  <path d="M10 11v6M14 11v6" />
-                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                </svg>
-              </button>
-            )}
+          <div className={styles.chatHeaderInfo}>
+            <h3>Mello</h3>
+            <p>Platform assistant · Always here</p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {messages.length > 0 && (
             <button
               className={styles.chatCloseBtn}
-              onClick={() => setIsOpen(false)}
-              aria-label="Close chat"
+              onClick={handleNewChat}
+              title="Clear chat"
+              aria-label="Clear chat"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
               </svg>
             </button>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div className={styles.chatMessages}>
-          {messages.length === 0 ? (
-            <div className={styles.welcomeMessage}>
-              <div className={styles.welcomeEmoji}>👋</div>
-              <h4>Hi {user.user_name.split(' ')[0]}</h4>
-              <p>I'm Mello. Ask me anything about the platform or pick a question below.</p>
-              <div className={styles.quickActions}>
-                {QUICK_ACTIONS.map((action, i) => (
-                  <button
-                    key={i}
-                    className={styles.quickActionBtn}
-                    onClick={() => sendMessage(action)}
-                    disabled={isLoading}
-                  >
-                    {action}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            messages.map(msg => (
-              <div key={msg.id} className={`${styles.message} ${styles[msg.message_type]}`}>
-                <div className={styles.messageAvatar}>
-                  {msg.message_type === 'user'
-                    ? profilePicUrl
-                      ? <img src={profilePicUrl} alt={user.user_name} className={styles.avatarImg} />
-                      : initials
-                    : <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
-                  }
-                </div>
-                <div className={styles.messageBubbleGroup}>
-                  <div className={styles.messageContent}>
-                    {msg.message_type === 'assistant'
-                      ? <FormattedMessage content={msg.content} />
-                      : msg.content
-                    }
-                  </div>
-                  <div className={styles.messageTime}>{formatTime(msg.created_at)}</div>
-                </div>
-              </div>
-            ))
           )}
-
-          {/* Typing indicator */}
-          {isTyping && (
-            <div className={`${styles.message} ${styles.assistant}`}>
-              <div className={styles.messageAvatar}>
-                <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
-              </div>
-              <div className={styles.typingIndicator}>
-                <div className={styles.typingDots}>
-                  <div className={styles.typingDot} />
-                  <div className={styles.typingDot} />
-                  <div className={styles.typingDot} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
-        <div className={styles.chatInput}>
-          <div className={styles.inputContainer}>
-            <textarea
-              ref={inputRef}
-              className={styles.messageInput}
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask me anything…"
-              disabled={isLoading}
-              rows={1}
-              aria-label="Chat message input"
-            />
-            <button
-              className={styles.sendBtn}
-              onClick={() => sendMessage()}
-              disabled={isLoading || !inputValue.trim()}
-              aria-label="Send message"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22,2 15,22 11,13 2,9 22,2" />
-              </svg>
-            </button>
-          </div>
-          <div className={styles.inputHint}>Press Enter to send · Shift+Enter for new line</div>
+          <button
+            className={styles.chatCloseBtn}
+            onClick={isMobile ? onMobileClose : () => setIsOpen(false)}
+            aria-label="Close chat"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
       </div>
-    </div>
+
+      {/* Messages */}
+      <div className={styles.chatMessages}>
+        {messages.length === 0 ? (
+          <div className={styles.welcomeMessage}>
+            <div className={styles.welcomeEmoji}>👋</div>
+            <h4>Hi {user.user_name.split(' ')[0]}</h4>
+            <p>I'm Mello. Ask me anything about the platform or pick a question below.</p>
+            <div className={styles.quickActions}>
+              {QUICK_ACTIONS.map((action, i) => (
+                <button
+                  key={i}
+                  className={styles.quickActionBtn}
+                  onClick={() => sendMessage(action)}
+                  disabled={isLoading}
+                >
+                  {action}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          messages.map(msg => (
+            <div key={msg.id} className={`${styles.message} ${styles[msg.message_type]}`}>
+              <div className={styles.messageAvatar}>
+                {msg.message_type === 'user'
+                  ? profilePicUrl
+                    ? <img src={profilePicUrl} alt={user.user_name} className={styles.avatarImg} />
+                    : initials
+                  : <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
+                }
+              </div>
+              <div className={styles.messageBubbleGroup}>
+                <div className={styles.messageContent}>
+                  {msg.message_type === 'assistant'
+                    ? <FormattedMessage content={msg.content} />
+                    : msg.content
+                  }
+                </div>
+                <div className={styles.messageTime}>{formatTime(msg.created_at)}</div>
+              </div>
+            </div>
+          ))
+        )}
+
+        {isTyping && (
+          <div className={`${styles.message} ${styles.assistant}`}>
+            <div className={styles.messageAvatar}>
+              <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
+            </div>
+            <div className={styles.typingIndicator}>
+              <div className={styles.typingDots}>
+                <div className={styles.typingDot} />
+                <div className={styles.typingDot} />
+                <div className={styles.typingDot} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className={styles.chatInput}>
+        <div className={styles.inputContainer}>
+          <textarea
+            ref={inputRef}
+            className={styles.messageInput}
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask me anything…"
+            disabled={isLoading}
+            rows={1}
+            aria-label="Chat message input"
+          />
+          <button
+            className={styles.sendBtn}
+            onClick={() => sendMessage()}
+            disabled={isLoading || !inputValue.trim()}
+            aria-label="Send message"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22,2 15,22 11,13 2,9 22,2" />
+            </svg>
+          </button>
+        </div>
+        <div className={styles.inputHint}>Press Enter to send · Shift+Enter for new line</div>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile full-screen chat */}
+      {mobileOpen && (
+        <div className={styles.mobileChatOverlay} role="dialog" aria-label="AI Assistant">
+          {chatPanelContent(true)}
+        </div>
+      )}
+
+      {/* Desktop floating widget — hidden on mobile */}
+      <div className={styles.chatWidget}>
+        <button
+          className={`${styles.chatToggle} ${isOpen ? styles.open : ''}`}
+          onClick={() => setIsOpen(prev => !prev)}
+          aria-label={isOpen ? 'Close AI Assistant' : 'Open AI Assistant'}
+        >
+          {isOpen ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: '#D5FFFA' }}>
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <>
+              <img src="/MelloFevicon 1.png" alt="Mello" className={styles.toggleFavicon} />
+              <div className={styles.chatBadge}>AI</div>
+            </>
+          )}
+        </button>
+
+        <div className={`${styles.chatContainer} ${isOpen ? styles.open : ''}`} role="dialog" aria-label="AI Assistant">
+          {chatPanelContent(false)}
+        </div>
+      </div>
+    </>
   );
 };
 

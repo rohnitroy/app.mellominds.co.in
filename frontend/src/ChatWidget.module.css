@@ -461,52 +461,53 @@
   font-family: 'Urbanist', sans-serif;
 }
 
+/* ===== MOBILE FULL-SCREEN OVERLAY ===== */
+.mobileChatOverlay {
+  display: none; /* only shown via JS when mobileOpen=true */
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: white;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* ===== MOBILE ===== */
 @media (max-width: 768px) {
+  /* Hide the floating desktop widget entirely on mobile */
   .chatWidget {
-    bottom: calc(72px + env(safe-area-inset-bottom));
-    right: 16px;
+    display: none;
   }
 
-  .chatContainer {
-    width: calc(100vw - 32px);
-    height: 420px;
-    right: -8px;
-    bottom: 64px;
+  /* Full-screen overlay */
+  .mobileChatOverlay {
+    display: flex;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
-  .chatToggle {
-    width: 52px;
-    height: 52px;
+  .mobileChatOverlay .chatHeader {
+    border-radius: 0;
+    padding: 14px 16px;
+    padding-top: calc(14px + env(safe-area-inset-top));
   }
 
-  .chatToggle svg {
-    width: 22px;
-    height: 22px;
+  .mobileChatOverlay .chatMessages {
+    flex: 1;
+    padding: 14px 16px 8px;
   }
 
-  .messageContent {
-    max-width: 84%;
-    font-size: 13px;
+  .mobileChatOverlay .chatInput {
+    padding: 10px 16px 14px;
+  }
+
+  .mobileChatOverlay .messageContent {
+    max-width: 82%;
+    font-size: 14px;
   }
 }
 
 @media (max-width: 480px) {
-  .chatWidget {
-    right: 12px;
-  }
-
-  .chatContainer {
-    width: calc(100vw - 24px);
-    right: -4px;
-    height: 380px;
-  }
-
-  .chatMessages {
-    padding: 12px 10px 6px;
-  }
-
-  .chatInput {
-    padding: 8px 10px 10px;
+  .mobileChatOverlay .messageContent {
+    max-width: 86%;
   }
 }

@@ -868,6 +868,17 @@ body.scrollable {
   flex: 1;
 }
 
+/* Mobile chat header button — hidden on desktop, shown on mobile */
+.mobile-chat-header-btn {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-chat-header-btn {
+    display: flex;
+  }
+}
+
 /* ===== FOOTER ===== */
 .footer {
   text-align: center;
