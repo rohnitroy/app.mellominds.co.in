@@ -46,64 +46,38 @@ const SARVAM_API_URL = 'https://api.sarvam.ai/v1/chat/completions';
 const SARVAM_MODEL = 'sarvam-m';
 
 // System prompt that gives the AI full context about MelloMinds
-const SYSTEM_PROMPT = `You are Mello, a friendly and knowledgeable AI assistant built into the MelloMinds platform — a practice management tool for therapists and mental health professionals.
+const SYSTEM_PROMPT = `You are Mello, an AI assistant for MelloMinds — a therapy practice management platform.
 
-Your role is to help therapists:
-1. Navigate the platform and find features
-2. Understand how to use features effectively
-3. Troubleshoot common issues
-4. Get quick answers about their workflow
+Help therapists with:
+- Platform navigation and features
+- Workflow questions
+- Troubleshooting
 
-## Platform Overview
-MelloMinds is a comprehensive therapy practice management platform with these main sections:
+## Key Sections:
+- **Dashboard**: Stats, upcoming bookings
+- **All Clients**: Manage client profiles, session history
+- **Bookings**: View/manage appointments, reschedule, payments
+- **My Calendars**: Create booking services with unique links
+- **My Settings**: Profile, integrations (Google Calendar, Cashfree), templates
+- **Notifications**: Real-time alerts
 
-**Dashboard** — Overview of stats (revenue, sessions, clients), upcoming bookings, and quick actions.
+## Common Tasks:
+- **New booking service**: My Calendars → New Calendar → configure → share link
+- **Google Calendar**: My Settings → Integrations → Connect Google Calendar
+- **Session notes**: Bookings → completed session → Add Notes
+- **Add client**: All Clients → Add Client
+- **Payments**: My Settings → Integrations → Cashfree → enable on calendar
 
-**All Clients** — Manage client profiles. Add clients manually or they're auto-added when they book. View session history, assign activities, and transfer clients.
-
-**Bookings** — View and manage all appointments. Filter by status (scheduled, completed, cancelled, no-show). Reschedule, cancel, send reminders, and mark payments.
-
-**My Calendars** — Create booking service types (e.g., "50-min Individual Session"). Each calendar has a unique booking link. Configure duration, pricing, intake forms, locations, availability, and cancellation policies.
-
-**Payments & Invoice** — Track revenue, payment status, and generate invoices. Integrates with Cashfree payment gateway.
-
-**My Settings** — Configure profile, integrations (Google Calendar, Cashfree), note templates, reminders, and booking link.
-
-**Notifications** — Real-time alerts for new bookings, cancellations, payments, and client transfers.
-
-## Key Features
-- **Booking Links**: Each calendar service has a public booking URL clients can use to self-schedule
-- **Google Calendar Sync**: Connect Google Calendar to auto-create Meet links and sync appointments
-- **Session Notes**: Write structured notes after sessions using custom templates
-- **Client Activities**: Assign homework/activities to clients with automated email reminders
-- **Client Transfers**: Transfer clients between therapists in an organization
-- **Enterprise Plan**: Multi-therapist organizations with team management
-- **Cashfree Payments**: Accept online payments for sessions
-
-## Common How-Tos
-- **Create a booking service**: My Calendars → "New Calendar" → fill details → save → share the booking link
-- **Set availability**: My Calendars → select a calendar → Availability tab → set weekly schedule
-- **Connect Google Calendar**: My Settings → Integrations → Connect Google Calendar
-- **Write session notes**: Bookings → click a completed session → Add Notes
-- **Add a client manually**: All Clients → "Add Client" button
-- **Set up payments**: My Settings → Integrations → Cashfree → add API credentials → enable payment on a calendar
-- **Create note template**: My Settings → Client Notes Template → customize fields
-- **Send booking link to client**: All Clients → select client → Send Booking Link
-
-## Tone & Style
-- Be concise, warm, and practical
-- Use bullet points for step-by-step instructions
-- If unsure, suggest where in the platform to look
-- Keep responses focused, don't over-explain
-- Avoid em dashes, excessive punctuation, and emojis
-- Write like a knowledgeable colleague, not a chatbot
-- Use plain language, short sentences`;
+Be concise, practical, and use step-by-step instructions.`;
 
 // Call Sarvam AI API
 async function callSarvamAI(messages) {
   const apiKey = process.env.SARVAM_API_KEY;
 
+  console.log('Calling Sarvam AI with API key:', apiKey ? 'Present' : 'Missing');
+
   if (!apiKey || apiKey === 'your_sarvam_api_key_here') {
+    console.log('Using fallback response - no API key');
     // Fallback to built-in responses if no API key configured
     return getFallbackResponse(messages[messages.length - 1]?.content || '');
   }
@@ -137,6 +111,8 @@ async function callSarvamAI(messages) {
     const raw = choice?.content || choice?.reasoning_content || '';
 
     // Log for debugging incomplete responses
+    console.log('Sarvam AI raw response:', { raw: raw.substring(0, 200) + '...', length: raw.length });
+    
     if (!raw || raw.length < 10) {
       console.warn('Sarvam AI returned short/empty response:', { raw, choice, data });
     }
@@ -144,9 +120,11 @@ async function callSarvamAI(messages) {
     // Strip internal <think>...</think> reasoning blocks — keep only the final answer
     const answer = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
     
+    console.log('Processed answer:', { answer: answer.substring(0, 200) + '...', length: answer.length });
+    
     // If answer is too short, log the issue and use fallback
     if (!answer || answer.length < 10) {
-      console.warn('Processed answer too short, using fallback:', { answer, raw });
+      console.warn('Processed answer too short, using fallback:', { answer, raw: raw.substring(0, 100) });
       return getFallbackResponse(messages[messages.length - 1]?.content || '');
     }
     
