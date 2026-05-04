@@ -1,8 +1,37 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { isAuthenticated } from '../middleware/auth.js';
 import pool from '../config/database.js';
+import { encryptSensitiveData, decryptSensitiveData } from '../lib/encryption.js';
 
 const router = express.Router();
+
+// Dedicated rate limiter for the AI message endpoint — 30 messages per 15 min per IP
+const chatMessageLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `chat_${req.user?.id || req.ip}`, // per-user, not per-IP
+  message: { error: 'Too many messages. Please wait a few minutes before sending more.' },
+});
+
+// Allowed keys for context_data — prevents arbitrary data being stored
+const ALLOWED_CONTEXT_KEYS = ['page', 'section', 'clientId', 'calendarId', 'bookingId'];
+
+function sanitizeContext(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const safe = {};
+  for (const key of ALLOWED_CONTEXT_KEYS) {
+    if (raw[key] !== undefined) {
+      // Only allow string/number primitives, max 100 chars each
+      const val = raw[key];
+      if (typeof val === 'string') safe[key] = val.substring(0, 100);
+      else if (typeof val === 'number' && isFinite(val)) safe[key] = val;
+    }
+  }
+  return safe;
+}
 
 const SARVAM_API_URL = 'https://api.sarvam.ai/v1/chat/completions';
 const SARVAM_MODEL = 'sarvam-m';
@@ -166,7 +195,17 @@ router.get('/conversation', isAuthenticated, async (req, res) => {
       [conversation.id]
     );
 
-    res.json({ conversation, messages: messages.rows });
+    // Decrypt message content before sending to client
+    const decryptedMessages = messages.rows.map(msg => {
+      try {
+        return { ...msg, content: decryptSensitiveData(msg.content, userId) ?? msg.content };
+      } catch {
+        // If decryption fails the message was stored as plaintext (legacy row) — return as-is
+        return msg;
+      }
+    });
+
+    res.json({ conversation, messages: decryptedMessages });
   } catch (error) {
     console.error('Error getting conversation:', error);
     res.status(500).json({ error: 'Failed to get conversation' });
@@ -174,7 +213,7 @@ router.get('/conversation', isAuthenticated, async (req, res) => {
 });
 
 // POST /api/chat/message — send a message and get AI response
-router.post('/message', isAuthenticated, async (req, res) => {
+router.post('/message', isAuthenticated, chatMessageLimiter, async (req, res) => {
   try {
     const userId = req.user.id;
     const { message, conversationId, context } = req.body;
@@ -185,6 +224,9 @@ router.post('/message', isAuthenticated, async (req, res) => {
 
     // Sanitize input
     const sanitizedMessage = message.trim().substring(0, 1000);
+
+    // Validate and sanitize context — only allow known safe keys
+    const safeContext = sanitizeContext(context);
 
     let conversation;
 
@@ -200,18 +242,19 @@ router.post('/message', isAuthenticated, async (req, res) => {
     } else {
       const newConv = await pool.query(
         'INSERT INTO chat_conversations (user_id, title, context_data) VALUES ($1, $2, $3) RETURNING *',
-        [userId, sanitizedMessage.substring(0, 60), JSON.stringify(context || {})]
+        [userId, sanitizedMessage.substring(0, 60), JSON.stringify(safeContext)]
       );
       conversation = newConv.rows[0];
     }
 
-    // Save user message
+    // Encrypt and save user message
+    const encryptedUserMessage = encryptSensitiveData(sanitizedMessage, userId);
     await pool.query(
       'INSERT INTO chat_messages (conversation_id, message_type, content) VALUES ($1, $2, $3)',
-      [conversation.id, 'user', sanitizedMessage]
+      [conversation.id, 'user', encryptedUserMessage]
     );
 
-    // Get last 10 messages for context
+    // Get last 10 messages for context (decrypt for AI)
     const historyResult = await pool.query(
       'SELECT message_type, content FROM chat_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 10',
       [conversation.id]
@@ -221,18 +264,23 @@ router.post('/message', isAuthenticated, async (req, res) => {
     const history = historyResult.rows.reverse();
     const aiMessages = history
       .slice(0, -1) // exclude the user message we just added (it's the last one)
-      .map(m => ({ role: m.message_type === 'user' ? 'user' : 'assistant', content: m.content }));
+      .map(m => {
+        let content = m.content;
+        try { content = decryptSensitiveData(m.content, userId) ?? m.content; } catch { /* legacy plaintext */ }
+        return { role: m.message_type === 'user' ? 'user' : 'assistant', content };
+      });
 
-    // Add current user message
+    // Add current user message (plaintext for AI)
     aiMessages.push({ role: 'user', content: sanitizedMessage });
 
     // Get AI response
     const aiText = await callSarvamAI(aiMessages);
 
-    // Save AI response
+    // Encrypt and save AI response
+    const encryptedAiText = encryptSensitiveData(aiText, userId);
     const aiMessage = await pool.query(
       'INSERT INTO chat_messages (conversation_id, message_type, content) VALUES ($1, $2, $3) RETURNING *',
-      [conversation.id, 'assistant', aiText]
+      [conversation.id, 'assistant', encryptedAiText]
     );
 
     // Update conversation timestamp
@@ -241,7 +289,9 @@ router.post('/message', isAuthenticated, async (req, res) => {
       [conversation.id]
     );
 
-    res.json({ conversation, message: aiMessage.rows[0] });
+    // Return decrypted AI message to client
+    const responseMessage = { ...aiMessage.rows[0], content: aiText };
+    res.json({ conversation, message: responseMessage });
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ error: 'Failed to send message' });
