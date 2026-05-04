@@ -44,6 +44,7 @@ import TimeSlotList from './components/TimeSlotList';
 import Loader from './components/Loader';
 import CookieBanner from './components/CookieBanner';
 import UpgradePlanModal from './components/UpgradePlanModal';
+import ChatWidget from './ChatWidget';
 
 interface NavItem {
   name: string;
@@ -772,6 +773,9 @@ const DashboardLayout: React.FC = () => {
         <AddClientModal onClose={() => setShowAddClientModal(false)} />
       )}
       <UpgradePlanModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
+      
+      {/* AI Chat Widget */}
+      <ChatWidget user={user ? { id: user.id, user_name: user.user_name, profile_picture: user.profile_picture } : null} />
     </div>
   );
 };
