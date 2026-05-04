@@ -45,22 +45,35 @@ const FormattedMessage: React.FC<{ content: string }> = ({ content }) => {
 
         // Bullet point
         if (line.startsWith('• ') || line.startsWith('- ')) {
+          const bulletContent = line.substring(2); // Remove bullet and space
+          const bulletParts = bulletContent.split(/\*\*(.*?)\*\*/g);
+          const bulletRendered = bulletParts.map((part, j) =>
+            j % 2 === 1 ? <strong key={j}>{part}</strong> : part
+          );
           return (
             <div key={i} style={{ display: 'flex', gap: '6px', marginTop: i === 0 ? 0 : '4px' }}>
               <span style={{ flexShrink: 0, marginTop: '1px' }}>•</span>
-              <span>{rendered.slice(1)}</span>
+              <span>{bulletRendered}</span>
             </div>
           );
         }
 
         // Numbered list
         if (/^\d+\.\s/.test(line)) {
-          return (
-            <div key={i} style={{ display: 'flex', gap: '6px', marginTop: i === 0 ? 0 : '4px' }}>
-              <span style={{ flexShrink: 0 }}>{line.match(/^\d+/)?.[0]}.</span>
-              <span>{rendered.slice(1)}</span>
-            </div>
-          );
+          const numberMatch = line.match(/^(\d+\.\s)(.*)/);
+          if (numberMatch) {
+            const [, numberPart, restOfLine] = numberMatch;
+            const restParts = restOfLine.split(/\*\*(.*?)\*\*/g);
+            const restRendered = restParts.map((part, j) =>
+              j % 2 === 1 ? <strong key={j}>{part}</strong> : part
+            );
+            return (
+              <div key={i} style={{ display: 'flex', gap: '6px', marginTop: i === 0 ? 0 : '4px' }}>
+                <span style={{ flexShrink: 0 }}>{numberPart}</span>
+                <span>{restRendered}</span>
+              </div>
+            );
+          }
         }
 
         // Empty line = spacing

@@ -214,16 +214,25 @@ router.get('/conversation', isAuthenticated, async (req, res) => {
 
 // POST /api/chat/message — send a message and get AI response
 router.post('/message', isAuthenticated, chatMessageLimiter, async (req, res) => {
+  const requestId = Date.now();
+  console.log(`\n=== CHAT REQUEST ${requestId} ===`);
+  
   try {
     const userId = req.user.id;
     const { message, conversationId, context } = req.body;
+    
+    console.log(`[${requestId}] User ID: ${userId}`);
+    console.log(`[${requestId}] Message: "${message}"`);
+    console.log(`[${requestId}] Conversation ID: ${conversationId}`);
 
     if (!message || !message.trim()) {
+      console.log(`[${requestId}] ❌ Empty message`);
       return res.status(400).json({ error: 'Message is required' });
     }
 
     // Sanitize input
     const sanitizedMessage = message.trim().substring(0, 1000);
+    console.log(`[${requestId}] Sanitized message length: ${sanitizedMessage.length}`);
 
     // Validate and sanitize context — only allow known safe keys
     const safeContext = sanitizeContext(context);
@@ -236,23 +245,30 @@ router.post('/message', isAuthenticated, chatMessageLimiter, async (req, res) =>
         [conversationId, userId]
       );
       if (existing.rows.length === 0) {
+        console.log(`[${requestId}] ❌ Conversation not found`);
         return res.status(404).json({ error: 'Conversation not found' });
       }
       conversation = existing.rows[0];
+      console.log(`[${requestId}] Using existing conversation: ${conversation.id}`);
     } else {
       const newConv = await pool.query(
         'INSERT INTO chat_conversations (user_id, title, context_data) VALUES ($1, $2, $3) RETURNING *',
         [userId, sanitizedMessage.substring(0, 60), JSON.stringify(safeContext)]
       );
       conversation = newConv.rows[0];
+      console.log(`[${requestId}] Created new conversation: ${conversation.id}`);
     }
 
     // Encrypt and save user message
+    console.log(`[${requestId}] Encrypting user message...`);
     const encryptedUserMessage = encryptSensitiveData(sanitizedMessage, userId);
+    console.log(`[${requestId}] Encrypted length: ${encryptedUserMessage.length}`);
+    
     await pool.query(
       'INSERT INTO chat_messages (conversation_id, message_type, content) VALUES ($1, $2, $3)',
       [conversation.id, 'user', encryptedUserMessage]
     );
+    console.log(`[${requestId}] User message saved to DB`);
 
     // Get last 10 messages for context (decrypt for AI)
     const historyResult = await pool.query(
@@ -272,16 +288,24 @@ router.post('/message', isAuthenticated, chatMessageLimiter, async (req, res) =>
 
     // Add current user message (plaintext for AI)
     aiMessages.push({ role: 'user', content: sanitizedMessage });
+    console.log(`[${requestId}] AI messages array length: ${aiMessages.length}`);
 
     // Get AI response
+    console.log(`[${requestId}] Calling Sarvam AI...`);
     const aiText = await callSarvamAI(aiMessages);
+    console.log(`[${requestId}] AI response length: ${aiText.length}`);
+    console.log(`[${requestId}] AI response preview: "${aiText.substring(0, 100)}..."`);
 
     // Encrypt and save AI response
+    console.log(`[${requestId}] Encrypting AI response...`);
     const encryptedAiText = encryptSensitiveData(aiText, userId);
+    console.log(`[${requestId}] AI encrypted length: ${encryptedAiText.length}`);
+    
     const aiMessage = await pool.query(
       'INSERT INTO chat_messages (conversation_id, message_type, content) VALUES ($1, $2, $3) RETURNING *',
       [conversation.id, 'assistant', encryptedAiText]
     );
+    console.log(`[${requestId}] AI message saved to DB with ID: ${aiMessage.rows[0].id}`);
 
     // Update conversation timestamp
     await pool.query(
@@ -291,9 +315,11 @@ router.post('/message', isAuthenticated, chatMessageLimiter, async (req, res) =>
 
     // Return decrypted AI message to client
     const responseMessage = { ...aiMessage.rows[0], content: aiText };
+    console.log(`[${requestId}] ✅ Sending response to client, content length: ${responseMessage.content.length}`);
+    
     res.json({ conversation, message: responseMessage });
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error(`[${requestId}] ❌ Error:`, error);
     res.status(500).json({ error: 'Failed to send message' });
   }
 });
