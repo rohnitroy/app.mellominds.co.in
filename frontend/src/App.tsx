@@ -94,7 +94,7 @@ const NotificationBell: React.FC<{
       : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const preview = notifications.slice(0, 5);
+  const preview = notifications.slice(0, 3);
 
   return (
     <div className="notification-container" ref={dropdownRef} style={{ fontSize: '20px', cursor: 'pointer' }}

@@ -806,6 +806,8 @@ body.scrollable {
 
 .notification-item:last-child {
   border-bottom: none;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
 }
 
 .notification-content {

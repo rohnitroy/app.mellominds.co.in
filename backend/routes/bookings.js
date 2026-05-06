@@ -680,11 +680,11 @@ router.get('/stats', async (req, res) => {
         );
         const pendingPayment = parseInt(pendingPaymentRes.rows[0].count);
 
-        // Pending notes - completed appointments without notes (uses alias 'a')
+        // Pending notes - scheduled appointments that have passed their end time (uses alias 'a')
         const pendingNotesRes = await client.query(
             `SELECT COUNT(*) FROM Appointments a 
-             WHERE a.therapist_id = $1 AND a.status = 'completed'
-             AND NOT EXISTS (SELECT 1 FROM SessionNotes WHERE appointment_id = a.id)${dateFilterA}`,
+             WHERE a.therapist_id = $1 AND a.status = 'scheduled'
+             AND a.end_time < NOW()${dateFilterA}`,
             params
         );
         const pendingNotes = parseInt(pendingNotesRes.rows[0].count);

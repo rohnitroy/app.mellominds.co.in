@@ -452,8 +452,8 @@ router.get('/enterprise-analytics', async (req, res) => {
 
     const pendingNotesRes = await pool.query(
       `SELECT COUNT(*) FROM Appointments a
-       WHERE a.therapist_id = ANY($1) AND a.status = 'completed'
-       AND NOT EXISTS (SELECT 1 FROM SessionNotes WHERE appointment_id = a.id)`,
+       WHERE a.therapist_id = ANY($1) AND a.status = 'scheduled'
+       AND a.end_time < NOW()`,
       [therapistIds]
     );
 

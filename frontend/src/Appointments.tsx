@@ -228,7 +228,36 @@ const Appointments: React.FC = () => {
     {
       accessorKey: 'client_name',
       header: 'Client Name',
-      cell: ({ getValue }) => getValue() || '—',
+      cell: ({ getValue, row }) => {
+        const clientName = getValue() || '—';
+        const clientEmail = row.original.client_email;
+        
+        if (clientName === '—' || !clientEmail) {
+          return clientName;
+        }
+        
+        return (
+          <span
+            style={{ 
+              cursor: 'pointer', 
+              color: '#2D7579', 
+              textDecoration: 'underline',
+              fontWeight: 500
+            }}
+            onClick={() => {
+              navigate('/clients', { 
+                state: { 
+                  clientEmail: clientEmail, 
+                  initialTab: 'Overview',
+                  returnTo: '/bookings'
+                } 
+              });
+            }}
+          >
+            {clientName}
+          </span>
+        );
+      },
     },
     {
       id: 'contact',
@@ -415,7 +444,7 @@ const Appointments: React.FC = () => {
             {canAddNote && (
               <button onClick={() => {
                 setActiveMenuId(null); setMenuPos(null);
-                navigate('/clients', { state: { clientEmail: row.client_email, initialTab: 'Session Notes' } });
+                navigate('/clients', { state: { clientEmail: row.client_email, initialTab: 'Session Notes', returnTo: '/bookings' } });
               }}
                 style={{ ...menuItemStyle, borderBottom: 'none' }}>Add Note</button>
             )}

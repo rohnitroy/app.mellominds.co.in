@@ -564,8 +564,8 @@
 
 .addNotesSection {
   position: fixed;
-  bottom: 20px;
-  right: 30px;
+  bottom: 28px;
+  right: 100px;
   z-index: 1000;
 }
 
@@ -783,8 +783,8 @@
 
 .addActivitiesBtn {
   position: fixed;
-  bottom: 20px;
-  right: 30px;
+  bottom: 28px;
+  right: 100px;
   background: #F9E141;
   border: 2px solid #08242180;
   border-radius: 24px;

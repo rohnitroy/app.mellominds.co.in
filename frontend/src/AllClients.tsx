@@ -154,12 +154,16 @@ const AllClients: React.FC = () => {
 
   // Handle navigation from Appointments "Add Note" action
   useEffect(() => {
-    const state = location.state as { clientEmail?: string; initialTab?: string } | null;
+    const state = location.state as { clientEmail?: string; initialTab?: string; returnTo?: string } | null;
     if (state?.clientEmail && clients.length > 0) {
       const match = clients.find(c => c.email === state.clientEmail);
       if (match) {
         setInitialTab(state.initialTab);
         setSelectedClient(match);
+        // Store returnTo path for back navigation
+        if (state.returnTo) {
+          sessionStorage.setItem('clientViewReturnTo', state.returnTo);
+        }
         // Clear state so back navigation doesn't re-trigger
         window.history.replaceState({}, '');
       }
@@ -402,7 +406,15 @@ const AllClients: React.FC = () => {
           setInitialTab(undefined);
           setSelectedClientCutoff(undefined);
           fetchClients();
-          navigate('/clients', { replace: true });
+          
+          // Check if there's a returnTo path stored
+          const returnTo = sessionStorage.getItem('clientViewReturnTo');
+          if (returnTo) {
+            sessionStorage.removeItem('clientViewReturnTo');
+            navigate(returnTo, { replace: true });
+          } else {
+            navigate('/clients', { replace: true });
+          }
         }}
         onTabChange={(newTab) => {
           navigate(`/clients/${selectedClient.id}/${encodeURIComponent(newTab)}`, { replace: true });
