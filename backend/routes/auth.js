@@ -10,6 +10,8 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { sendEmail, passwordResetEmail, newUserAlertEmail } from '../lib/email.js';
 import { sanitizeStr, isValidEmail } from '../middleware/sanitize.js';
+import { checkLoginAttempts, recordFailedLogin, resetFailedLogins, enforceConcurrentSessionLimit, invalidateUserSessions } from '../middleware/sessionSecurity.js';
+import { isDisposable } from '../lib/disposableEmail.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +48,10 @@ router.post('/register', async (req, res) => {
     }
     if (!isValidEmail(email)) {
       return res.status(400).json({ error: 'Invalid email address.' });
+    }
+    // Block disposable/temporary email providers
+    if (await isDisposable(email)) {
+      return res.status(400).json({ error: 'Disposable or temporary email addresses are not allowed. Please use a real email.' });
     }
     if (password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters.' });
@@ -127,10 +133,20 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    // Check account lockout
+    const lockStatus = await checkLoginAttempts(email);
+    if (lockStatus.locked) {
+      return res.status(423).json({
+        error: 'Account temporarily locked due to too many failed attempts. Please try again later.',
+        lockoutEndsAt: lockStatus.lockoutEndsAt,
+      });
+    }
+
     // Find user by email
     const result = await pool.query('SELECT * FROM Users WHERE email = $1', [email]);
 
     if (result.rows.length === 0) {
+      await recordFailedLogin(email);
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
@@ -145,18 +161,36 @@ router.post('/login', async (req, res) => {
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      await recordFailedLogin(email);
+      const remaining = lockStatus.remainingAttempts - 1;
+      return res.status(401).json({
+        error: 'Invalid email or password',
+        ...(remaining <= 2 && { warning: `${remaining} attempt(s) remaining before account lockout.` }),
+      });
     }
 
+    // Successful login — reset failed attempts
+    await resetFailedLogins(email);
+
+    // Update last login metadata
+    const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
+    await pool.query(
+      'UPDATE Users SET last_login_at = NOW(), last_login_ip = $1 WHERE id = $2',
+      [clientIp, user.id]
+    ).catch(() => {}); // non-fatal
+
     // Login user (create session)
-    req.login(user, (err) => {
+    req.login(user, async (err) => {
       if (err) {
         return res.status(500).json({ error: 'Login failed' });
       }
 
+      // Enforce concurrent session limit
+      await enforceConcurrentSessionLimit(user.id);
+
       // Remove password from response
-      const { password, ...userWithoutPassword } = user;
-      res.json({ message: 'Login successful', user: userWithoutPassword });
+      const { password: _pw, reset_token, reset_token_expires, failed_login_attempts, locked_until, ...safeUser } = user;
+      res.json({ message: 'Login successful', user: safeUser });
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -291,11 +325,15 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: 'Reset link is invalid or has expired.' });
     }
 
+    const userId = result.rows[0].id;
     const hashed = await bcrypt.hash(password, 10);
     await pool.query(
-      'UPDATE Users SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
-      [hashed, result.rows[0].id]
+      'UPDATE Users SET password = $1, reset_token = NULL, reset_token_expires = NULL, password_changed_at = NOW(), failed_login_attempts = 0, locked_until = NULL WHERE id = $2',
+      [hashed, userId]
     );
+
+    // Invalidate all existing sessions for this user (security: force re-login)
+    await invalidateUserSessions(userId);
 
     res.json({ message: 'Password updated successfully.' });
   } catch (error) {
@@ -305,20 +343,32 @@ router.post('/reset-password', async (req, res) => {
 });
 // Logout
 router.post('/logout', (req, res) => {
+  const sessionId = req.sessionID;
   req.logout((err) => {
     if (err) {
       return res.status(500).json({ error: 'Logout failed' });
     }
-    req.session.destroy();
-    res.json({ message: 'Logout successful' });
+    req.session.destroy((destroyErr) => {
+      if (destroyErr) {
+        console.error('Session destroy error:', destroyErr);
+      }
+      res.clearCookie('connect.sid');
+      res.json({ message: 'Logout successful' });
+    });
   });
 });
 
-// Get current user (check if logged in)
+// Get current user (check if logged in) — includes RBAC context
 router.get('/me', (req, res) => {
   if (req.isAuthenticated()) {
-    const { password, reset_token, reset_token_expires, ...userWithoutSensitive } = req.user;
-    res.json({ user: userWithoutSensitive });
+    const { password, reset_token, reset_token_expires, failed_login_attempts, locked_until, ...userWithoutSensitive } = req.user;
+    res.json({
+      user: userWithoutSensitive,
+      rbac: req.rbac ? {
+        role: req.rbac.role,
+        permissions: req.rbac.permissions,
+      } : undefined,
+    });
   } else {
     res.status(401).json({ error: 'Not authenticated' });
   }
@@ -523,6 +573,48 @@ router.put('/organization', async (req, res) => {
   } catch (err) {
     console.error('Save org details error:', err);
     res.status(500).json({ error: 'Failed to save organization details' });
+  }
+});
+
+// POST /auth/logout-all — Invalidate all sessions except current
+router.post('/logout-all', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  try {
+    const count = await invalidateUserSessions(req.user.id, req.sessionID);
+    res.json({ message: `Logged out of ${count} other session(s).` });
+  } catch (err) {
+    console.error('Logout all error:', err);
+    res.status(500).json({ error: 'Failed to invalidate sessions' });
+  }
+});
+
+// GET /auth/sessions — List active sessions for current user
+router.get('/sessions', async (req, res) => {
+  if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
+  try {
+    const result = await pool.query(
+      `SELECT sid, expire, 
+              sess::jsonb->'_security'->>'lastActivity' as last_activity,
+              sess::jsonb->'_security'->>'createdAt' as created_at
+       FROM user_sessions 
+       WHERE sess::jsonb->'passport'->>'user' = $1
+       AND expire > NOW()
+       ORDER BY expire DESC`,
+      [String(req.user.id)]
+    );
+
+    const sessions = result.rows.map(row => ({
+      id: row.sid.slice(0, 8) + '...', // Partial ID for display
+      isCurrent: row.sid === req.sessionID,
+      lastActivity: row.last_activity ? new Date(parseInt(row.last_activity)).toISOString() : null,
+      createdAt: row.created_at ? new Date(parseInt(row.created_at)).toISOString() : null,
+      expiresAt: row.expire,
+    }));
+
+    res.json({ sessions, total: sessions.length });
+  } catch (err) {
+    console.error('List sessions error:', err);
+    res.status(500).json({ error: 'Failed to list sessions' });
   }
 });
 
