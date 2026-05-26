@@ -13,7 +13,7 @@ interface Therapist {
   created_at: string;
   user_name: string | null;
   email: string | null;
-  specialization: string | null;
+  specializations: string[] | null;
   profile_picture: string | null;
   phone: string | null;
   calendar_count: number;
@@ -44,11 +44,12 @@ const Therapists: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     fetchTherapists();
-  }, [fetchTherapists]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,7 +191,11 @@ const Therapists: React.FC = () => {
                     </div>
                   </td>
                   <td className={styles.emailCell}>{t.email || t.invite_email}</td>
-                  <td className={styles.specCell}>{t.specialization || <span className={styles.na}>—</span>}</td>
+                  <td className={styles.specCell}>
+                    {t.specializations && Array.isArray(t.specializations) && t.specializations.length > 0
+                      ? t.specializations.join(', ')
+                      : <span className={styles.na}>—</span>}
+                  </td>
                   <td className={styles.calendarCell}>
                     {t.status === 'active'
                       ? <span className={styles.calendarCount}>{t.calendar_count}</span>

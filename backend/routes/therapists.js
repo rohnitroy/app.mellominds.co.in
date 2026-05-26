@@ -46,7 +46,7 @@ router.get('/:id/profile', async (req, res) => {
                     id: Number(id), therapist_user_id: null,
                     invite_email: member.invite_email, status: member.status,
                     created_at: member.created_at, user_name: null,
-                    email: member.invite_email, specialization: null,
+                    email: member.invite_email, specializations: null,
                     profile_picture: null, calendar_count: 0, calendars: [],
                 },
                 analytics: { revenue: 0, sessions: 0, bookings: 0, cancelled: 0, clients: 0 },
@@ -56,7 +56,7 @@ router.get('/:id/profile', async (req, res) => {
         }
 
         const infoRes = await pool.query(
-            `SELECT u.id, u.user_name, u.email, u.specialization, u.profile_picture,
+            `SELECT u.id, u.user_name, u.email, u.specializations, u.profile_picture,
                     COUNT(c.id) AS calendar_count,
                     COALESCE(
                         json_agg(json_build_object('id', c.id, 'title', c.title) ORDER BY c.created_at DESC)
@@ -131,14 +131,14 @@ router.get('/', async (req, res) => {
         const result = await pool.query(
             `SELECT
                 ot.id, ot.therapist_user_id, ot.invite_email, ot.status, ot.created_at,
-                u.user_name, u.email, u.specialization, u.profile_picture, u.phone,
+                u.user_name, u.email, u.specializations, u.profile_picture, u.phone,
                 COUNT(c.id) AS calendar_count
              FROM organization_therapists ot
              LEFT JOIN Users u ON ot.therapist_user_id = u.id
              LEFT JOIN Calendars c ON c.user_id = ot.therapist_user_id
              WHERE ot.owner_id = $1
              GROUP BY ot.id, ot.therapist_user_id, ot.invite_email, ot.status, ot.created_at,
-                      u.user_name, u.email, u.specialization, u.profile_picture, u.phone
+                      u.user_name, u.email, u.specializations, u.profile_picture, u.phone
              ORDER BY ot.created_at DESC`,
             [req.user.id]
         );

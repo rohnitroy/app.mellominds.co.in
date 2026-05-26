@@ -35,7 +35,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     dateOfBirth: '',
     email: '',
     gender: '',
-    specialization: 'Counselling Therapist',
+    specialization: '',
     languages: '',
     country: 'India',
     state: '',
@@ -77,11 +77,11 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
             setFormData({
               fullName: data.user.user_name || '',
               phoneNumber: data.user.phone || '',
-              dateOfBirth: data.user.dob ? new Date(data.user.dob).toISOString().split('T')[0] : '',
+              dateOfBirth: data.user.date_of_birth ? new Date(data.user.date_of_birth).toISOString().split('T')[0] : '',
               email: data.user.email || '',
               gender: data.user.gender || '',
-              specialization: data.user.specialization || 'Counselling Therapist',
-              languages: data.user.language_spoken || '',
+              specialization: data.user.specializations ? (Array.isArray(data.user.specializations) ? data.user.specializations[0] : data.user.specializations) : '',
+              languages: data.user.language_spoken ? (Array.isArray(data.user.language_spoken) ? data.user.language_spoken.join(', ') : data.user.language_spoken) : '',
               country: data.user.country || 'India',
               state: data.user.state || '',
               city: data.user.city || '',
@@ -140,41 +140,63 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   const fetchOrgLocationByPincode = async (pincode: string) => {
     if (!/^\d{6}$/.test(pincode)) return;
     try {
-      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) throw new Error('API error');
+      
       const data = await response.json();
-      if (data && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
+      if (data && Array.isArray(data) && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
         const location = data[0].PostOffice[0];
         setOrgData(prev => ({
           ...prev,
           city: location.District || prev.city,
           state: location.State || prev.state
         }));
+        toast.success('Location auto-filled from pincode');
+      } else {
+        toast.warning('Could not find location for this pincode');
       }
     } catch (error) {
       console.error('Error fetching org location:', error);
+      toast.warning('Could not auto-fill location. Please enter manually.');
     }
   };
 
   const fetchLocationByPincode = async (pincode: string) => {
-    if (!/^\d{6}$/.test(pincode)) return; // only valid 6-digit Indian pincodes
+    if (!/^\d{6}$/.test(pincode)) return;
     try {
-      // Using India Post API
-      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) throw new Error('API error');
+      
       const data = await response.json();
       
-      if (data && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
+      if (data && Array.isArray(data) && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
         const location = data[0].PostOffice[0];
         setFormData(prev => ({
           ...prev,
           city: location.District || prev.city,
           state: location.State || prev.state
         }));
+        toast.success('Location auto-filled from pincode');
       } else {
         toast.warning('Could not find location for this pincode');
       }
     } catch (error) {
       console.error('Error fetching location:', error);
-      toast.error('Failed to fetch location details');
+      toast.warning('Could not auto-fill location. Please enter manually.');
     }
   };
 
@@ -192,12 +214,28 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
       toast.error('Date of birth is required.');
       return;
     }
+    if (!formData.gender.trim()) {
+      toast.error('Gender is required.');
+      return;
+    }
+    if (!formData.specialization.trim()) {
+      toast.error('Specialization is required.');
+      return;
+    }
+    if (!formData.languages.trim()) {
+      toast.error('Languages spoken is required.');
+      return;
+    }
     if (!formData.country.trim()) {
       toast.error('Country is required.');
       return;
     }
     if (!formData.state.trim()) {
       toast.error('State is required.');
+      return;
+    }
+    if (!formData.city.trim()) {
+      toast.error('City is required.');
       return;
     }
     if (!formData.pincode.trim()) {
@@ -373,7 +411,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
           </div>
 
           <div className={styles.formGroup}>
-            <label>Gender</label>
+            <label>Gender<span className={styles.required}>*</span></label>
             <CustomDropdown
               options={[
                 { value: 'Female', label: 'Female' },
@@ -387,7 +425,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
           </div>
 
           <div className={styles.formGroup}>
-            <label>Specialization</label>
+            <label>Specialization<span className={styles.required}>*</span></label>
             <CustomDropdown
               options={[
                 { value: 'Counselling Therapist', label: 'Counselling Therapist' },
@@ -396,11 +434,12 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
               ]}
               value={formData.specialization}
               onChange={(val) => handleInputChange('specialization', val)}
+              placeholder="Select specialization"
             />
           </div>
 
           <div className={styles.formGroup}>
-            <label>Languages Spoken</label>
+            <label>Languages Spoken<span className={styles.required}>*</span></label>
             <LanguageMultiSelect
               value={formData.languages}
               onChange={(val) => handleInputChange('languages', val)}

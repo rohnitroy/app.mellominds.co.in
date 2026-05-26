@@ -73,15 +73,19 @@ router.get('/slots', async (req, res) => {
         const { date, calendar_id, calendarId, timeZone = 'Asia/Kolkata' } = req.query;
         const calId = calendar_id || calendarId; // accept both param names
 
+        console.log(`[DEBUG] Slots request: date=${date}, calendarId=${calId}, timeZone=${timeZone}`);
+
         if (!date || !calId) {
             return res.status(400).json({ error: 'Date and calendar_id are required' });
         }
 
         // 1. Get Calendar & Therapist Info (including schedule_settings for date range)
         const calRes = await client.query('SELECT user_id, duration, schedule_settings FROM Calendars WHERE id = $1', [calId]);
+        console.log(`[DEBUG] Calendar query result: ${calRes.rows.length} rows`);
         if (calRes.rows.length === 0) return res.status(404).json({ error: 'Calendar not found' });
 
         const { user_id: therapistId, duration, schedule_settings } = calRes.rows[0];
+        console.log(`[DEBUG] Therapist ID: ${therapistId}, Duration: ${duration}`);
         const durationMinutes = parseInt((duration || '60').match(/\d+/)[0]) || 60;
 
         // Enforce date range from schedule_settings
@@ -143,7 +147,10 @@ router.get('/slots', async (req, res) => {
             [therapistId, dayOfWeekNum]
         );
 
+        console.log(`[DEBUG] Availability query: therapistId=${therapistId}, dayOfWeek=${dayOfWeekNum}, results=${availRes.rows.length}`);
+
         if (availRes.rows.length === 0) {
+            console.log(`[DEBUG] No availability found for therapist ${therapistId} on day ${dayOfWeekNum}`);
             return res.json([]);
         }
 
@@ -255,9 +262,15 @@ router.get('/slots', async (req, res) => {
         }
 
         res.json(availableSlots);
+        console.log(`[DEBUG] Returning ${availableSlots.length} available slots`);
 
     } catch (error) {
         console.error('Error calculating slots:', error);
+        console.error('[DEBUG] Error details:', {
+            message: error.message,
+            code: error.code,
+            detail: error.detail
+        });
         res.status(500).json({ error: 'Failed to calculate availability' });
     } finally {
         client.release();

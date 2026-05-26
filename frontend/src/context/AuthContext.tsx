@@ -8,10 +8,10 @@ interface User {
     email: string;
     profile_picture: string;
     phone?: string;
-    dob?: string;
+    date_of_birth?: string;
     gender?: string;
-    specialization?: string;
-    language_spoken?: string;
+    specializations?: string[];
+    language_spoken?: string[];
     country?: string;
     state?: string;
     city?: string;
@@ -21,6 +21,7 @@ interface User {
     profile_slug?: string | null;
     org_role?: 'owner' | 'member' | null;
     org_owner_id?: number | null;
+    profileComplete?: boolean;
 }
 
 interface AuthContextType {

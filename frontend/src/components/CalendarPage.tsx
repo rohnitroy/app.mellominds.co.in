@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useProfileCompletion } from '../hooks/useProfileCompletion';
 import './CalendarPage.css';
 import AvailabilityModal from './AvailabilityModal';
 import ConfirmModal from './ConfirmModal';
+import ProfileCompletionModal from './ProfileCompletionModal';
 import API_BASE_URL from '../config/api';
 import Loader from './Loader';
 
@@ -23,6 +25,7 @@ const CalendarPage: React.FC = () => {
   const toast = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { isProfileComplete, showProfileModal, setShowProfileModal, checkProfileCompletion } = useProfileCompletion();
   const [calendars, setCalendars] = useState<Calendar[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
@@ -185,7 +188,10 @@ const CalendarPage: React.FC = () => {
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             className="create-calendar-btn mobile-hidden"
-            onClick={() => isGoogleConnected && setShowAvailabilityModal(true)}
+            onClick={() => {
+              if (!checkProfileCompletion('Calendar Setup')) return;
+              if (isGoogleConnected) setShowAvailabilityModal(true);
+            }}
             title={!isGoogleConnected ? 'Connect Google Calendar in Settings first' : ''}
             style={{
               backgroundColor: '#fff',
@@ -200,6 +206,7 @@ const CalendarPage: React.FC = () => {
           <button
             className="create-calendar-btn mobile-hidden"
             onClick={() => {
+              if (!checkProfileCompletion('Calendar Setup')) return;
               if (!isGoogleConnected) {
                 toast.error('Please connect your Google Calendar in Settings before creating a calendar.');
                 return;
@@ -372,6 +379,12 @@ const CalendarPage: React.FC = () => {
         danger
         onConfirm={() => { if (deleteConfirmId) handleDeleteCalendar(deleteConfirmId); }}
         onCancel={() => setDeleteConfirmId(null)}
+      />
+
+      <ProfileCompletionModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        featureName="Calendar Setup"
       />
     </div>
   );

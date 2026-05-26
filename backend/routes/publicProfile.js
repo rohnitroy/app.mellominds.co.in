@@ -14,10 +14,8 @@ router.get('/profile/:identifier', async (req, res) => {
         // Try numeric ID first, then fall back to profile_slug
         const userResult = await pool.query(
             isNumeric
-                ? `SELECT id, user_name, profile_picture, specialization, language_spoken, city, state, country
-                   FROM Users WHERE id = $1`
-                : `SELECT id, user_name, profile_picture, specialization, language_spoken, city, state, country
-                   FROM Users WHERE profile_slug = $1 OR LOWER(user_name) = LOWER($1)`,
+                ? `SELECT id, user_name, profile_picture FROM Users WHERE id = $1`
+                : `SELECT id, user_name, profile_picture FROM Users WHERE profile_slug = $1 OR LOWER(user_name) = LOWER($1)`,
             [identifier]
         );
 
@@ -30,7 +28,7 @@ router.get('/profile/:identifier', async (req, res) => {
         const calendarsResult = await pool.query(
             `SELECT id, title, slug, description, duration, type, locations, prices, payment_enabled
              FROM Calendars
-             WHERE user_id = $1 AND is_active = true
+             WHERE user_id = $1
              ORDER BY created_at ASC`,
             [user.id]
         );
@@ -39,11 +37,6 @@ router.get('/profile/:identifier', async (req, res) => {
             id: user.id,
             name: user.user_name,
             profile_picture: user.profile_picture || null,
-            specialization: user.specialization || null,
-            language_spoken: user.language_spoken || null,
-            city: user.city || null,
-            state: user.state || null,
-            country: user.country || null,
             calendars: calendarsResult.rows,
         });
     } catch (error) {

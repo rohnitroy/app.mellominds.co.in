@@ -114,7 +114,7 @@ router.post('/create-order', async (req, res) => {
         const calRes = await pool.query(
             `SELECT c.*, u.id as therapist_id
              FROM Calendars c JOIN Users u ON c.user_id = u.id
-             WHERE c.id = $1 AND c.is_active = true`,
+             WHERE c.id = $1`,
             [calendar_id]
         );
 

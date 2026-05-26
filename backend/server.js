@@ -204,29 +204,66 @@ app.get('/health', (req, res) => {
 
 // Auto-migrate Calendars table columns on startup
 async function ensureCalendarsSchema() {
-  const required = ['form_data','payment_enabled','payment_gateway','prices','cancellation_policy','reschedule_policy','locations','schedule_settings','max_attendees'];
-  const { rows } = await pool.query(
-    `SELECT column_name FROM information_schema.columns WHERE table_name = 'calendars' AND column_name = ANY($1)`,
-    [required]
-  );
-  if (rows.length === required.length) {
-    console.log('✅ Calendars schema verified');
-    return;
-  }
   try {
-    await pool.query(`
-      ALTER TABLE Calendars
-      ADD COLUMN IF NOT EXISTS form_data JSONB DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS payment_enabled BOOLEAN DEFAULT false,
-      ADD COLUMN IF NOT EXISTS payment_gateway VARCHAR(50) DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS prices JSONB DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS cancellation_policy JSONB DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS reschedule_policy JSONB DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS locations JSONB DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS schedule_settings JSONB DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS max_attendees INT DEFAULT NULL
+    // First, check if Calendars table exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'calendars'
+      )
     `);
-    console.log('✅ Calendars schema verified');
+    
+    if (!tableCheck.rows[0].exists) {
+      console.log('⚠️  Calendars table does not exist, creating it...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS Calendars (
+          id SERIAL PRIMARY KEY,
+          user_id INT REFERENCES Users(id) ON DELETE CASCADE,
+          title VARCHAR(255) NOT NULL,
+          duration VARCHAR(50),
+          type VARCHAR(50),
+          description TEXT,
+          slug VARCHAR(255) UNIQUE,
+          is_active BOOLEAN DEFAULT true,
+          form_data JSONB DEFAULT NULL,
+          payment_enabled BOOLEAN DEFAULT false,
+          payment_gateway VARCHAR(50) DEFAULT NULL,
+          prices JSONB DEFAULT NULL,
+          cancellation_policy JSONB DEFAULT NULL,
+          reschedule_policy JSONB DEFAULT NULL,
+          locations JSONB DEFAULT NULL,
+          schedule_settings JSONB DEFAULT NULL,
+          max_attendees INT DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Calendars table created');
+    } else {
+      // Table exists, add missing columns
+      const required = ['form_data','payment_enabled','payment_gateway','prices','cancellation_policy','reschedule_policy','locations','schedule_settings','max_attendees'];
+      const { rows } = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'calendars' AND column_name = ANY($1)`,
+        [required]
+      );
+      if (rows.length === required.length) {
+        console.log('✅ Calendars schema verified');
+        return;
+      }
+      await pool.query(`
+        ALTER TABLE Calendars
+        ADD COLUMN IF NOT EXISTS form_data JSONB DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS payment_enabled BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS payment_gateway VARCHAR(50) DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS prices JSONB DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS cancellation_policy JSONB DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS reschedule_policy JSONB DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS locations JSONB DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS schedule_settings JSONB DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS max_attendees INT DEFAULT NULL
+      `);
+      console.log('✅ Calendars schema verified');
+    }
   } catch (err) {
     console.error('⚠️  Calendars schema migration warning:', err.message);
   }
@@ -234,45 +271,94 @@ async function ensureCalendarsSchema() {
 
 // Auto-migrate Appointments table columns on startup
 async function ensureAppointmentsSchema() {
-  const required = ['client_phone','payment_status','payment_amount','form_responses','location_type','cancel_token','cashfree_order_id','cashfree_payment_link','razorpay_order_id','razorpay_payment_id'];
-  const { rows } = await pool.query(
-    `SELECT column_name FROM information_schema.columns WHERE table_name = 'appointments' AND column_name = ANY($1)`,
-    [required]
-  );
-  if (rows.length === required.length) {
-    // Fill any null cancel_tokens without needing ALTER TABLE
-    await pool.query(`
-      UPDATE Appointments
-      SET cancel_token = md5(id::text || random()::text || clock_timestamp()::text)
-      WHERE cancel_token IS NULL
-    `).catch(() => {});
-    console.log('✅ Appointments schema verified');
-    return;
-  }
   try {
-    await pool.query(`
-      ALTER TABLE Appointments
-      ADD COLUMN IF NOT EXISTS client_phone VARCHAR(20),
-      ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'Pending',
-      ADD COLUMN IF NOT EXISTS payment_amount DECIMAL(10, 2) DEFAULT 0.00,
-      ADD COLUMN IF NOT EXISTS form_responses JSONB DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS location_type VARCHAR(50) DEFAULT 'google_meet',
-      ADD COLUMN IF NOT EXISTS cancel_token VARCHAR(64) UNIQUE DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS cashfree_order_id VARCHAR(255) DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS cashfree_payment_link TEXT DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(255) DEFAULT NULL,
-      ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(255) DEFAULT NULL
+    // First, check if Appointments table exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'appointments'
+      )
     `);
-    await pool.query(`
-      UPDATE Appointments
-      SET cancel_token = md5(id::text || random()::text || clock_timestamp()::text)
-      WHERE cancel_token IS NULL
-    `);
-    console.log('✅ Appointments schema verified');
+    
+    if (!tableCheck.rows[0].exists) {
+      console.log('⚠️  Appointments table does not exist, creating it...');
+      await pool.query(`
+        CREATE TABLE Appointments (
+          id SERIAL PRIMARY KEY,
+          therapist_id INT REFERENCES Users(id) ON DELETE CASCADE,
+          client_id INT REFERENCES Users(id) ON DELETE SET NULL,
+          calendar_id INT REFERENCES Calendars(id) ON DELETE SET NULL,
+          title VARCHAR(255),
+          start_time TIMESTAMP NOT NULL,
+          end_time TIMESTAMP NOT NULL,
+          status VARCHAR(50) DEFAULT 'scheduled',
+          google_event_id VARCHAR(255),
+          meet_link VARCHAR(255),
+          client_email VARCHAR(150),
+          client_name VARCHAR(150),
+          client_phone VARCHAR(20),
+          payment_status VARCHAR(50) DEFAULT 'Pending',
+          payment_amount DECIMAL(10, 2) DEFAULT 0.00,
+          form_responses JSONB DEFAULT NULL,
+          location_type VARCHAR(50) DEFAULT 'google_meet',
+          cancel_token VARCHAR(64) UNIQUE DEFAULT NULL,
+          cashfree_order_id VARCHAR(255) DEFAULT NULL,
+          cashfree_payment_link TEXT DEFAULT NULL,
+          razorpay_order_id VARCHAR(255) DEFAULT NULL,
+          razorpay_payment_id VARCHAR(255) DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Appointments table created');
+    } else {
+      // Table exists, add missing columns
+      const required = ['start_time','end_time','client_phone','payment_status','payment_amount','form_responses','location_type','cancel_token','cashfree_order_id','cashfree_payment_link','razorpay_order_id','razorpay_payment_id'];
+      const { rows } = await pool.query(
+        `SELECT column_name FROM information_schema.columns WHERE table_name = 'appointments' AND column_name = ANY($1)`,
+        [required]
+      );
+      if (rows.length === required.length) {
+        console.log('✅ Appointments schema verified');
+        // Fill any null cancel_tokens
+        await pool.query(`
+          UPDATE Appointments 
+          SET cancel_token = md5(id::text || random()::text || clock_timestamp()::text)
+          WHERE cancel_token IS NULL
+        `).catch(() => {});
+        return;
+      }
+      
+      // Add missing columns
+      await pool.query(`
+        ALTER TABLE Appointments
+        ADD COLUMN IF NOT EXISTS start_time TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS end_time TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS client_phone VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'Pending',
+        ADD COLUMN IF NOT EXISTS payment_amount DECIMAL(10, 2) DEFAULT 0.00,
+        ADD COLUMN IF NOT EXISTS form_responses JSONB DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS location_type VARCHAR(50) DEFAULT 'google_meet',
+        ADD COLUMN IF NOT EXISTS cancel_token VARCHAR(64) UNIQUE DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS cashfree_order_id VARCHAR(255) DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS cashfree_payment_link TEXT DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(255) DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(255) DEFAULT NULL
+      `);
+      console.log('✅ Appointments schema verified');
+      
+      // Fill any null cancel_tokens
+      await pool.query(`
+        UPDATE Appointments 
+        SET cancel_token = md5(id::text || random()::text || clock_timestamp()::text)
+        WHERE cancel_token IS NULL
+      `).catch(() => {});
+    }
   } catch (err) {
     console.error('⚠️  Appointments schema migration warning:', err.message);
   }
 }
+
+// Auto-migrate Users table columns on startup
 
 // ─── Session Reminder Cron (runs every hour, sends 24h-before reminders) ─────
 // mello_admin has DML-only rights (no DDL), so we track sent reminders in-memory.
@@ -468,12 +554,58 @@ async function ensureOrgRoleSchema() {
 // Auto-migrate Users table columns on startup
 async function ensureUsersSchema() {
   try {
-    await pool.query(`
-      ALTER TABLE Users
-      ADD COLUMN IF NOT EXISTS reset_token TEXT,
-      ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ
+    // First, check if Users table exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'users'
+      )
     `);
-    console.log('✅ Users schema verified');
+    
+    if (!tableCheck.rows[0].exists) {
+      console.log('⚠️  Users table does not exist, creating it...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS Users (
+          id SERIAL PRIMARY KEY,
+          user_name VARCHAR(100),
+          password VARCHAR(255),
+          email VARCHAR(150) NOT NULL UNIQUE,
+          phone VARCHAR(20),
+          plan INT,
+          dob DATE,
+          gender VARCHAR(20),
+          specialization VARCHAR(150),
+          language_spoken VARCHAR(255),
+          country VARCHAR(100),
+          state VARCHAR(100),
+          city VARCHAR(100),
+          pincode VARCHAR(20),
+          clinic_address TEXT,
+          google_id VARCHAR(255) UNIQUE,
+          auth_provider VARCHAR(50) DEFAULT 'email',
+          profile_picture TEXT,
+          profile_slug VARCHAR(255) UNIQUE,
+          reset_token TEXT,
+          reset_token_expires TIMESTAMPTZ,
+          org_role VARCHAR(50),
+          org_owner_id INT
+        )
+      `);
+      console.log('✅ Users table created');
+    } else {
+      // Table exists, add missing columns
+      await pool.query(`
+        ALTER TABLE Users
+        ADD COLUMN IF NOT EXISTS reset_token TEXT,
+        ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS user_name VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS profile_picture TEXT,
+        ADD COLUMN IF NOT EXISTS profile_slug VARCHAR(255) UNIQUE,
+        ADD COLUMN IF NOT EXISTS org_role VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS org_owner_id INT
+      `);
+      console.log('✅ Users schema verified');
+    }
   } catch (err) {
     console.error('⚠️  Users schema migration warning:', err.message);
   }
@@ -563,11 +695,71 @@ async function ensureChatSchema() {
   }
 }
 
+// Auto-migrate Availability table on startup
+async function ensureAvailabilitySchema() {
+  try {
+    // First, check if Availability table exists
+    const tableCheck = await pool.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'availability'
+      )
+    `);
+    
+    if (!tableCheck.rows[0].exists) {
+      console.log('⚠️  Availability table does not exist, creating it...');
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS Availability (
+          id SERIAL PRIMARY KEY,
+          user_id INT REFERENCES Users(id) ON DELETE CASCADE,
+          day_of_week INT NOT NULL,
+          start_time TIME NOT NULL,
+          end_time TIME NOT NULL,
+          is_enabled BOOLEAN DEFAULT true
+        )
+      `);
+      console.log('✅ Availability table created');
+    } else {
+      // Table exists, check for required columns
+      const colCheck = await pool.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'availability' AND column_name IN ('start_time', 'end_time')
+      `);
+      
+      if (colCheck.rows.length < 2) {
+        console.log('⚠️  Availability table missing columns, adding them...');
+        // Drop and recreate if columns are missing (safer than ALTER for TIME columns)
+        try {
+          await pool.query(`DROP TABLE IF EXISTS Availability CASCADE`);
+          await pool.query(`
+            CREATE TABLE Availability (
+              id SERIAL PRIMARY KEY,
+              user_id INT REFERENCES Users(id) ON DELETE CASCADE,
+              day_of_week INT NOT NULL,
+              start_time TIME NOT NULL,
+              end_time TIME NOT NULL,
+              is_enabled BOOLEAN DEFAULT true
+            )
+          `);
+          console.log('✅ Availability table recreated with correct schema');
+        } catch (dropErr) {
+          console.error('⚠️  Could not recreate Availability table:', dropErr.message);
+        }
+      } else {
+        console.log('✅ Availability schema verified');
+      }
+    }
+  } catch (err) {
+    console.error('⚠️  Availability schema migration warning:', err.message);
+  }
+}
+
 // Start server
 httpServer.listen(PORT, async () => {
   await ensureCalendarsSchema();
   await ensureAppointmentsSchema();
   await ensureUsersSchema();
+  await ensureAvailabilitySchema();
   await ensureSessionNotesSchema();
   await ensureOrganizationTherapistsSchema();
   await ensureOrgRoleSchema();

@@ -34,6 +34,8 @@ import { NotificationProvider, useNotifications } from './context/NotificationCo
 import { SocketProvider } from './context/SocketContext';
 import ToastContainer from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
+import EnterpriseSettings from './components/EnterpriseSettings';
+import EnterpriseAnalytics from './components/EnterpriseAnalytics';
 import API_BASE_URL from './config/api';
 import { Category, TwoUsers, Calendar, Discovery, Wallet, Setting, Paper, AddUser } from 'react-iconly';
 import DataTable from './components/DataTable';
@@ -799,7 +801,7 @@ const DashboardLayout: React.FC = () => {
       
       {/* AI Chat Widget */}
       <ChatWidget
-        user={user ? { id: user.id, user_name: user.user_name, profile_picture: user.profile_picture } : null}
+        user={user ? { id: user.id, user_name: user.user_name, profile_picture: user.profile_picture, plan_name: user.plan_name } : null}
         mobileOpen={mobileChatOpen}
         onMobileClose={() => setMobileChatOpen(false)}
       />
@@ -920,9 +922,9 @@ const DashboardHome: React.FC = () => {
 
     const profileFields = [
       user.phone,
-      user.dob,
+      user.date_of_birth,
       user.gender,
-      user.specialization,
+      user.specializations,
       user.language_spoken,
       user.country,
       user.state,
@@ -931,7 +933,18 @@ const DashboardHome: React.FC = () => {
       user.clinic_address
     ];
 
-    const filledFields = profileFields.filter(field => field && typeof field === 'string' && field.trim() !== '').length;
+    const filledFields = profileFields.filter(field => {
+      if (!field) return false;
+      
+      // Handle arrays
+      if (Array.isArray(field)) {
+        return field.length > 0 && field.some(f => f && f.toString().trim() !== '');
+      }
+      
+      // Handle strings and other types
+      return typeof field === 'string' ? field.trim() !== '' : true;
+    }).length;
+    
     const totalFields = profileFields.length;
 
     return filledFields === totalFields ? 100 : Math.floor((filledFields / totalFields) * 100);
@@ -1552,6 +1565,8 @@ const AppContent: React.FC = () => {
               <Route path="settings/reminders" element={<ManageReminders onBack={() => window.history.back()} />} />
               <Route path="settings/edit-dashboard" element={<EditDashboard onBack={() => window.history.back()} />} />
               <Route path="settings/profile-link" element={<ProfileLink onBack={() => window.history.back()} />} />
+              <Route path="settings/enterprise-settings" element={<MemberGuard><EnterpriseSettings onBack={() => window.history.back()} /></MemberGuard>} />
+              <Route path="settings/enterprise-analytics" element={<MemberGuard><EnterpriseAnalytics onBack={() => window.history.back()} /></MemberGuard>} />
               <Route path="notifications" element={<NotificationsPage onBack={() => {}} />} />
             </Route>
           </Route>

@@ -13,17 +13,24 @@ const ensureAuthenticated = (req, res, next) => {
 router.get('/public/:userId/:slug', async (req, res) => {
     try {
         const { userId, slug } = req.params;
+        console.log(`[DEBUG] Fetching calendar for userId=${userId}, slug=${slug}`);
         const result = await pool.query(
             `SELECT c.*, u.user_name as therapist_name, u.profile_picture 
              FROM Calendars c
              JOIN Users u ON c.user_id = u.id
-             WHERE c.user_id = $1 AND (c.slug = $2 OR c.slug = $3) AND c.is_active = true`,
+             WHERE c.user_id = $1 AND (c.slug = $2 OR c.slug = $3)`,
             [userId, slug, slug.startsWith('/') ? slug : `/${slug}`]
         );
+        console.log(`[DEBUG] Query result: ${result.rows.length} rows found`);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Calendar not found' });
         res.json(result.rows[0]);
     } catch (error) {
         console.error('Error fetching public calendar:', error);
+        console.error('[DEBUG] Error details:', {
+            message: error.message,
+            code: error.code,
+            detail: error.detail
+        });
         res.status(500).json({ error: 'Failed to fetch calendar' });
     }
 });
@@ -36,7 +43,7 @@ router.get('/public/u/:profileSlug/:slug', async (req, res) => {
             `SELECT c.*, u.user_name as therapist_name, u.profile_picture
              FROM Calendars c
              JOIN Users u ON c.user_id = u.id
-             WHERE u.profile_slug = $1 AND (c.slug = $2 OR c.slug = $3) AND c.is_active = true`,
+             WHERE u.profile_slug = $1 AND (c.slug = $2 OR c.slug = $3)`,
             [profileSlug, slug, slug.startsWith('/') ? slug : `/${slug}`]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Calendar not found' });

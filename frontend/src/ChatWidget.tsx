@@ -19,6 +19,7 @@ interface ChatWidgetProps {
     id: string;
     user_name: string;
     profile_picture?: string;
+    plan_name?: string;
   } | null;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
@@ -288,7 +289,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
     setHasLoaded(false);
   };
 
-  if (!user) return null;
+  if (!user || !user.user_name) return null;
 
   const initials = user.user_name.charAt(0).toUpperCase();
   const profilePicUrl = user.profile_picture
@@ -340,75 +341,113 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
         </div>
       </div>
 
-      {/* Messages */}
-      <div className={styles.chatMessages}>
-        {messages.length === 0 ? (
-          <div className={styles.welcomeMessage}>
-            <div className={styles.welcomeEmoji}>👋</div>
-            <h4>Hi {user.user_name.split(' ')[0]}</h4>
-            <p>I'm Mello. Ask me anything about the platform or pick a question below.</p>
-            <div className={styles.securityNotice}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: '1px' }}>
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <circle cx="12" cy="16" r="1" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              <span>Your messages are encrypted and secure</span>
-            </div>
-            <div className={styles.quickActions}>
-              {QUICK_ACTIONS.map((action, i) => (
-                <button
-                  key={i}
-                  className={styles.quickActionBtn}
-                  onClick={() => sendMessage(action)}
-                  disabled={isLoading}
-                >
-                  {action}
-                </button>
-              ))}
-            </div>
+      {/* Enterprise-only notice */}
+      {user?.plan_name !== 'enterprise' && (
+        <div className={styles.upgradeNotice}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '18px' }}>⭐</span>
+            <span style={{ fontWeight: 600, fontSize: '14px', color: '#082421' }}>Enterprise Feature</span>
           </div>
-        ) : (
-          messages.map(msg => (
-            <div key={msg.id} className={`${styles.message} ${styles[msg.message_type]}`}>
-              <div className={styles.messageAvatar}>
-                {msg.message_type === 'user'
-                  ? profilePicUrl
-                    ? <img src={profilePicUrl} alt={user.user_name} className={styles.avatarImg} />
-                    : initials
-                  : <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
-                }
+          <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#555', lineHeight: '1.4' }}>
+            AI Chatbot is available on the Enterprise plan. Upgrade to access Mello and get instant help with platform features.
+          </p>
+          <button
+            style={{
+              width: '100%',
+              padding: '10px',
+              background: '#082421',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontFamily: 'Urbanist',
+              fontWeight: 600,
+              fontSize: '13px',
+              cursor: 'pointer',
+              transition: 'background 0.2s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#0a3a37')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#082421')}
+            onClick={() => {
+              // Could navigate to upgrade page or show upgrade modal
+              alert('Please upgrade to Enterprise plan to access AI Chatbot');
+            }}
+          >
+            Upgrade to Enterprise
+          </button>
+        </div>
+      )}
+
+      {/* Messages - only show if enterprise */}
+      {user?.plan_name === 'enterprise' && (
+        <>
+          {messages.length === 0 ? (
+            <div className={styles.welcomeMessage}>
+              <div className={styles.welcomeEmoji}>👋</div>
+              <h4>Hi {user.user_name.split(' ')[0]}</h4>
+              <p>I'm Mello. Ask me anything about the platform or pick a question below.</p>
+              <div className={styles.securityNotice}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: '1px' }}>
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <circle cx="12" cy="16" r="1" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>Your messages are encrypted and secure</span>
               </div>
-              <div className={styles.messageBubbleGroup}>
-                <div className={styles.messageContent}>
-                  {msg.message_type === 'assistant'
-                    ? <FormattedMessage content={msg.content} />
-                    : msg.content
+              <div className={styles.quickActions}>
+                {QUICK_ACTIONS.map((action, i) => (
+                  <button
+                    key={i}
+                    className={styles.quickActionBtn}
+                    onClick={() => sendMessage(action)}
+                    disabled={isLoading}
+                  >
+                    {action}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            messages.map(msg => (
+              <div key={msg.id} className={`${styles.message} ${styles[msg.message_type]}`}>
+                <div className={styles.messageAvatar}>
+                  {msg.message_type === 'user'
+                    ? profilePicUrl
+                      ? <img src={profilePicUrl} alt={user.user_name} className={styles.avatarImg} />
+                      : initials
+                    : <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
                   }
                 </div>
-                <div className={styles.messageTime}>{formatTime(msg.created_at)}</div>
+                <div className={styles.messageBubbleGroup}>
+                  <div className={styles.messageContent}>
+                    {msg.message_type === 'assistant'
+                      ? <FormattedMessage content={msg.content} />
+                      : msg.content
+                    }
+                  </div>
+                  <div className={styles.messageTime}>{formatTime(msg.created_at)}</div>
+                </div>
+              </div>
+            ))
+          )}
+
+          {isTyping && (
+            <div className={`${styles.message} ${styles.assistant}`}>
+              <div className={styles.messageAvatar}>
+                <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
+              </div>
+              <div className={styles.typingIndicator}>
+                <div className={styles.typingDots}>
+                  <div className={styles.typingDot} />
+                  <div className={styles.typingDot} />
+                  <div className={styles.typingDot} />
+                </div>
               </div>
             </div>
-          ))
-        )}
+          )}
 
-        {isTyping && (
-          <div className={`${styles.message} ${styles.assistant}`}>
-            <div className={styles.messageAvatar}>
-              <img src="/MelloFevicon 1.png" alt="Mello" className={styles.avatarImg} />
-            </div>
-            <div className={styles.typingIndicator}>
-              <div className={styles.typingDots}>
-                <div className={styles.typingDot} />
-                <div className={styles.typingDot} />
-                <div className={styles.typingDot} />
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
+          <div ref={messagesEndRef} />
+        </>
+      )}
 
       {/* Input */}
       <div className={styles.chatInput}>

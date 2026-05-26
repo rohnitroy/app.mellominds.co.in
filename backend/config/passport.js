@@ -22,6 +22,8 @@ passport.use(
         const userName = profile.displayName;
         const profilePicture = profile.photos[0]?.value || null;
 
+        console.log(`[DEBUG] Google OAuth: email=${email}, userName=${userName}, picture=${profilePicture ? 'yes' : 'no'}`);
+
         // Check if user already exists with this Google ID
         let result = await pool.query(
           'SELECT * FROM Users WHERE google_id = $1',
@@ -31,26 +33,36 @@ passport.use(
         let user;
 
         if (result.rows.length > 0) {
-          // User exists, return existing user
+          // User exists, update their name and picture from Google
+          console.log(`[DEBUG] Google user exists: id=${result.rows[0].id}, current_name=${result.rows[0].user_name}`);
+          result = await pool.query(
+            'UPDATE Users SET user_name = $1, profile_picture = $2 WHERE google_id = $3 RETURNING *',
+            [userName, profilePicture, googleId]
+          );
           user = result.rows[0];
+          console.log(`[DEBUG] Updated existing Google user: id=${user.id}, new_name=${user.user_name}`);
         } else {
           // Check if email already exists (user might have registered with email/password)
           result = await pool.query('SELECT * FROM Users WHERE email = $1', [email]);
 
           if (result.rows.length > 0) {
             // Email exists, link Google account to existing user
+            console.log(`[DEBUG] Linking Google to existing email user`);
             result = await pool.query(
-              'UPDATE Users SET google_id = $1, auth_provider = $2, profile_picture = $3 WHERE email = $4 RETURNING *',
-              [googleId, 'google', profilePicture, email]
+              'UPDATE Users SET google_id = $1, auth_provider = $2, profile_picture = $3, user_name = $4 WHERE email = $5 RETURNING *',
+              [googleId, 'google', profilePicture, userName, email]
             );
             user = result.rows[0];
+            console.log(`[DEBUG] Updated user: id=${user.id}, new_name=${user.user_name}`);
           } else {
             // Create new user with Google OAuth
+            console.log(`[DEBUG] Creating new Google user`);
             result = await pool.query(
               'INSERT INTO Users (user_name, email, google_id, auth_provider, profile_picture) VALUES ($1, $2, $3, $4, $5) RETURNING *',
               [userName, email, googleId, 'google', profilePicture]
             );
             user = result.rows[0];
+            console.log(`[DEBUG] Created user: id=${user.id}, name=${user.user_name}`);
 
             // Fire-and-forget: notify team of new Google signup
             const alertEmail = newUserAlertEmail({ userName, email, authProvider: 'google' });
@@ -61,6 +73,7 @@ passport.use(
 
         return done(null, user);
       } catch (error) {
+        console.error('[DEBUG] Google OAuth error:', error);
         return done(error, null);
       }
     }
