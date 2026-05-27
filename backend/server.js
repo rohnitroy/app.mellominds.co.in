@@ -35,6 +35,8 @@ import therapistsRoutes from './routes/therapists.js';
 import chatRoutes from './routes/chat.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { validateSchema, verifySchemaIntegrity, storeSchemaHash } from './security/schema-validator.js';
+import { monitorDataIntegrity, detectSuspiciousActivity } from './security/data-integrity.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -756,6 +758,29 @@ async function ensureAvailabilitySchema() {
 
 // Start server
 httpServer.listen(PORT, async () => {
+  console.log('\n🔐 Starting Security Validation...');
+  
+  // Validate schema integrity
+  const schemaValidation = await validateSchema();
+  if (!schemaValidation.valid && schemaValidation.critical) {
+    console.error('🚨 CRITICAL: Schema validation failed. Application cannot start.');
+    process.exit(1);
+  }
+
+  // Verify schema hasn't been tampered with
+  const integrityCheck = await verifySchemaIntegrity();
+  if (!integrityCheck && process.env.NODE_ENV === 'production') {
+    console.error('🚨 CRITICAL: Schema tampering detected. Application cannot start.');
+    process.exit(1);
+  }
+
+  // Store schema hash for future verification
+  if (process.env.NODE_ENV === 'production') {
+    await storeSchemaHash();
+  }
+
+  console.log('\n✅ Security validation passed. Initializing application...\n');
+
   await ensureCalendarsSchema();
   await ensureAppointmentsSchema();
   await ensureUsersSchema();
@@ -766,15 +791,45 @@ httpServer.listen(PORT, async () => {
   await ensureOrganizationDetailsSchema();
   await ensureChatSchema(); // Initialize chat tables
   await ensureAuditTable(); // Initialize audit logging
+  
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);
   processActivityReminders(); // run once on startup too
+  
   // Run session reminder cron every hour
   setInterval(processSessionReminders, 60 * 60 * 1000);
   processSessionReminders(); // run once on startup too
+  
   // Run 30-min session reminder cron every 5 minutes
   setInterval(process30MinReminders, 5 * 60 * 1000);
   process30MinReminders(); // run once on startup too
+
+  // Production: Set up continuous security monitoring
+  if (process.env.NODE_ENV === 'production') {
+    // Monitor data integrity every 6 hours
+    setInterval(async () => {
+      console.log('🔍 Running data integrity check...');
+      await monitorDataIntegrity();
+    }, 6 * 60 * 60 * 1000);
+
+    // Check for suspicious activities every 30 minutes
+    setInterval(async () => {
+      const result = await detectSuspiciousActivity();
+      if (result.suspicious) {
+        console.error(`🚨 ALERT: ${result.reason}`);
+      }
+    }, 30 * 60 * 1000);
+
+    // Verify schema integrity every 24 hours
+    setInterval(async () => {
+      console.log('🔐 Running schema integrity verification...');
+      const isValid = await verifySchemaIntegrity();
+      if (!isValid) {
+        console.error('🚨 CRITICAL: Schema tampering detected!');
+      }
+    }, 24 * 60 * 60 * 1000);
+  }
+
   console.log(`🚀 Server running on port ${PORT}`);
 });
 

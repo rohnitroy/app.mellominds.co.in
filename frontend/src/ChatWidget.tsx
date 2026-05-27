@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './ChatWidget.module.css';
 import API_BASE_URL from './config/api';
+import { Star, Lock, TimeCircle, InfoCircle } from 'react-iconly';
 
 interface Message {
   id: number;
@@ -218,7 +219,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
           {
             id: Date.now(),
             message_type: 'assistant',
-            content: `⏱️ ${message}`,
+            content: `Rate limit reached: ${message}`,
             created_at: new Date().toISOString(),
           },
         ]);
@@ -344,29 +345,14 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
       {/* Enterprise-only notice */}
       {user?.plan_name !== 'enterprise' && (
         <div className={styles.upgradeNotice}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <span style={{ fontSize: '18px' }}>⭐</span>
+          <div>
+            <Star set="bold" primaryColor="#082421" size={24} />
             <span style={{ fontWeight: 600, fontSize: '14px', color: '#082421' }}>Enterprise Feature</span>
           </div>
-          <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#555', lineHeight: '1.4' }}>
+          <p>
             AI Chatbot is available on the Enterprise plan. Upgrade to access Mello and get instant help with platform features.
           </p>
           <button
-            style={{
-              width: '100%',
-              padding: '10px',
-              background: '#082421',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              fontFamily: 'Urbanist',
-              fontWeight: 600,
-              fontSize: '13px',
-              cursor: 'pointer',
-              transition: 'background 0.2s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#0a3a37')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = '#082421')}
             onClick={() => {
               // Could navigate to upgrade page or show upgrade modal
               alert('Please upgrade to Enterprise plan to access AI Chatbot');
@@ -386,11 +372,7 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
               <h4>Hi {user.user_name.split(' ')[0]}</h4>
               <p>I'm Mello. Ask me anything about the platform or pick a question below.</p>
               <div className={styles.securityNotice}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: '1px' }}>
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <circle cx="12" cy="16" r="1" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
+                <Lock set="bold" primaryColor="#0369a1" size={14} />
                 <span>Your messages are encrypted and secure</span>
               </div>
               <div className={styles.quickActions}>
@@ -477,12 +459,14 @@ const ChatWidget: React.FC<ChatWidgetProps> = ({ user, mobileOpen = false, onMob
         </div>
         <div className={styles.inputHint}>
           {rateLimitInfo && rateLimitInfo.remaining <= 5 && rateLimitInfo.remaining > 0 ? (
-            <span style={{ color: '#f59e0b' }}>
-              ⚠️ {rateLimitInfo.remaining} messages left in this 15-min window
+            <span style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <TimeCircle set="bold" primaryColor="#f59e0b" size={14} />
+              {rateLimitInfo.remaining} messages left in this 15-min window
             </span>
           ) : rateLimitInfo && rateLimitInfo.remaining === 0 ? (
-            <span style={{ color: '#ef4444' }}>
-              🚫 Rate limit reached. Try again in a few minutes.
+            <span style={{ color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <InfoCircle set="bold" primaryColor="#ef4444" size={14} />
+              Rate limit reached. Try again in a few minutes.
             </span>
           ) : (
             'Press Enter to send · Shift+Enter for new line'

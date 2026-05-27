@@ -59,7 +59,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await pool.query('SELECT * FROM Users WHERE email = $1', [email]);
+    const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (existingUser.rows.length > 0) {
       return res.status(409).json({ error: 'Email already registered' });
     }
@@ -70,11 +70,17 @@ router.post('/register', async (req, res) => {
     // Capitalize gender to match DB constraint
     const formattedGender = gender ? gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase() : null;
 
+    // Convert specialization to array if it's a string
+    const specializationArray = specialization ? (Array.isArray(specialization) ? specialization : [specialization]) : [];
+
+    // Convert languages to array if it's a string
+    const languagesArray = languages ? (Array.isArray(languages) ? languages : languages.split(',').map(l => l.trim())) : [];
+
     // Insert user into database
     const result = await pool.query(
-      `INSERT INTO Users (user_name, email, password, phone, dob, gender, specialization, language_spoken, country, state, city, pincode, clinic_address, auth_provider) 
+      `INSERT INTO users (user_name, email, password, phone, dob, gender, specializations, language_spoken, country, state, city, pincode, clinic_address, auth_provider) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, user_name, email`,
-      [fullName, email, hashedPassword, phoneNumber || null, dateOfBirth || null, formattedGender, specialization || null, languages || null, country || null, state || null, city || null, pincode || null, address || null, 'email']
+      [fullName, email, hashedPassword, phoneNumber || null, dateOfBirth || null, formattedGender, specializationArray, languagesArray, country || null, state || null, city || null, pincode || null, address || null, 'email']
     );
 
     // Fire-and-forget: notify team of new user signup
@@ -97,7 +103,7 @@ router.post('/register', async (req, res) => {
         if (inviteRes.rows.length > 0) {
           const { id: inviteId, owner_id } = inviteRes.rows[0];
           await pool.query(
-            `UPDATE Users SET plan_name = 'enterprise', org_role = 'member', org_owner_id = $1 WHERE id = $2`,
+            `UPDATE users SET plan_name = 'enterprise', org_role = 'member', org_owner_id = $1 WHERE id = $2`,
             [owner_id, newUserId]
           );
           await pool.query(
@@ -128,7 +134,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user by email
-    const result = await pool.query('SELECT * FROM Users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -224,7 +230,7 @@ router.post('/complete-profile', async (req, res) => {
     // Update user in database
     const result = await pool.query(
       `UPDATE users 
-       SET phone = $1, date_of_birth = $2, gender = $3, specializations = $4, language_spoken = $5, 
+       SET phone = $1, dob = $2, gender = $3, specializations = $4, language_spoken = $5, 
            country = $6, state = $7, city = $8, pincode = $9, clinic_address = $10 
        WHERE id = $11 
        RETURNING *`,
@@ -246,7 +252,7 @@ router.post('/forgot-password', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email is required' });
     if (!isValidEmail(email)) return res.status(400).json({ error: 'Invalid email address.' });
 
-    const result = await pool.query('SELECT id, auth_provider FROM Users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT id, auth_provider FROM users WHERE email = $1', [email]);
 
     // Always return the same message to prevent email enumeration
     const genericMsg = { message: 'If this email is registered, a reset link has been sent.' };
@@ -264,7 +270,7 @@ router.post('/forgot-password', async (req, res) => {
     const expires = new Date(Date.now() + 30 * 60 * 1000);
 
     await pool.query(
-      'UPDATE Users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
       [tokenHash, expires, user.id]
     );
 
@@ -289,7 +295,7 @@ router.post('/reset-password', async (req, res) => {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     const result = await pool.query(
-      'SELECT id FROM Users WHERE reset_token = $1 AND reset_token_expires > NOW()',
+      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
       [tokenHash]
     );
 
@@ -299,7 +305,7 @@ router.post('/reset-password', async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
     await pool.query(
-      'UPDATE Users SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      'UPDATE users SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
       [hashed, result.rows[0].id]
     );
 
@@ -323,7 +329,7 @@ router.post('/logout', (req, res) => {
 // Helper function to check if profile is complete
 const isProfileComplete = (user) => {
   // Required fields for profile completion
-  const requiredFields = ['phone', 'date_of_birth', 'gender', 'specializations', 'language_spoken', 'country', 'state', 'city', 'pincode', 'clinic_address'];
+  const requiredFields = ['phone', 'dob', 'gender', 'specializations', 'language_spoken', 'country', 'state', 'city', 'pincode', 'clinic_address'];
   return requiredFields.every(field => {
     const value = user[field];
     if (!value) return false;
@@ -588,7 +594,7 @@ router.post('/upload-profile-picture', upload.single('profilePicture'), async (r
 
     // Update user's profile picture in database
     const result = await pool.query(
-      'UPDATE Users SET profile_picture = $1 WHERE id = $2 RETURNING profile_picture',
+      'UPDATE users SET profile_picture = $1 WHERE id = $2 RETURNING profile_picture',
       [fileUrl, userId]
     );
 
