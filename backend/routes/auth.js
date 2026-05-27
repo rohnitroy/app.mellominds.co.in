@@ -347,9 +347,9 @@ const isProfileComplete = (user) => {
 // Get current user (check if logged in)
 router.get('/me', (req, res) => {
   if (req.isAuthenticated()) {
-    const { password, reset_token, reset_token_expires, ...userWithoutSensitive } = req.user;
+    const { password, reset_token, reset_token_expires, dob, ...userWithoutSensitive } = req.user;
     const profileComplete = isProfileComplete(req.user);
-    res.json({ user: { ...userWithoutSensitive, profileComplete } });
+    res.json({ user: { ...userWithoutSensitive, date_of_birth: dob, profileComplete } });
   } else {
     res.status(401).json({ error: 'Not authenticated' });
   }
