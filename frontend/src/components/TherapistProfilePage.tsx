@@ -7,7 +7,7 @@ import Loader from './Loader';
 interface CalendarItem {
     id: number;
     title: string;
-    slug: string;
+    slug?: string | null;
     description?: string;
     duration: string;
     type?: string;
@@ -176,7 +176,7 @@ const TherapistProfilePage: React.FC = () => {
                 <div className="tpp-calendars-grid">
                     {profile.calendars.map(cal => {
                         const price = getPriceDisplay(cal);
-                        const bookUrl = `/book/${userId}/${cal.slug.replace(/^\//, '')}`;
+                        const bookUrl = `/book/${userId}/${cal.slug ? cal.slug.replace(/^\//, '') : 'calendar'}`;
 
                         return (
                             <div

@@ -78,7 +78,7 @@ router.post('/register', async (req, res) => {
 
     // Insert user into database
     const result = await pool.query(
-      `INSERT INTO users (user_name, email, password, phone, dob, gender, specializations, language_spoken, country, state, city, pincode, clinic_address, auth_provider) 
+      `INSERT INTO users (user_name, email, password_hash, phone, dob, gender, specializations, language_spoken, country, state, city, pincode, clinic_address, auth_provider) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, user_name, email`,
       [fullName, email, hashedPassword, phoneNumber || null, dateOfBirth || null, formattedGender, specializationArray, languagesArray, country || null, state || null, city || null, pincode || null, address || null, 'email']
     );
@@ -142,13 +142,13 @@ router.post('/login', async (req, res) => {
 
     const user = result.rows[0];
 
-    // Check if user registered with Google (no password)
-    if (!user.password) {
+    // Check if user registered with Google (no password_hash)
+    if (!user.password_hash) {
       return res.status(401).json({ error: 'Please login with Google' });
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -328,7 +328,7 @@ router.post('/reset-password', async (req, res) => {
 
     const hashed = await bcrypt.hash(password, 10);
     await pool.query(
-      'UPDATE users SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
       [hashed, result.rows[0].id]
     );
 

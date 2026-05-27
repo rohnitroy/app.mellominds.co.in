@@ -15,7 +15,7 @@ interface Calendar {
   title: string;
   duration: string;
   description: string;
-  slug: string;
+  slug?: string | null;
   is_active: boolean;
   max_attendees?: number;
 }
@@ -139,7 +139,7 @@ const CalendarPage: React.FC = () => {
   const openSlugModal = (calendar: Calendar) => {
     setSlugFormData({
       id: calendar.id,
-      slug: calendar.slug.startsWith('/') ? calendar.slug.slice(1) : calendar.slug,
+      slug: calendar.slug ? (calendar.slug.startsWith('/') ? calendar.slug.slice(1) : calendar.slug) : '',
     });
     setShowSlugModal(true);
     setActiveMenuId(null);
@@ -170,8 +170,8 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  const handleCopyLink = (slug: string) => {
-    if (!user) return;
+  const handleCopyLink = (slug: string | null) => {
+    if (!user || !slug) return;
     const cleanSlug = slug.startsWith('/') ? slug.slice(1) : slug;
     const identifier = user.profile_slug || user.id;
     navigator.clipboard.writeText(`${window.location.origin}/book/${identifier}/${cleanSlug}`);
@@ -321,8 +321,8 @@ const CalendarPage: React.FC = () => {
                       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                       <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                     </svg>
-                    <span>{`${window.location.origin}/book/${user?.profile_slug || user?.id}/${resource.slug.replace(/^\//, '')}`}</span>
-                    <button className="card-link-copy-btn" onClick={() => handleCopyLink(resource.slug)} title="Copy link">
+                    <span>{`${window.location.origin}/book/${user?.profile_slug || user?.id}/${resource.slug ? resource.slug.replace(/^\//, '') : 'calendar'}`}</span>
+                    <button className="card-link-copy-btn" onClick={() => handleCopyLink(resource.slug || '')} title="Copy link">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>

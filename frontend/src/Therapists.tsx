@@ -240,7 +240,7 @@ const Therapists: React.FC = () => {
               <button className={styles.modalClose} onClick={() => !inviting && setShowInviteModal(false)}>×</button>
             </div>
             <p className={styles.modalDesc}>
-              Enter the therapist's email address. If they already have a MelloMinds account, they'll be added immediately. Otherwise, they'll receive an invite to sign up.
+              Enter the therapist's email address. They'll receive an invite to join your team. Once they sign up or accept the invite, they'll be added to your organization.
             </p>
             <form onSubmit={handleInvite}>
               <label className={styles.label}>Email Address *</label>
