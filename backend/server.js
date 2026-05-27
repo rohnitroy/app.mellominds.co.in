@@ -32,7 +32,6 @@ import profileLinkRoutes from './routes/profileLink.js';
 import gmailRoutes from './routes/gmail.js';
 import publicProfileRoutes from './routes/publicProfile.js';
 import therapistsRoutes from './routes/therapists.js';
-import chatRoutes from './routes/chat.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateSchema, verifySchemaIntegrity, storeSchemaHash } from './security/schema-validator.js';
@@ -199,7 +198,6 @@ app.use('/api/profile-link', apiLimiter, profileLinkRoutes);
 app.use('/api/gmail', apiLimiter, gmailRoutes);
 app.use('/api/public', apiLimiter, publicProfileRoutes);
 app.use('/api/therapists', apiLimiter, therapistsRoutes);
-app.use('/api/chat', apiLimiter, chatRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -933,95 +931,6 @@ async function ensureUsersSchema() {
 }
 
 // Auto-migrate SessionNotes table columns on startup
-// Auto-migrate chat tables on startup
-async function ensureChatSchema() {
-  try {
-    // Chat conversations table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS chat_conversations (
-        id SERIAL PRIMARY KEY,
-        user_id INT NOT NULL,
-        title VARCHAR(255) DEFAULT 'New Conversation',
-        context_data JSONB DEFAULT '{}',
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      )
-    `);
-
-    // Chat messages table - create if not exists
-    const chatMessagesExists = await pool.query(`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables 
-        WHERE table_name = 'chat_messages'
-      )
-    `);
-
-    if (!chatMessagesExists.rows[0].exists) {
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS chat_messages (
-          id SERIAL PRIMARY KEY,
-          conversation_id INT NOT NULL,
-          message_type VARCHAR(20) NOT NULL CHECK (message_type IN ('user', 'assistant')),
-          content TEXT NOT NULL,
-          metadata JSONB DEFAULT '{}',
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE CASCADE
-        )
-      `);
-    } else {
-      // Table exists, add missing columns
-      await pool.query(`
-        ALTER TABLE chat_messages
-        ADD COLUMN IF NOT EXISTS conversation_id INT,
-        ADD COLUMN IF NOT EXISTS message_type VARCHAR(20),
-        ADD COLUMN IF NOT EXISTS content TEXT,
-        ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}',
-        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      `);
-    }
-
-    // Create indexes if they don't exist
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_chat_conversations_user_id ON chat_conversations(user_id)
-    `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_chat_conversations_active ON chat_conversations(is_active)
-    `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_id ON chat_messages(conversation_id)
-    `);
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at)
-    `);
-
-    // Create update function and trigger if they don't exist
-    await pool.query(`
-      CREATE OR REPLACE FUNCTION update_chat_conversation_updated_at()
-      RETURNS TRIGGER AS $$
-      BEGIN
-          NEW.updated_at = CURRENT_TIMESTAMP;
-          RETURN NEW;
-      END;
-      $$ language 'plpgsql'
-    `);
-
-    await pool.query(`
-      DROP TRIGGER IF EXISTS update_chat_conversations_updated_at ON chat_conversations
-    `);
-    await pool.query(`
-      CREATE TRIGGER update_chat_conversations_updated_at
-          BEFORE UPDATE ON chat_conversations
-          FOR EACH ROW
-          EXECUTE FUNCTION update_chat_conversation_updated_at()
-    `);
-
-    console.log('✅ Chat schema verified');
-  } catch (err) {
-    console.error('⚠️  Chat schema migration warning:', err.message);
-  }
-}
 
 // Auto-migrate enterprise_leads table on startup
 async function ensureEnterpriseLeadsSchema() {
@@ -1068,7 +977,6 @@ httpServer.listen(PORT, async () => {
   await ensureOrganizationTherapistsSchema();
   await ensureOrgRoleSchema();
   await ensureOrganizationDetailsSchema();
-  await ensureChatSchema(); // Initialize chat tables
   await ensureEnterpriseLeadsSchema(); // Initialize enterprise leads table
   await ensureAuditTable(); // Initialize audit logging
   
