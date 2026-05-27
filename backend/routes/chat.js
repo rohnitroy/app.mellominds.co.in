@@ -240,7 +240,7 @@ router.get('/conversation', isAuthenticated, ensureEnterprise, async (req, res) 
       // Create new conversation
       result = await pool.query(
         'INSERT INTO chat_conversations (user_id, title) VALUES ($1, $2) RETURNING *',
-        ['New Conversation', userId]
+        [userId, 'New Conversation']
       );
     } else {
       // Update last activity

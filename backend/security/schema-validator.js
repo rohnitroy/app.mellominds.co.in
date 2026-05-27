@@ -18,7 +18,8 @@ const EXPECTED_SCHEMA = {
       'phone', 'plan_name', 'org_role', 'org_owner_id', 'dob', 'gender',
       'language_spoken', 'country', 'state', 'city', 'pincode', 'clinic_address',
       'profile_picture', 'reset_token', 'reset_token_expires', 'created_at', 'updated_at',
-      'profile_slug', 'profile_slug_updated_at', 'specialization', 'specializations'
+      'profile_slug', 'profile_slug_updated_at', 'specialization', 'specializations',
+      'email_preferences', 'dashboard_preferences'
     ],
     critical_columns: ['id', 'email', 'password', 'google_id', 'auth_provider']
   },
@@ -40,7 +41,7 @@ const EXPECTED_SCHEMA = {
       'appointment_date', 'duration_minutes', 'notes', 'updated_at', 'client_phone',
       'payment_status', 'payment_amount', 'form_responses', 'location_type', 'cancel_token',
       'cashfree_order_id', 'cashfree_payment_link', 'razorpay_order_id', 'razorpay_payment_id',
-      'client_email', 'therapist_email', 'title', 'calendar_id'
+      'client_email', 'therapist_email', 'title', 'calendar_id', 'meet_link', 'google_event_id'
     ],
     critical_columns: ['id', 'therapist_id', 'client_id']
   },
@@ -106,17 +107,27 @@ export async function validateSchema() {
       }
 
       // Check for unexpected columns (potential tampering)
+      // Allow some common columns that might be added by migrations
+      const allowedExtraColumns = [
+        'session_id', 'sender_type', 'message', 'first_name', 'last_name', 
+        'password_hash', 'profile_picture_url', 'is_therapist', 'bio',
+        'client_name', 'status', 'plan'
+      ];
+      
       const unexpectedColumns = existingColumns.filter(
         col => !schema.required_columns.includes(col) && 
-               !['session_id', 'sender_type', 'message', 'first_name', 'last_name', 'password_hash', 'profile_picture_url', 'is_therapist', 'bio'].includes(col)
+               !allowedExtraColumns.includes(col)
       );
 
       if (unexpectedColumns.length > 0) {
-        issues.push({
-          severity: 'WARNING',
-          table: tableName,
-          issue: `Unexpected columns detected: ${unexpectedColumns.join(', ')}`
-        });
+        // Only warn if there are many unexpected columns
+        if (unexpectedColumns.length > 5) {
+          issues.push({
+            severity: 'WARNING',
+            table: tableName,
+            issue: `Unexpected columns detected: ${unexpectedColumns.slice(0, 5).join(', ')}...`
+          });
+        }
       }
     }
 

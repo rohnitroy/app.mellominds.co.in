@@ -171,32 +171,55 @@ router.post('/login', async (req, res) => {
 });
 
 // Initiate Google OAuth login
-router.get('/google', passport.authenticate('google', {
-  scope: ['profile', 'email']
-}));
+router.get('/google', (req, res, next) => {
+  console.log('[DEBUG] /auth/google route called');
+  console.log('[DEBUG] Frontend URL:', process.env.FRONTEND_URL);
+  console.log('[DEBUG] Google Client ID:', process.env.GOOGLE_CLIENT_ID ? 'Set' : 'Missing');
+  console.log('[DEBUG] Google Client Secret:', process.env.GOOGLE_CLIENT_SECRET ? 'Set' : 'Missing');
+  console.log('[DEBUG] Google Callback URL:', process.env.GOOGLE_CALLBACK_URL);
+  
+  passport.authenticate('google', {
+    scope: ['profile', 'email']
+  })(req, res, next);
+});
 
 // Google OAuth callback
 router.get('/google/callback', (req, res, next) => {
+  console.log('[DEBUG] Google callback received');
+  console.log('[DEBUG] Query params:', req.query);
+  
   passport.authenticate('google', (err, user, info) => {
+    console.log('[DEBUG] Passport authenticate callback called');
+    console.log('[DEBUG] Error:', err);
+    console.log('[DEBUG] User:', user ? `id=${user.id}` : 'null');
+    console.log('[DEBUG] Info:', info);
+    
     if (err) {
-      console.error('Google Auth Error:', err);
+      console.error('[DEBUG] Google Auth Error:', err);
+      console.error('[DEBUG] Error message:', err.message);
+      console.error('[DEBUG] Error stack:', err.stack);
       // Check for specific error types if needed
       return res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed_server&details=${encodeURIComponent(err.message)}`);
     }
     if (!user) {
-      console.error('Google Auth Failed: No user returned', info);
+      console.error('[DEBUG] Google Auth Failed: No user returned', info);
       return res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed_nouser`);
     }
+    console.log('[DEBUG] Google Auth Success: user id =', user.id);
     req.logIn(user, (err) => {
       if (err) {
-        console.error('Session Save Error:', err);
+        console.error('[DEBUG] Session Save Error:', err);
+        console.error('[DEBUG] Session Save Error message:', err.message);
         return res.redirect(`${process.env.FRONTEND_URL}/login?error=session_error`);
       }
 
+      console.log('[DEBUG] Session saved successfully');
       // Check if user has completed profile
       if (!user.phone) {
+        console.log('[DEBUG] Redirecting to profile completion');
         return res.redirect(`${process.env.FRONTEND_URL}/complete-profile`);
       }
+      console.log('[DEBUG] Redirecting to dashboard');
       return res.redirect(`${process.env.FRONTEND_URL}/`);
     });
   })(req, res, next);
@@ -324,6 +347,15 @@ router.post('/logout', (req, res) => {
     req.session.destroy();
     res.json({ message: 'Logout successful' });
   });
+});
+
+// Session check endpoint - helps debug session issues
+router.get('/session-check', (req, res) => {
+  if (req.user) {
+    res.json({ authenticated: true, user: req.user });
+  } else {
+    res.json({ authenticated: false, message: 'Not authenticated' });
+  }
 });
 
 // Helper function to check if profile is complete

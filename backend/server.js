@@ -164,6 +164,23 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Middleware to handle session deserialization errors gracefully
+app.use((req, res, next) => {
+  if (req.session && req.session.passport && req.session.passport.user && !req.user) {
+    // Session exists but user couldn't be deserialized - clear the session
+    console.warn('[DEBUG] Session deserialization failed, clearing session');
+    req.logout((err) => {
+      if (err) console.error('Logout error:', err);
+      req.session.destroy((err) => {
+        if (err) console.error('Session destroy error:', err);
+        next();
+      });
+    });
+  } else {
+    next();
+  }
+});
+
 // Routes
 app.use('/auth', authLimiter, authRoutes);
 app.use('/api/calendars', apiLimiter, calendarRoutes);
@@ -293,12 +310,16 @@ async function ensureAppointmentsSchema() {
           title VARCHAR(255),
           start_time TIMESTAMP NOT NULL,
           end_time TIMESTAMP NOT NULL,
+          appointment_date DATE,
+          duration_minutes INT,
+          notes TEXT,
           status VARCHAR(50) DEFAULT 'scheduled',
           google_event_id VARCHAR(255),
           meet_link VARCHAR(255),
           client_email VARCHAR(150),
           client_name VARCHAR(150),
           client_phone VARCHAR(20),
+          therapist_email VARCHAR(150),
           payment_status VARCHAR(50) DEFAULT 'Pending',
           payment_amount DECIMAL(10, 2) DEFAULT 0.00,
           form_responses JSONB DEFAULT NULL,
@@ -308,13 +329,14 @@ async function ensureAppointmentsSchema() {
           cashfree_payment_link TEXT DEFAULT NULL,
           razorpay_order_id VARCHAR(255) DEFAULT NULL,
           razorpay_payment_id VARCHAR(255) DEFAULT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
       console.log('✅ Appointments table created');
     } else {
       // Table exists, add missing columns
-      const required = ['start_time','end_time','client_phone','payment_status','payment_amount','form_responses','location_type','cancel_token','cashfree_order_id','cashfree_payment_link','razorpay_order_id','razorpay_payment_id'];
+      const required = ['start_time','end_time','appointment_date','duration_minutes','notes','client_phone','client_name','payment_status','payment_amount','form_responses','location_type','cancel_token','cashfree_order_id','cashfree_payment_link','razorpay_order_id','razorpay_payment_id','client_email','therapist_email','title','calendar_id','meet_link','google_event_id'];
       const { rows } = await pool.query(
         `SELECT column_name FROM information_schema.columns WHERE table_name = 'appointments' AND column_name = ANY($1)`,
         [required]
@@ -335,7 +357,17 @@ async function ensureAppointmentsSchema() {
         ALTER TABLE Appointments
         ADD COLUMN IF NOT EXISTS start_time TIMESTAMP,
         ADD COLUMN IF NOT EXISTS end_time TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS appointment_date DATE,
+        ADD COLUMN IF NOT EXISTS duration_minutes INT,
+        ADD COLUMN IF NOT EXISTS notes TEXT,
         ADD COLUMN IF NOT EXISTS client_phone VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS client_name VARCHAR(150),
+        ADD COLUMN IF NOT EXISTS client_email VARCHAR(150),
+        ADD COLUMN IF NOT EXISTS therapist_email VARCHAR(150),
+        ADD COLUMN IF NOT EXISTS title VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS calendar_id INT REFERENCES Calendars(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS meet_link VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS google_event_id VARCHAR(255),
         ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'Pending',
         ADD COLUMN IF NOT EXISTS payment_amount DECIMAL(10, 2) DEFAULT 0.00,
         ADD COLUMN IF NOT EXISTS form_responses JSONB DEFAULT NULL,
@@ -344,7 +376,8 @@ async function ensureAppointmentsSchema() {
         ADD COLUMN IF NOT EXISTS cashfree_order_id VARCHAR(255) DEFAULT NULL,
         ADD COLUMN IF NOT EXISTS cashfree_payment_link TEXT DEFAULT NULL,
         ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(255) DEFAULT NULL,
-        ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(255) DEFAULT NULL
+        ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(255) DEFAULT NULL,
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       `);
       console.log('✅ Appointments schema verified');
       
@@ -553,6 +586,237 @@ async function ensureOrgRoleSchema() {
   }
 }
 
+// Auto-migrate Clients table on startup
+async function ensureClientsSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS Clients (
+        id SERIAL PRIMARY KEY,
+        therapist_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(150),
+        phone VARCHAR(20),
+        age INT,
+        occupation VARCHAR(100),
+        gender VARCHAR(50),
+        marital_status VARCHAR(50),
+        emergency_name VARCHAR(255),
+        emergency_phone VARCHAR(20),
+        emergency_relation VARCHAR(100),
+        emergency_name_encrypted VARCHAR(255),
+        emergency_phone_encrypted VARCHAR(255),
+        emergency_relation_encrypted VARCHAR(255),
+        manually_added BOOLEAN DEFAULT false,
+        clinical_profile_url TEXT,
+        first_name VARCHAR(100),
+        last_name VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_clients_therapist_id ON Clients(therapist_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_clients_email ON Clients(email)`);
+    console.log('✅ Clients schema verified');
+  } catch (err) {
+    console.error('⚠️  Clients schema migration warning:', err.message);
+  }
+}
+
+// Auto-migrate ClientTransfers table on startup
+async function ensureClientTransfersSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ClientTransfers (
+        id SERIAL PRIMARY KEY,
+        client_id INT NOT NULL REFERENCES Clients(id) ON DELETE CASCADE,
+        from_therapist_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        to_therapist_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        status VARCHAR(50) DEFAULT 'pending',
+        reason TEXT,
+        requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        responded_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_transfers_client_id ON ClientTransfers(client_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_transfers_from_therapist ON ClientTransfers(from_therapist_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_transfers_to_therapist ON ClientTransfers(to_therapist_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_transfers_status ON ClientTransfers(status)`);
+    console.log('✅ ClientTransfers schema verified');
+  } catch (err) {
+    console.error('⚠️  ClientTransfers schema migration warning:', err.message);
+  }
+}
+
+// Auto-migrate ClientActivities table on startup
+async function ensureClientActivitiesSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ClientActivities (
+        id SERIAL PRIMARY KEY,
+        therapist_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        client_id INT NOT NULL REFERENCES Clients(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        frequency VARCHAR(50),
+        reminder_interval_days INT DEFAULT 7,
+        reminder_count INT DEFAULT 4,
+        reminders_sent INT DEFAULT 0,
+        next_reminder_at TIMESTAMP,
+        notify_client BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_activities_therapist_id ON ClientActivities(therapist_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_activities_client_id ON ClientActivities(client_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_activities_next_reminder ON ClientActivities(next_reminder_at)`);
+    console.log('✅ ClientActivities schema verified');
+  } catch (err) {
+    console.error('⚠️  ClientActivities schema migration warning:', err.message);
+  }
+}
+
+// Auto-migrate SessionNotes table on startup
+async function ensureSessionNotesSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS SessionNotes (
+        id SERIAL PRIMARY KEY,
+        appointment_id INT REFERENCES Appointments(id) ON DELETE CASCADE,
+        therapist_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        client_id INT REFERENCES Clients(id) ON DELETE SET NULL,
+        title VARCHAR(255),
+        content TEXT,
+        attachments JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Add missing columns if they don't exist
+    await pool.query(`
+      ALTER TABLE SessionNotes
+      ADD COLUMN IF NOT EXISTS client_id INT REFERENCES Clients(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS title VARCHAR(255),
+      ADD COLUMN IF NOT EXISTS content TEXT,
+      ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb
+    `);
+    
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_session_notes_appointment_id ON SessionNotes(appointment_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_session_notes_therapist_id ON SessionNotes(therapist_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_session_notes_client_id ON SessionNotes(client_id)`);
+    console.log('✅ SessionNotes schema verified');
+  } catch (err) {
+    console.error('⚠️  SessionNotes schema migration warning:', err.message);
+  }
+}
+
+// Auto-migrate UserIntegrations table on startup
+async function ensureUserIntegrationsSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS UserIntegrations (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        provider VARCHAR(50) DEFAULT 'google',
+        access_token VARCHAR(1024),
+        refresh_token VARCHAR(1024),
+        calendar_id VARCHAR(255),
+        expiry_date BIGINT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, provider)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_integrations_user_id ON UserIntegrations(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_integrations_provider ON UserIntegrations(provider)`);
+    console.log('✅ UserIntegrations schema verified');
+  } catch (err) {
+    console.error('⚠️  UserIntegrations schema migration warning:', err.message);
+  }
+}
+
+// Auto-migrate Availability table on startup
+async function ensureAvailabilitySchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS Availability (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        day_of_week INT NOT NULL,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL,
+        is_available BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_availability_user_id ON Availability(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_availability_day_of_week ON Availability(day_of_week)`);
+    console.log('✅ Availability schema verified');
+  } catch (err) {
+    console.error('⚠️  Availability schema migration warning:', err.message);
+  }
+}
+
+// Add missing columns to Users table
+async function ensureMissingUserColumns() {
+  try {
+    await pool.query(`
+      ALTER TABLE Users
+      ADD COLUMN IF NOT EXISTS email_preferences JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS dashboard_preferences JSONB DEFAULT '{}'::jsonb
+    `);
+    console.log('✅ Users missing columns verified');
+  } catch (err) {
+    console.error('⚠️  Users missing columns migration warning:', err.message);
+  }
+}
+
+// Auto-migrate Notifications table on startup
+async function ensureNotificationsSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS Notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES Users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        is_read BOOLEAN DEFAULT false,
+        related_id INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON Notifications(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON Notifications(is_read)`);
+    console.log('✅ Notifications schema verified');
+  } catch (err) {
+    console.error('⚠️  Notifications schema migration warning:', err.message);
+  }
+}
+
+// Auto-migrate NoteTemplates table on startup
+async function ensureNoteTemplatesSchema() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS NoteTemplates (
+        id SERIAL PRIMARY KEY,
+        therapist_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        fields JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_note_templates_therapist_id ON NoteTemplates(therapist_id)`);
+    console.log('✅ NoteTemplates schema verified');
+  } catch (err) {
+    console.error('⚠️  NoteTemplates schema migration warning:', err.message);
+  }
+}
+
 // Auto-migrate Users table columns on startup
 async function ensureUsersSchema() {
   try {
@@ -577,7 +841,7 @@ async function ensureUsersSchema() {
           dob DATE,
           gender VARCHAR(20),
           specialization VARCHAR(150),
-          language_spoken VARCHAR(255),
+          language_spoken TEXT[],
           country VARCHAR(100),
           state VARCHAR(100),
           city VARCHAR(100),
@@ -590,7 +854,14 @@ async function ensureUsersSchema() {
           reset_token TEXT,
           reset_token_expires TIMESTAMPTZ,
           org_role VARCHAR(50),
-          org_owner_id INT
+          org_owner_id INT,
+          plan_name VARCHAR(50),
+          profile_slug_updated_at TIMESTAMP,
+          specializations TEXT[],
+          email_preferences JSONB DEFAULT '{}'::jsonb,
+          dashboard_preferences JSONB DEFAULT '{}'::jsonb,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
       console.log('✅ Users table created');
@@ -598,14 +869,62 @@ async function ensureUsersSchema() {
       // Table exists, add missing columns
       await pool.query(`
         ALTER TABLE Users
+        ADD COLUMN IF NOT EXISTS password VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE,
+        ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50) DEFAULT 'email',
         ADD COLUMN IF NOT EXISTS reset_token TEXT,
         ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ,
         ADD COLUMN IF NOT EXISTS user_name VARCHAR(100),
         ADD COLUMN IF NOT EXISTS profile_picture TEXT,
         ADD COLUMN IF NOT EXISTS profile_slug VARCHAR(255) UNIQUE,
         ADD COLUMN IF NOT EXISTS org_role VARCHAR(50),
-        ADD COLUMN IF NOT EXISTS org_owner_id INT
+        ADD COLUMN IF NOT EXISTS org_owner_id INT,
+        ADD COLUMN IF NOT EXISTS plan_name VARCHAR(50),
+        ADD COLUMN IF NOT EXISTS dob DATE,
+        ADD COLUMN IF NOT EXISTS gender VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS language_spoken TEXT[],
+        ADD COLUMN IF NOT EXISTS country VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS state VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS city VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS pincode VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS clinic_address TEXT,
+        ADD COLUMN IF NOT EXISTS profile_slug_updated_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS specialization VARCHAR(150),
+        ADD COLUMN IF NOT EXISTS specializations TEXT[],
+        ADD COLUMN IF NOT EXISTS email_preferences JSONB DEFAULT '{}'::jsonb,
+        ADD COLUMN IF NOT EXISTS dashboard_preferences JSONB DEFAULT '{}'::jsonb,
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       `);
+      
+      // Fix password column to allow NULL (for OAuth users)
+      try {
+        await pool.query(`
+          ALTER TABLE Users
+          ALTER COLUMN password DROP NOT NULL
+        `);
+        console.log('✅ Password column now allows NULL for OAuth users');
+      } catch (err) {
+        // Column might already allow NULL, that's fine
+        if (!err.message.includes('does not exist')) {
+          console.log('✅ Password column already allows NULL');
+        }
+      }
+
+      // Fix password_hash column to allow NULL (for OAuth users)
+      try {
+        await pool.query(`
+          ALTER TABLE Users
+          ALTER COLUMN password_hash DROP NOT NULL
+        `);
+        console.log('✅ Password_hash column now allows NULL for OAuth users');
+      } catch (err) {
+        // Column might not exist or already allow NULL, that's fine
+        if (!err.message.includes('does not exist')) {
+          console.log('✅ Password_hash column already allows NULL or does not exist');
+        }
+      }
+      
       console.log('✅ Users schema verified');
     }
   } catch (err) {
@@ -614,18 +933,6 @@ async function ensureUsersSchema() {
 }
 
 // Auto-migrate SessionNotes table columns on startup
-async function ensureSessionNotesSchema() {
-  try {
-    await pool.query(`
-      ALTER TABLE SessionNotes
-      ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb
-    `);
-    console.log('✅ SessionNotes schema verified');
-  } catch (err) {
-    console.error('⚠️  SessionNotes schema migration warning:', err.message);
-  }
-}
-
 // Auto-migrate chat tables on startup
 async function ensureChatSchema() {
   try {
@@ -643,18 +950,37 @@ async function ensureChatSchema() {
       )
     `);
 
-    // Chat messages table
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id SERIAL PRIMARY KEY,
-        conversation_id INT NOT NULL,
-        message_type VARCHAR(20) NOT NULL CHECK (message_type IN ('user', 'assistant')),
-        content TEXT NOT NULL,
-        metadata JSONB DEFAULT '{}',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE CASCADE
+    // Chat messages table - create if not exists
+    const chatMessagesExists = await pool.query(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'chat_messages'
       )
     `);
+
+    if (!chatMessagesExists.rows[0].exists) {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS chat_messages (
+          id SERIAL PRIMARY KEY,
+          conversation_id INT NOT NULL,
+          message_type VARCHAR(20) NOT NULL CHECK (message_type IN ('user', 'assistant')),
+          content TEXT NOT NULL,
+          metadata JSONB DEFAULT '{}',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (conversation_id) REFERENCES chat_conversations(id) ON DELETE CASCADE
+        )
+      `);
+    } else {
+      // Table exists, add missing columns
+      await pool.query(`
+        ALTER TABLE chat_messages
+        ADD COLUMN IF NOT EXISTS conversation_id INT,
+        ADD COLUMN IF NOT EXISTS message_type VARCHAR(20),
+        ADD COLUMN IF NOT EXISTS content TEXT,
+        ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}',
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      `);
+    }
 
     // Create indexes if they don't exist
     await pool.query(`
@@ -697,70 +1023,56 @@ async function ensureChatSchema() {
   }
 }
 
-// Auto-migrate Availability table on startup
-async function ensureAvailabilitySchema() {
+// Auto-migrate enterprise_leads table on startup
+async function ensureEnterpriseLeadsSchema() {
   try {
-    // First, check if Availability table exists
-    const tableCheck = await pool.query(`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables 
-        WHERE table_name = 'availability'
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS enterprise_leads (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        phone VARCHAR(20),
+        email VARCHAR(150) NOT NULL UNIQUE,
+        company_name VARCHAR(255),
+        company_website VARCHAR(255),
+        message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
-    if (!tableCheck.rows[0].exists) {
-      console.log('⚠️  Availability table does not exist, creating it...');
-      await pool.query(`
-        CREATE TABLE IF NOT EXISTS Availability (
-          id SERIAL PRIMARY KEY,
-          user_id INT REFERENCES Users(id) ON DELETE CASCADE,
-          day_of_week INT NOT NULL,
-          start_time TIME NOT NULL,
-          end_time TIME NOT NULL,
-          is_enabled BOOLEAN DEFAULT true
-        )
-      `);
-      console.log('✅ Availability table created');
-    } else {
-      // Table exists, check for required columns
-      const colCheck = await pool.query(`
-        SELECT column_name FROM information_schema.columns 
-        WHERE table_name = 'availability' AND column_name IN ('start_time', 'end_time')
-      `);
-      
-      if (colCheck.rows.length < 2) {
-        console.log('⚠️  Availability table missing columns, adding them...');
-        // Drop and recreate if columns are missing (safer than ALTER for TIME columns)
-        try {
-          await pool.query(`DROP TABLE IF EXISTS Availability CASCADE`);
-          await pool.query(`
-            CREATE TABLE Availability (
-              id SERIAL PRIMARY KEY,
-              user_id INT REFERENCES Users(id) ON DELETE CASCADE,
-              day_of_week INT NOT NULL,
-              start_time TIME NOT NULL,
-              end_time TIME NOT NULL,
-              is_enabled BOOLEAN DEFAULT true
-            )
-          `);
-          console.log('✅ Availability table recreated with correct schema');
-        } catch (dropErr) {
-          console.error('⚠️  Could not recreate Availability table:', dropErr.message);
-        }
-      } else {
-        console.log('✅ Availability schema verified');
-      }
-    }
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_enterprise_leads_email ON enterprise_leads(email)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_enterprise_leads_created ON enterprise_leads(created_at DESC)`);
+    console.log('✅ Enterprise leads schema verified');
   } catch (err) {
-    console.error('⚠️  Availability schema migration warning:', err.message);
+    console.error('⚠️  Enterprise leads schema migration warning:', err.message);
   }
 }
 
+// Auto-migrate Availability table on startup
 // Start server
 httpServer.listen(PORT, async () => {
   console.log('\n🔐 Starting Security Validation...');
   
-  // Validate schema integrity
+  // Run auto-migrations FIRST before validation
+  console.log('\n📋 Running schema auto-migrations...\n');
+  await ensureCalendarsSchema();
+  await ensureAppointmentsSchema();
+  await ensureUsersSchema();
+  await ensureClientsSchema();
+  await ensureClientTransfersSchema();
+  await ensureClientActivitiesSchema();
+  await ensureSessionNotesSchema();
+  await ensureUserIntegrationsSchema();
+  await ensureAvailabilitySchema();
+  await ensureMissingUserColumns();
+  await ensureNotificationsSchema();
+  await ensureNoteTemplatesSchema();
+  await ensureOrganizationTherapistsSchema();
+  await ensureOrgRoleSchema();
+  await ensureOrganizationDetailsSchema();
+  await ensureChatSchema(); // Initialize chat tables
+  await ensureEnterpriseLeadsSchema(); // Initialize enterprise leads table
+  await ensureAuditTable(); // Initialize audit logging
+  
+  // NOW validate schema integrity after migrations
   const schemaValidation = await validateSchema();
   if (!schemaValidation.valid && schemaValidation.critical) {
     console.error('🚨 CRITICAL: Schema validation failed. Application cannot start.');
@@ -786,17 +1098,6 @@ httpServer.listen(PORT, async () => {
   }
 
   console.log('\n✅ Security validation passed. Initializing application...\n');
-
-  await ensureCalendarsSchema();
-  await ensureAppointmentsSchema();
-  await ensureUsersSchema();
-  await ensureAvailabilitySchema();
-  await ensureSessionNotesSchema();
-  await ensureOrganizationTherapistsSchema();
-  await ensureOrgRoleSchema();
-  await ensureOrganizationDetailsSchema();
-  await ensureChatSchema(); // Initialize chat tables
-  await ensureAuditTable(); // Initialize audit logging
   
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);

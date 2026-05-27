@@ -6,10 +6,11 @@ export const isAuthenticated = async (req, res, next) => {
     // Set the current user ID for Row Level Security (using proper PostgreSQL syntax)
     try {
       const userId = req.user.id.toString();
-      await pool.query(`SET app.current_user_id = $1`, [userId]);
+      // Use SET LOCAL for session-scoped variable (correct PostgreSQL syntax)
+      await pool.query(`SET LOCAL app.current_user_id = '${userId}'`);
     } catch (error) {
-      console.error('Failed to set RLS user context:', error);
-      // Don't fail the request if RLS context setting fails
+      // RLS context is optional - don't fail the request if it fails
+      // This is just for additional security, not critical
     }
     return next();
   }

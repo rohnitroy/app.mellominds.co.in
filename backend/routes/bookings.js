@@ -621,7 +621,7 @@ router.post('/manage/:token/reschedule', async (req, res) => {
 router.use(ensureAuthenticated);
 
 // GET /api/bookings/stats - Get dashboard statistics
-router.get('/stats', async (req, res) => {
+router.get('/stats', ensureAuthenticated, async (req, res) => {
     const client = await pool.connect();
     try {
         const userId = req.user.id;
@@ -715,7 +715,7 @@ router.get('/stats', async (req, res) => {
 });
 
 // GET /api/bookings/clients - Get unique clients from appointments
-router.get('/clients', async (req, res) => {
+router.get('/clients', ensureAuthenticated, async (req, res) => {
     const client = await pool.connect();
     try {
         const userId = req.user.id;
@@ -1286,7 +1286,7 @@ router.patch('/:id/payment', async (req, res) => {
 });
 
 // POST /api/bookings/send-link - Send booking link to client via email
-router.post('/send-link', async (req, res) => {
+router.post('/send-link', ensureAuthenticated, async (req, res) => {
     try {
         const userId = req.user.id;
         const { client_name, client_email, client_phone, calendar_id } = req.body;
@@ -1332,7 +1332,7 @@ router.post('/send-link', async (req, res) => {
 });
 
 // POST /api/bookings/send-link/bulk - Send booking link to multiple clients
-router.post('/send-link/bulk', async (req, res) => {
+router.post('/send-link/bulk', ensureAuthenticated, async (req, res) => {
     try {
         const userId = req.user.id;
         const { clients, calendar_id } = req.body;

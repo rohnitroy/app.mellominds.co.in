@@ -6,21 +6,40 @@ import { sendEmail, newUserAlertEmail } from '../lib/email.js';
 
 import './env.js';
 
+// Verify Google OAuth credentials are loaded
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+  console.error('❌ CRITICAL: Google OAuth credentials not found in environment variables');
+  console.error('  GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '✓ Set' : '✗ Missing');
+  console.error('  GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '✓ Set' : '✗ Missing');
+  console.error('  GOOGLE_CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL ? '✓ Set' : '✗ Missing');
+} else {
+  console.log('✅ Google OAuth credentials loaded successfully');
+}
+
 // Configure Google OAuth Strategy
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/auth/google/callback',
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3001/auth/google/callback',
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
+        console.log('[DEBUG] Google OAuth Strategy called');
+        console.log('[DEBUG] Profile ID:', profile.id);
+        console.log('[DEBUG] Profile emails:', profile.emails?.length);
+        
         // Extract user info from Google profile
         const googleId = profile.id;
-        const email = profile.emails[0].value;
+        const email = profile.emails[0]?.value;
         const userName = profile.displayName;
         const profilePicture = profile.photos[0]?.value || null;
+
+        if (!email) {
+          console.error('[DEBUG] Google OAuth: No email found in profile');
+          return done(new Error('No email found in Google profile'), null);
+        }
 
         console.log(`[DEBUG] Google OAuth: email=${email}, userName=${userName}, picture=${profilePicture ? 'yes' : 'no'}`);
 
@@ -58,8 +77,8 @@ passport.use(
             // Create new user with Google OAuth
             console.log(`[DEBUG] Creating new Google user`);
             result = await pool.query(
-              'INSERT INTO users (user_name, email, google_id, auth_provider, profile_picture) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-              [userName, email, googleId, 'google', profilePicture]
+              'INSERT INTO users (user_name, email, google_id, auth_provider, profile_picture, password) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+              [userName, email, googleId, 'google', profilePicture, null]
             );
             user = result.rows[0];
             console.log(`[DEBUG] Created user: id=${user.id}, name=${user.user_name}`);
@@ -71,9 +90,11 @@ passport.use(
           }
         }
 
+        console.log('[DEBUG] Google OAuth Strategy: returning user', user.id);
         return done(null, user);
       } catch (error) {
         console.error('[DEBUG] Google OAuth error:', error);
+        console.error('[DEBUG] Error stack:', error.stack);
         return done(error, null);
       }
     }
@@ -88,9 +109,21 @@ passport.serializeUser((user, done) => {
 // Deserialize user from session (retrieve user from database)
 passport.deserializeUser(async (id, done) => {
   try {
+    if (!id) {
+      console.warn('[DEBUG] Deserialize: No user ID provided');
+      return done(null, false);
+    }
+
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    
+    if (result.rows.length === 0) {
+      console.warn(`[DEBUG] Deserialize: User ID ${id} not found in database`);
+      return done(null, false);
+    }
+
     done(null, result.rows[0]);
   } catch (error) {
+    console.error('[DEBUG] Deserialize error:', error.message);
     done(error, null);
   }
 });

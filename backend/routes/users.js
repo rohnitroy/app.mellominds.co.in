@@ -1,164 +1,139 @@
-// Multi-tenant user management API following SaaS Builder patterns
+// User management API
 import express from 'express';
-import { TenantDataAccess, extractTenantContext, requireRole } from '../lib/tenants.js';
+import pool from '../config/database.js';
 
 const router = express.Router();
 
-// Apply tenant context extraction to all routes
-router.use(extractTenantContext);
+// Middleware to ensure authentication
+const ensureAuthenticated = (req, res, next) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ error: 'Not authenticated' });
+};
 
 /**
- * GET /api/v1/users
- * List all users for the current tenant
+ * GET /api/users/me
+ * Get current authenticated user
  */
-router.get('/', async (req, res) => {
+router.get('/me', ensureAuthenticated, async (req, res) => {
   try {
-    const { tenantId } = req.tenantContext;
-    const dataAccess = new TenantDataAccess(tenantId);
+    const userId = req.user.id;
     
-    // Query users scoped to this tenant only
-    const users = await dataAccess.queryByType('User');
-    
-    // Remove sensitive fields before returning
-    const sanitizedUsers = users.map(user => ({
-      id: user.entityId,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      createdAt: user.createdAt
-    }));
+    const result = await pool.query(
+      `SELECT id, email, user_name, phone, plan_name, org_role, org_owner_id, 
+              dob, gender, language_spoken, country, state, city, pincode, 
+              clinic_address, profile_picture, profile_slug, specialization, 
+              created_at, updated_at
+       FROM Users WHERE id = $1`,
+      [userId]
+    );
 
-    res.json({
-      users: sanitizedUsers,
-      tenantId // Include for debugging (remove in production)
-    });
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(result.rows[0]);
   } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch users' }
-    });
+    console.error('Error fetching current user:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
 
 /**
- * GET /api/v1/users/:id
- * Get a specific user (tenant-scoped)
+ * GET /api/users/:id
+ * Get a specific user by ID
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', ensureAuthenticated, async (req, res) => {
   try {
-    const { tenantId } = req.tenantContext;
     const { id } = req.params;
     
-    const dataAccess = new TenantDataAccess(tenantId);
-    const user = await dataAccess.getItem('User', id);
-    
-    if (!user) {
-      return res.status(404).json({
-        error: { code: 'USER_NOT_FOUND', message: 'User not found' }
-      });
+    const result = await pool.query(
+      `SELECT id, email, user_name, phone, plan_name, org_role, org_owner_id, 
+              dob, gender, language_spoken, country, state, city, pincode, 
+              clinic_address, profile_picture, profile_slug, specialization, 
+              created_at, updated_at
+       FROM Users WHERE id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Return sanitized user data
-    res.json({
-      id: user.entityId,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      createdAt: user.createdAt
-    });
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to fetch user' }
-    });
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
 
 /**
- * POST /api/v1/users
- * Create a new user (admin only)
+ * PUT /api/users/me
+ * Update current user profile
  */
-router.post('/', requireRole('admin'), async (req, res) => {
+router.put('/me', ensureAuthenticated, async (req, res) => {
   try {
-    const { tenantId } = req.tenantContext;
-    const { email, name, role = 'user' } = req.body;
+    const userId = req.user.id;
+    const { user_name, phone, dob, gender, language_spoken, country, state, city, pincode, clinic_address, specialization } = req.body;
 
-    // Validate required fields
-    if (!email || !name) {
-      return res.status(400).json({
-        error: { code: 'VALIDATION_ERROR', message: 'Email and name are required' }
-      });
+    const result = await pool.query(
+      `UPDATE Users 
+       SET user_name = COALESCE($1, user_name),
+           phone = COALESCE($2, phone),
+           dob = COALESCE($3, dob),
+           gender = COALESCE($4, gender),
+           language_spoken = COALESCE($5, language_spoken),
+           country = COALESCE($6, country),
+           state = COALESCE($7, state),
+           city = COALESCE($8, city),
+           pincode = COALESCE($9, pincode),
+           clinic_address = COALESCE($10, clinic_address),
+           specialization = COALESCE($11, specialization),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $12
+       RETURNING id, email, user_name, phone, plan_name, org_role, org_owner_id, 
+                 dob, gender, language_spoken, country, state, city, pincode, 
+                 clinic_address, profile_picture, profile_slug, specialization, 
+                 created_at, updated_at`,
+      [user_name, phone, dob, gender, language_spoken, country, state, city, pincode, clinic_address, specialization, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Generate user ID (in production, use UUID)
-    const userId = `user_${Date.now()}`;
-    
-    const dataAccess = new TenantDataAccess(tenantId);
-    
-    // Create user with tenant isolation
-    const newUser = await dataAccess.putItem('User', userId, {
-      email,
-      name,
-      role,
-      status: 'active'
-    });
-
-    // Return sanitized user data
-    res.status(201).json({
-      id: newUser.entityId,
-      email: newUser.email,
-      name: newUser.name,
-      role: newUser.role,
-      createdAt: newUser.createdAt
-    });
-  } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to create user' }
-    });
-  }
-});
-
-/**
- * PUT /api/v1/users/:id
- * Update a user (admin only)
- */
-router.put('/:id', requireRole('admin'), async (req, res) => {
-  try {
-    const { tenantId } = req.tenantContext;
-    const { id } = req.params;
-    const { name, role } = req.body;
-
-    const dataAccess = new TenantDataAccess(tenantId);
-    
-    // Check if user exists
-    const existingUser = await dataAccess.getItem('User', id);
-    if (!existingUser) {
-      return res.status(404).json({
-        error: { code: 'USER_NOT_FOUND', message: 'User not found' }
-      });
-    }
-
-    // Update user data
-    const updatedUser = await dataAccess.putItem('User', id, {
-      ...existingUser,
-      name: name || existingUser.name,
-      role: role || existingUser.role,
-      updatedAt: new Date().toISOString()
-    });
-
-    res.json({
-      id: updatedUser.entityId,
-      email: updatedUser.email,
-      name: updatedUser.name,
-      role: updatedUser.role,
-      updatedAt: updatedUser.updatedAt
-    });
+    res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating user:', error);
-    res.status(500).json({
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to update user' }
-    });
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+/**
+ * GET /api/users
+ * List all users (admin/enterprise owner only)
+ */
+router.get('/', ensureAuthenticated, async (req, res) => {
+  try {
+    // Only allow enterprise owners to list users
+    if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+      return res.status(403).json({ error: 'Unauthorized - Enterprise owner access required' });
+    }
+
+    const result = await pool.query(
+      `SELECT id, email, user_name, phone, plan_name, org_role, org_owner_id, 
+              created_at, updated_at
+       FROM Users
+       WHERE org_owner_id = $1 OR id = $1
+       ORDER BY created_at DESC`,
+      [req.user.id]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 

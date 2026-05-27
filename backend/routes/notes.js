@@ -139,7 +139,7 @@ router.post('/', async (req, res) => {
         const safeAttachments = Array.isArray(attachments) ? attachments : [];
 
         const result = await client.query(
-            `INSERT INTO SessionNotes (appointment_id, therapist_id, note_content, attachments)
+            `INSERT INTO SessionNotes (appointment_id, therapist_id, content, attachments)
              VALUES ($1, $2, $3, $4)
              RETURNING *`,
             [appointment_id, therapist_id, content, JSON.stringify(safeAttachments)]
@@ -180,7 +180,7 @@ router.put('/:id', async (req, res) => {
 
         const result = await pool.query(
             `UPDATE SessionNotes
-             SET note_content = $1,
+             SET content = $1,
                  attachments = COALESCE($2::jsonb, attachments),
                  updated_at = NOW()
              WHERE id = $3 AND therapist_id = $4 RETURNING *`,
