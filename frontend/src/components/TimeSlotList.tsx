@@ -19,7 +19,7 @@ const TimeSlotList: React.FC<TimeSlotListProps> = ({ calendarId, selectedDate, o
 
         try {
             const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const response = await fetch(`${API_BASE_URL}/api/availability/slots?date=${selectedDate}&calendarId=${calendarId}&timeZone=${timeZone}`);
+            const response = await fetch(`${API_BASE_URL}/api/availability/slots?date=${selectedDate}&calendar_id=${calendarId}&timeZone=${timeZone}`);
 
             if (response.ok) {
                 const data = await response.json();
