@@ -111,13 +111,14 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack, prefillClient, pr
             setLoadingSlots(true);
             setSelectedTimeSlot('');
             try {
+                const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
                 const res = await fetch(
-                    `${API_BASE_URL}/api/availability/slots?calendar_id=${formData.selectedCalendar}&date=${formData.selectedDate}`,
+                    `${API_BASE_URL}/api/availability/slots?calendar_id=${formData.selectedCalendar}&date=${formData.selectedDate}&timeZone=${timeZone}`,
                     { credentials: 'include' }
                 );
                 const data = await res.json();
                 if (res.ok) {
-                    setAvailableSlots(data.slots || []);
+                    setAvailableSlots(data.slots || data || []);
                 } else {
                     console.error('Slots API error:', data);
                     setAvailableSlots([]);
