@@ -22,7 +22,17 @@ router.get('/public/:userId/:slug', async (req, res) => {
             [userId, slug, slug.startsWith('/') ? slug : `/${slug}`]
         );
         console.log(`[DEBUG] Query result: ${result.rows.length} rows found`);
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Calendar not found' });
+        if (result.rows.length === 0) {
+            console.log(`[DEBUG] No calendar found. Checking what calendars exist for user ${userId}:`);
+            const allCals = await pool.query(`SELECT id, slug, title FROM Calendars WHERE user_id = $1`, [userId]);
+            console.log(`[DEBUG] Available calendars:`, allCals.rows);
+            
+            // Also check all calendars in system
+            const allSystemCals = await pool.query(`SELECT id, user_id, slug, title FROM Calendars LIMIT 10`);
+            console.log(`[DEBUG] All calendars in system:`, allSystemCals.rows);
+            
+            return res.status(404).json({ error: 'Calendar not found' });
+        }
         res.json(result.rows[0]);
     } catch (error) {
         console.error('Error fetching public calendar:', error);

@@ -591,26 +591,26 @@
 
 .questionActions {
     display: flex;
-    gap: 8px;
-    opacity: 0;
+    gap: 12px;
+    opacity: 1;
     transition: opacity 0.2s;
 }
 
 .iconBtn {
     background: none;
     border: 1px solid transparent;
-    /* Prevent layout shift */
     cursor: pointer;
     color: #888;
-    padding: 6px;
-    width: 32px;
-    height: 32px;
+    padding: 8px 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 16px;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
     border-radius: 6px;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .iconBtn:hover {

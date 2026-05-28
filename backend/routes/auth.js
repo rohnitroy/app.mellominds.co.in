@@ -85,8 +85,11 @@ router.post('/register', async (req, res) => {
 
     // Fire-and-forget: notify team of new user signup
     const alertEmail = newUserAlertEmail({ userName: fullName, email, authProvider: 'email' });
-    sendEmail({ to: 'sarafaastha13@gmail.com', cc: 'adosolve@gmail.com', ...alertEmail })
-      .catch(err => console.error('New user alert email failed:', err.message));
+    try {
+      await sendEmail({ to: 'sarafaastha13@gmail.com', cc: 'adosolve@gmail.com,mellomindsventure@gmail.com', ...alertEmail });
+    } catch (err) {
+      console.error('New user alert email failed:', err.message);
+    }
 
     const newUserId = result.rows[0].id;
 

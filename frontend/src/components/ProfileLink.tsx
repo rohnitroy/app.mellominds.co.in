@@ -34,7 +34,7 @@ const ProfileLink: React.FC<ProfileLinkProps> = ({ onBack }) => {
             .finally(() => setLoading(false));
     }, []);
 
-    const canEdit = !nextEditAt || new Date() >= nextEditAt;
+    const canEdit = true; // Always allow editing
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!canEdit) return;
@@ -150,33 +150,24 @@ const ProfileLink: React.FC<ProfileLinkProps> = ({ onBack }) => {
                 <div className={styles.section}>
                     <label className={styles.label}>Custom profile name</label>
 
-                    {!canEdit && nextEditAt ? (
-                        <div className={styles.cooldownBox}>
-                            <span>🔒</span>
-                            <span>You can edit your profile link again on <strong>{nextEditAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>. Profile links can only be changed once every 14 days.</span>
-                        </div>
-                    ) : (
-                        <>
-                            <p className={styles.hint}>
-                                Choose a unique name. Only lowercase letters, numbers, and hyphens. Can be changed once every 14 days.
-                            </p>
-                            <div className={styles.inputRow}>
-                                <span className={styles.prefix}>{BASE_URL}/book/</span>
-                                <input
-                                    className={styles.input}
-                                    type="text"
-                                    value={input}
-                                    onChange={handleChange}
-                                    placeholder="your-name"
-                                    maxLength={50}
-                                    spellCheck={false}
-                                />
-                            </div>
-                            {info && <p className={styles.statusText} style={{ color: info.color }}>{info.text}</p>}
-                            {previewUrl && (
-                                <p className={styles.preview}>Preview: <span>{previewUrl}</span></p>
-                            )}
-                        </>
+                    <p className={styles.hint}>
+                        Choose a unique name. Only lowercase letters, numbers, and hyphens. Changes are saved when you click Save.
+                    </p>
+                    <div className={styles.inputRow}>
+                        <span className={styles.prefix}>{BASE_URL}/book/</span>
+                        <input
+                            className={styles.input}
+                            type="text"
+                            value={input}
+                            onChange={handleChange}
+                            placeholder="your-name"
+                            maxLength={50}
+                            spellCheck={false}
+                        />
+                    </div>
+                    {info && <p className={styles.statusText} style={{ color: info.color }}>{info.text}</p>}
+                    {previewUrl && (
+                        <p className={styles.preview}>Preview: <span>{previewUrl}</span></p>
                     )}
                 </div>
 

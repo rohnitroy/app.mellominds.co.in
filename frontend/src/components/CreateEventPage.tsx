@@ -537,29 +537,19 @@ const CreateEventPage: React.FC = () => {
                 <div className={styles.row}>
                     <div className={`${styles.formGroup} ${styles.col}`}>
                         <label className={styles.label}>URL</label>
-                        <div className={styles.input} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: isSlugEdited ? 'white' : '#f8f9fa' }}>
+                        <div className={styles.input} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white' }}>
                             <span style={{ color: '#666' }}>/</span>
                             <input
                                 type="text"
                                 style={{ border: 'none', outline: 'none', flex: 1, background: 'transparent' }}
                                 value={eventData.url}
-                                readOnly={!isSlugEdited}
                                 placeholder="your-event-url"
                                 onChange={e => {
                                     // sanitize: lowercase, only alphanumeric and hyphens
                                     const sanitized = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-                                    setIsSlugEdited(true);
                                     setEventData(prev => ({ ...prev, url: sanitized }));
                                 }}
                             />
-                            <button
-                                className={styles.actionBtn}
-                                style={{ padding: '4px 8px', fontSize: '12px', border: '1px solid #ccc' }}
-                                onClick={() => setIsSlugEdited((v: boolean) => !v)}
-                                type="button"
-                            >
-                                {isSlugEdited ? 'Lock' : 'Edit'}
-                            </button>
                         </div>
                     </div>
                     <div className={`${styles.formGroup} ${styles.col}`}>
@@ -986,23 +976,20 @@ const CreateEventPage: React.FC = () => {
                                 {q.required && <span className={styles.requiredBadge}>Required</span>}
                             </div>
                             <div className={styles.questionActions}>
-                                <button className={styles.iconBtn} onClick={() => handleEditQuestion(q)}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <button className={styles.iconBtn} onClick={() => handleEditQuestion(q)} title="Edit field">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                                     </svg>
+                                    <span>Edit</span>
                                 </button>
                                 {!q.persistent && (
-                                    <button className={styles.iconBtn} onClick={() => removeQuestion(q.id)}>
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <button className={styles.iconBtn} onClick={() => removeQuestion(q.id)} title="Delete field" style={{ color: '#d32f2f' }}>
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
                                         </svg>
+                                        <span>Delete</span>
                                     </button>
                                 )}
-                                <button className={styles.iconBtn}>
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                                        <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                                    </svg>
-                                </button>
                             </div>
                         </div>
                     ))}

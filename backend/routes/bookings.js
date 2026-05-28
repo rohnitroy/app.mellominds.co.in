@@ -349,8 +349,9 @@ router.post('/public', publicBookingLimiter, async (req, res) => {
 
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error('Error creating public booking:', error);
-        res.status(500).json({ error: 'Failed to create booking' });
+        console.error('Error creating public booking:', error.message);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ error: 'Failed to create booking', details: error.message });
     } finally {
         client.release();
     }
