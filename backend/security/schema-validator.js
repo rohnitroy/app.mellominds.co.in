@@ -41,7 +41,8 @@ const EXPECTED_SCHEMA = {
       'appointment_date', 'duration_minutes', 'notes', 'updated_at', 'client_phone',
       'payment_status', 'payment_amount', 'form_responses', 'location_type', 'cancel_token',
       'cashfree_order_id', 'cashfree_payment_link', 'razorpay_order_id', 'razorpay_payment_id',
-      'client_email', 'therapist_email', 'title', 'calendar_id', 'meet_link', 'google_event_id'
+      'client_email', 'therapist_email', 'title', 'calendar_id', 'meet_link', 'google_event_id',
+      'partner_email', 'partner_phone', 'partner_name', 'cancellation_reason', 'no_show_reason'
     ],
     critical_columns: ['id', 'therapist_id', 'client_id']
   },
