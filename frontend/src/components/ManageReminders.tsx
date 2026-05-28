@@ -9,6 +9,7 @@ interface EmailPreferences {
     cancellation: boolean;
     reschedule: boolean;
     session_reminder: boolean;
+    session_reminder_60min: boolean;
     session_reminder_30min: boolean;
     activity_notification: boolean;
     booking_link: boolean;
@@ -21,6 +22,7 @@ const EMAIL_LABELS: { key: keyof Omit<EmailPreferences, 'use_own_email'>; label:
     { key: 'cancellation', label: 'Cancellation', description: 'Sent to client and you when a session is cancelled' },
     { key: 'reschedule', label: 'Reschedule', description: 'Sent to client and you when a session is rescheduled' },
     { key: 'session_reminder', label: 'Session Reminder (24 hours)', description: 'Sent to client 24 hours before their session' },
+    { key: 'session_reminder_60min', label: 'Session Reminder (60 minutes)', description: 'Sent to client 60 minutes before their session' },
     { key: 'session_reminder_30min', label: 'Session Reminder (30 minutes)', description: 'Sent to client 30 minutes before their session' },
     { key: 'activity_notification', label: 'Activity Notification', description: 'Sent to client when you assign an activity or reminder' },
     { key: 'booking_link', label: 'Booking Link', description: 'Sent to client when you share a booking link' },

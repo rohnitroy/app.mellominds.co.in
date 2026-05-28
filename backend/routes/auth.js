@@ -70,17 +70,14 @@ router.post('/register', async (req, res) => {
     // Capitalize gender to match DB constraint
     const formattedGender = gender ? gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase() : null;
 
-    // Convert specialization to array if it's a string
-    const specializationArray = specialization ? (Array.isArray(specialization) ? specialization : [specialization]) : [];
-
     // Convert languages to array if it's a string
     const languagesArray = languages ? (Array.isArray(languages) ? languages : languages.split(',').map(l => l.trim())) : [];
 
     // Insert user into database
     const result = await pool.query(
-      `INSERT INTO users (user_name, email, password_hash, phone, dob, gender, specializations, language_spoken, country, state, city, pincode, clinic_address, auth_provider) 
+      `INSERT INTO users (user_name, email, password_hash, phone, dob, gender, specialization, language_spoken, country, state, city, pincode, clinic_address, auth_provider) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, user_name, email`,
-      [fullName, email, hashedPassword, phoneNumber || null, dateOfBirth || null, formattedGender, specializationArray, languagesArray, country || null, state || null, city || null, pincode || null, address || null, 'email']
+      [fullName, email, hashedPassword, phoneNumber || null, dateOfBirth || null, formattedGender, specialization || null, languagesArray, country || null, state || null, city || null, pincode || null, address || null, 'email']
     );
 
     // Fire-and-forget: notify team of new user signup
@@ -247,20 +244,17 @@ router.post('/complete-profile', async (req, res) => {
     // Capitalize gender to match DB constraint
     const formattedGender = gender ? gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase() : null;
 
-    // Convert specialization to array if it's a string
-    const specializationArray = specialization ? (Array.isArray(specialization) ? specialization : [specialization]) : [];
-
     // Convert languages to array if it's a string
     const languagesArray = languages ? (Array.isArray(languages) ? languages : languages.split(',').map(l => l.trim())) : [];
 
     // Update user in database
     const result = await pool.query(
       `UPDATE users 
-       SET phone = $1, dob = $2, gender = $3, specializations = $4, language_spoken = $5, 
+       SET phone = $1, dob = $2, gender = $3, specialization = $4, language_spoken = $5, 
            country = $6, state = $7, city = $8, pincode = $9, clinic_address = $10 
        WHERE id = $11 
        RETURNING *`,
-      [phoneNumber, dateOfBirth, formattedGender, specializationArray, languagesArray, country, state, city, pincode, address, userId]
+      [phoneNumber, dateOfBirth, formattedGender, specialization || null, languagesArray, country, state, city, pincode, address, userId]
     );
 
     res.json({ message: 'Profile updated successfully', user: result.rows[0] });
@@ -364,12 +358,12 @@ router.get('/session-check', (req, res) => {
 // Helper function to check if profile is complete
 const isProfileComplete = (user) => {
   // Required fields for profile completion
-  const requiredFields = ['phone', 'dob', 'gender', 'specializations', 'language_spoken', 'country', 'state', 'city', 'pincode', 'clinic_address'];
+  const requiredFields = ['phone', 'dob', 'gender', 'specialization', 'language_spoken', 'country', 'state', 'city', 'pincode', 'clinic_address'];
   return requiredFields.every(field => {
     const value = user[field];
     if (!value) return false;
     
-    // Handle arrays (specializations, language_spoken)
+    // Handle arrays (language_spoken)
     if (Array.isArray(value)) {
       return value.length > 0 && value.some(v => v && v.toString().trim() !== '');
     }

@@ -12,7 +12,7 @@ import rateLimit from 'express-rate-limit';
 import passport from './config/passport.js';
 import pool from './config/database.js';
 import { setIO } from './lib/socket.js';
-import { sendEmail, activityNotificationEmail, sessionReminderEmail, sessionReminder30MinEmail, isEmailEnabled } from './lib/email.js';
+import { sendEmail, activityNotificationEmail, sessionReminderEmail, sessionReminder30MinEmail, sessionReminder60MinEmail, isEmailEnabled } from './lib/email.js';
 import { ensureAuditTable, auditMiddleware } from './lib/audit.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
@@ -32,6 +32,7 @@ import profileLinkRoutes from './routes/profileLink.js';
 import gmailRoutes from './routes/gmail.js';
 import publicProfileRoutes from './routes/publicProfile.js';
 import therapistsRoutes from './routes/therapists.js';
+import pincodeRoutes from './routes/pincode.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateSchema, verifySchemaIntegrity, storeSchemaHash } from './security/schema-validator.js';
@@ -198,6 +199,7 @@ app.use('/api/profile-link', apiLimiter, profileLinkRoutes);
 app.use('/api/gmail', apiLimiter, gmailRoutes);
 app.use('/api/public', apiLimiter, publicProfileRoutes);
 app.use('/api/therapists', apiLimiter, therapistsRoutes);
+app.use('/api/pincode', apiLimiter, pincodeRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -467,6 +469,44 @@ async function process30MinReminders() {
         }
     } catch (err) {
         console.error('30-min session reminder cron error:', err.message);
+    }
+}
+
+// ─── 60-Min Session Reminder Cron (runs every 5 min) ─────────────────────────
+// Tracks sent reminders in-memory to avoid double-sending within a server run.
+const _60minRemindersSentThisRun = new Set();
+
+async function process60MinReminders() {
+    try {
+        const due = await pool.query(`
+            SELECT a.id, a.title, a.start_time, a.meet_link, a.location_type,
+                   a.client_name, a.client_email,
+                   a.therapist_id,
+                   u.user_name as therapist_name
+            FROM Appointments a
+            JOIN Users u ON a.therapist_id = u.id
+            WHERE a.status NOT IN ('cancelled', 'completed')
+              AND a.client_email IS NOT NULL
+              AND a.start_time BETWEEN NOW() + INTERVAL '55 minutes' AND NOW() + INTERVAL '65 minutes'
+        `);
+
+        for (const appt of due.rows) {
+            if (_60minRemindersSentThisRun.has(appt.id)) continue;
+            if (!await isEmailEnabled(appt.therapist_id, 'session_reminder_60min')) continue;
+            const emailContent = sessionReminder60MinEmail({
+                clientName: appt.client_name,
+                therapistName: appt.therapist_name,
+                sessionTitle: appt.title,
+                startTime: appt.start_time,
+                meetLink: appt.meet_link,
+                locationText: appt.location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet'
+            });
+            await sendEmail({ to: appt.client_email, ...emailContent, senderId: appt.therapist_id });
+            _60minRemindersSentThisRun.add(appt.id);
+            console.log(`✅ 60-min reminder sent to ${appt.client_email} for "${appt.title}"`);
+        }
+    } catch (err) {
+        console.error('60-min session reminder cron error:', err.message);
     }
 }
 
@@ -849,6 +889,7 @@ async function ensureUsersSchema() {
           auth_provider VARCHAR(50) DEFAULT 'email',
           profile_picture TEXT,
           profile_slug VARCHAR(255) UNIQUE,
+          about_me TEXT,
           reset_token TEXT,
           reset_token_expires TIMESTAMPTZ,
           org_role VARCHAR(50),
@@ -875,6 +916,7 @@ async function ensureUsersSchema() {
         ADD COLUMN IF NOT EXISTS user_name VARCHAR(100),
         ADD COLUMN IF NOT EXISTS profile_picture TEXT,
         ADD COLUMN IF NOT EXISTS profile_slug VARCHAR(255) UNIQUE,
+        ADD COLUMN IF NOT EXISTS about_me TEXT,
         ADD COLUMN IF NOT EXISTS org_role VARCHAR(50),
         ADD COLUMN IF NOT EXISTS org_owner_id INT,
         ADD COLUMN IF NOT EXISTS plan_name VARCHAR(50),
@@ -1018,6 +1060,10 @@ httpServer.listen(PORT, async () => {
   // Run 30-min session reminder cron every 5 minutes
   setInterval(process30MinReminders, 5 * 60 * 1000);
   process30MinReminders(); // run once on startup too
+  
+  // Run 60-min session reminder cron every 5 minutes
+  setInterval(process60MinReminders, 5 * 60 * 1000);
+  process60MinReminders(); // run once on startup too
 
   // Production: Set up continuous security monitoring
   if (process.env.NODE_ENV === 'production') {

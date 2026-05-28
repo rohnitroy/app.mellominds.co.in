@@ -257,9 +257,9 @@ const MySettings: React.FC = () => {
             <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
                 <People set="bulk" size="medium" primaryColor="#082421" />
-                Profile Link
+                Profile Link & Description
               </h3>
-              <p>customize your profile link & edit your username...</p>
+              <p>set a custom URL and add your professional description</p>
             </div>
             <div className={styles.cardArrow} style={!isEnterprise ? { pointerEvents: 'none' } : {}}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">

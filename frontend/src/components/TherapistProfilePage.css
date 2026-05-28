@@ -46,9 +46,6 @@ body.tpp-page {
     object-fit: cover;
     flex-shrink: 0;
     background: #edfaf8;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     overflow: hidden;
 }
 
@@ -100,6 +97,14 @@ body.tpp-page {
 .tpp-meta-item svg {
     color: #2D7579;
     flex-shrink: 0;
+}
+
+.tpp-about-me {
+    margin-top: 16px;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.6;
+    padding: 12px 0;
 }
 
 /* ── Section heading ──────────────────────────────────────────────────────── */

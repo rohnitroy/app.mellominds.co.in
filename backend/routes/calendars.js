@@ -155,6 +155,25 @@ router.post('/', async (req, res) => {
 
         const finalSlug = slug || `/${title.toLowerCase().replace(/ /g, '-')}-${Date.now()}`;
 
+        // Validate payment gateway if payment is enabled
+        if (payment_data?.acceptPayment && payment_data?.paymentGateways?.length) {
+            const gateway = payment_data.paymentGateways[0];
+            
+            if (gateway !== 'offline') {
+                // Check if gateway is connected
+                const gwCheck = await pool.query(
+                    `SELECT id FROM UserIntegrations WHERE user_id = $1 AND provider = $2`,
+                    [targetUserId, gateway]
+                );
+                
+                if (gwCheck.rows.length === 0) {
+                    return res.status(400).json({ 
+                        error: `Payment gateway '${gateway}' is not connected. Please connect it first in settings.` 
+                    });
+                }
+            }
+        }
+
         const result = await pool.query(
             `INSERT INTO Calendars 
                 (user_id, title, duration, description, slug, form_data,
@@ -174,6 +193,15 @@ router.post('/', async (req, res) => {
                 schedule_settings ? JSON.stringify(schedule_settings) : null,
             ]
         );
+
+        // Log validation
+        if (payment_data?.acceptPayment) {
+            await pool.query(
+                `INSERT INTO PolicyValidation (calendar_id, policy_type, is_valid, error_message)
+                 VALUES ($1, 'payment_gateway', true, NULL)`,
+                [result.rows[0].id]
+            );
+        }
 
         res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -221,6 +249,33 @@ router.put('/:id', async (req, res) => {
 
         if (payment_data !== undefined) {
             add('payment_enabled', payment_data.acceptPayment || false);
+            
+            // Validate payment gateway if payment is enabled
+            if (payment_data?.acceptPayment && payment_data?.paymentGateways?.length) {
+                const gateway = payment_data.paymentGateways[0];
+                
+                if (gateway !== 'offline') {
+                    // Check if gateway is connected
+                    const gwCheck = await pool.query(
+                        `SELECT id FROM UserIntegrations WHERE user_id = $1 AND provider = $2`,
+                        [targetUserId, gateway]
+                    );
+                    
+                    if (gwCheck.rows.length === 0) {
+                        return res.status(400).json({ 
+                            error: `Payment gateway '${gateway}' is not connected. Please connect it first in settings.` 
+                        });
+                    }
+                }
+                
+                // Log validation
+                await pool.query(
+                    `INSERT INTO PolicyValidation (calendar_id, policy_type, is_valid, error_message)
+                     VALUES ($1, 'payment_gateway', true, NULL)`,
+                    [calendarId || 'new']
+                );
+            }
+            
             add('payment_gateway', payment_data.paymentGateways?.[0] || null);
             add('prices', payment_data.prices?.length ? JSON.stringify(payment_data.prices) : null);
             add('cancellation_policy', payment_data.cancellation ? JSON.stringify(payment_data.cancellation) : null);

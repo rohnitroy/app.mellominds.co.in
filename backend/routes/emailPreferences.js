@@ -10,6 +10,7 @@ const CONTROLLABLE_KEYS = [
     'cancellation',
     'reschedule',
     'session_reminder',
+    'session_reminder_60min',
     'session_reminder_30min',
     'activity_notification',
     'booking_link',

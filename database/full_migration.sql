@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS Users (
     clinic_address   TEXT,
     google_id        VARCHAR(255) UNIQUE,
     auth_provider    VARCHAR(50) DEFAULT 'email' CHECK (auth_provider IN ('email', 'google')),
-    profile_picture  TEXT
+    profile_picture  TEXT,
+    about_me         TEXT
 );
 
 -- -----------------------------------------------------------------------------

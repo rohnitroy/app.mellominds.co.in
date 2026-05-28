@@ -25,6 +25,7 @@ interface TherapistProfile {
     city: string | null;
     state: string | null;
     country: string | null;
+    about_me: string | null;
     calendars: CalendarItem[];
 }
 
@@ -118,11 +119,16 @@ const TherapistProfilePage: React.FC = () => {
                         src={profileImageUrl}
                         alt={profile.name}
                         className="tpp-avatar"
+                        crossOrigin="anonymous"
                         onError={(e) => {
-                            // If image fails to load, swap to placeholder
+                            console.error('Image failed to load:', profileImageUrl);
+                            // If image fails to load, hide it and show placeholder
                             (e.currentTarget as HTMLImageElement).style.display = 'none';
                             const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
                             if (placeholder) placeholder.style.display = 'flex';
+                        }}
+                        onLoad={() => {
+                            console.log('Image loaded successfully:', profileImageUrl);
                         }}
                     />
                 ) : null}
@@ -130,7 +136,7 @@ const TherapistProfilePage: React.FC = () => {
                     className="tpp-avatar-placeholder"
                     style={{ display: profileImageUrl ? 'none' : 'flex' }}
                 >
-                        <svg width="48" height="48" viewBox="0 0 28 24" fill="none">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
                             <circle cx="12" cy="7" r="4" stroke="#2D7579" strokeWidth="2" fill="none" />
                             <path d="M5 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2" stroke="#2D7579" strokeWidth="2" fill="none" />
                         </svg>
@@ -164,6 +170,10 @@ const TherapistProfilePage: React.FC = () => {
                             </div>
                         )}
                     </div>
+
+                    {profile.about_me && (
+                        <p className="tpp-about-me">{profile.about_me}</p>
+                    )}
                 </div>
             </div>
 

@@ -13,8 +13,20 @@ const COOLDOWN_DAYS = 14;
 // GET /api/profile-link
 router.get('/', isAuthenticated, async (req, res) => {
     try {
+        // Check if about_me column exists
+        const columnsResult = await pool.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'about_me'
+        `);
+        
+        const hasAboutMe = columnsResult.rows.length > 0;
+        
+        const selectColumns = ['profile_slug', 'profile_slug_updated_at', 'plan_name'];
+        if (hasAboutMe) selectColumns.push('about_me');
+        
         const result = await pool.query(
-            'SELECT profile_slug, profile_slug_updated_at, plan_name FROM Users WHERE id = $1',
+            `SELECT ${selectColumns.join(', ')} FROM Users WHERE id = $1`,
             [req.user.id]
         );
         const row = result.rows[0];
@@ -25,10 +37,12 @@ router.get('/', isAuthenticated, async (req, res) => {
 
         res.json({
             profile_slug: row?.profile_slug || null,
+            about_me: row?.about_me || null,
             next_edit_at: canEdit ? null : nextEditAt,
             plan_name: row?.plan_name || 'free',
         });
     } catch (err) {
+        console.error('Error fetching profile link:', err.message);
         res.status(500).json({ error: 'Failed to fetch profile link' });
     }
 });
@@ -57,6 +71,7 @@ router.get('/check/:slug', isAuthenticated, async (req, res) => {
 // PUT /api/profile-link
 router.put('/', isAuthenticated, async (req, res) => {
     const slug = (req.body.profile_slug || '').toLowerCase().trim();
+    const aboutMe = (req.body.about_me || '').trim();
 
     if (!SLUG_REGEX.test(slug)) {
         return res.status(400).json({ error: 'Must be 4–50 characters, lowercase letters, numbers and hyphens only. Cannot start or end with a hyphen.' });
@@ -96,16 +111,63 @@ router.put('/', isAuthenticated, async (req, res) => {
             return res.status(409).json({ error: 'This profile link is already taken.' });
         }
 
-        await pool.query(
-            'UPDATE Users SET profile_slug = $1, profile_slug_updated_at = NOW() WHERE id = $2',
-            [slug, req.user.id]
-        );
+        // Check if about_me column exists before updating
+        const columnsResult = await pool.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'about_me'
+        `);
+        
+        const hasAboutMe = columnsResult.rows.length > 0;
+        
+        if (hasAboutMe) {
+            await pool.query(
+                'UPDATE Users SET profile_slug = $1, about_me = $2, profile_slug_updated_at = NOW() WHERE id = $3',
+                [slug, aboutMe || null, req.user.id]
+            );
+        } else {
+            await pool.query(
+                'UPDATE Users SET profile_slug = $1, profile_slug_updated_at = NOW() WHERE id = $2',
+                [slug, req.user.id]
+            );
+        }
 
         const nextEditAt = new Date(Date.now() + COOLDOWN_DAYS * 86400000);
-        res.json({ profile_slug: slug, next_edit_at: nextEditAt });
+        res.json({ profile_slug: slug, about_me: aboutMe, next_edit_at: nextEditAt });
     } catch (err) {
         console.error('Error updating profile slug:', err.message);
         res.status(500).json({ error: 'Failed to update profile link' });
+    }
+});
+
+// PUT /api/profile-link/about-me
+// Allows updating about_me without cooldown restrictions
+router.put('/about-me', isAuthenticated, async (req, res) => {
+    const aboutMe = (req.body.about_me || '').trim();
+
+    try {
+        // Check if about_me column exists
+        const columnsResult = await pool.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'about_me'
+        `);
+        
+        const hasAboutMe = columnsResult.rows.length > 0;
+        
+        if (!hasAboutMe) {
+            return res.status(400).json({ error: 'About Me feature is not available yet' });
+        }
+
+        await pool.query(
+            'UPDATE Users SET about_me = $1 WHERE id = $2',
+            [aboutMe || null, req.user.id]
+        );
+
+        res.json({ about_me: aboutMe, message: 'About Me updated successfully' });
+    } catch (err) {
+        console.error('Error updating about me:', err.message);
+        res.status(500).json({ error: 'Failed to update about me' });
     }
 });
 

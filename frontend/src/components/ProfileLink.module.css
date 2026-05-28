@@ -48,7 +48,18 @@
     border-radius: 16px;
     border: 1px solid #e5e7eb;
     padding: 28px;
-    max-width: 600px;
+    max-width: 100%;
+}
+
+.twoColumnLayout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+}
+
+.column {
+    display: flex;
+    flex-direction: column;
 }
 
 .section {
@@ -146,6 +157,31 @@
     background: transparent;
 }
 
+.textarea {
+    width: 100%;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 14px;
+    font-family: 'Urbanist', sans-serif;
+    color: #082421;
+    background: #fff;
+    resize: vertical;
+    transition: border-color 0.2s;
+}
+
+.textarea:focus {
+    outline: none;
+    border-color: #082421;
+}
+
+.charCount {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: right;
+}
+
 .statusText {
     margin: 8px 0 0;
     font-size: 13px;
@@ -225,6 +261,13 @@
 
 /* ===== RESPONSIVE BREAKPOINTS ===== */
 
+@media (max-width: 1024px) {
+  .twoColumnLayout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
 @media (max-width: 768px) {
   .page {
     padding: 20px 16px;
@@ -245,6 +288,11 @@
   .card {
     padding: 20px 16px;
     max-width: 100%;
+  }
+
+  .twoColumnLayout {
+    grid-template-columns: 1fr;
+    gap: 20px;
   }
 
   .currentLink {

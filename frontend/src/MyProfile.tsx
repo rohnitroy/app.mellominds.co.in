@@ -80,7 +80,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
               dateOfBirth: data.user.date_of_birth ? new Date(data.user.date_of_birth).toISOString().split('T')[0] : '',
               email: data.user.email || '',
               gender: data.user.gender || '',
-              specialization: data.user.specializations ? (Array.isArray(data.user.specializations) ? data.user.specializations[0] : data.user.specializations) : '',
+              specialization: data.user.specialization || '',
               languages: data.user.language_spoken ? (Array.isArray(data.user.language_spoken) ? data.user.language_spoken.join(', ') : data.user.language_spoken) : '',
               country: data.user.country || 'India',
               state: data.user.state || '',
@@ -140,27 +140,26 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   const fetchOrgLocationByPincode = async (pincode: string) => {
     if (!/^\d{6}$/.test(pincode)) return;
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      console.log('Fetching org location for pincode:', pincode);
+      const response = await fetch(`${API_BASE_URL}/api/pincode/${pincode}`);
       
-      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      
+      console.log('API Response status:', response.status);
       if (!response.ok) throw new Error('API error');
       
       const data = await response.json();
-      if (data && Array.isArray(data) && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-        const location = data[0].PostOffice[0];
+      console.log('API Response data:', data);
+      
+      if (data.success) {
+        console.log('Location found:', data);
         setOrgData(prev => ({
           ...prev,
-          city: location.District || prev.city,
-          state: location.State || prev.state
+          city: data.city || prev.city,
+          state: data.state || prev.state
         }));
         toast.success('Location auto-filled from pincode');
       } else {
-        toast.warning('Could not find location for this pincode');
+        console.log('No location found in response');
+        toast.warning(data.error || 'Could not find location for this pincode');
       }
     } catch (error) {
       console.error('Error fetching org location:', error);
@@ -171,28 +170,26 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   const fetchLocationByPincode = async (pincode: string) => {
     if (!/^\d{6}$/.test(pincode)) return;
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      console.log('Fetching location for pincode:', pincode);
+      const response = await fetch(`${API_BASE_URL}/api/pincode/${pincode}`);
       
-      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`, {
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      
+      console.log('API Response status:', response.status);
       if (!response.ok) throw new Error('API error');
       
       const data = await response.json();
+      console.log('API Response data:', data);
       
-      if (data && Array.isArray(data) && data[0]?.Status === 'Success' && data[0]?.PostOffice?.length > 0) {
-        const location = data[0].PostOffice[0];
+      if (data.success) {
+        console.log('Location found:', data);
         setFormData(prev => ({
           ...prev,
-          city: location.District || prev.city,
-          state: location.State || prev.state
+          city: data.city || prev.city,
+          state: data.state || prev.state
         }));
         toast.success('Location auto-filled from pincode');
       } else {
-        toast.warning('Could not find location for this pincode');
+        console.log('No location found in response');
+        toast.warning(data.error || 'Could not find location for this pincode');
       }
     } catch (error) {
       console.error('Error fetching location:', error);
@@ -426,15 +423,12 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
 
           <div className={styles.formGroup}>
             <label>Specialization<span className={styles.required}>*</span></label>
-            <CustomDropdown
-              options={[
-                { value: 'Counselling Therapist', label: 'Counselling Therapist' },
-                { value: 'Clinical Psychologist', label: 'Clinical Psychologist' },
-                { value: 'Psychiatrist', label: 'Psychiatrist' }
-              ]}
+            <input
+              type="text"
               value={formData.specialization}
-              onChange={(val) => handleInputChange('specialization', val)}
-              placeholder="Select specialization"
+              onChange={(e) => handleInputChange('specialization', e.target.value)}
+              placeholder="e.g., Clinical Psychologist, Counselling Therapist"
+              maxLength={150}
             />
           </div>
 

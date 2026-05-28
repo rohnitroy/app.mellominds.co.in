@@ -46,6 +46,7 @@ import TimeSlotList from './components/TimeSlotList';
 import Loader from './components/Loader';
 import CookieBanner from './components/CookieBanner';
 import UpgradePlanModal from './components/UpgradePlanModal';
+import MobileBlocker from './components/MobileBlocker';
 
 interface NavItem {
   name: string;
@@ -660,7 +661,8 @@ const DashboardLayout: React.FC = () => {
   };
 
   return (
-    <div className="dashboard">
+    <MobileBlocker>
+      <div className="dashboard">
       <div
         className={`mobile-overlay${mobileSidebarOpen ? ' active' : ''}`}
         onClick={() => setMobileSidebarOpen(false)}
@@ -787,6 +789,7 @@ const DashboardLayout: React.FC = () => {
         onCancel={() => setShowLogoutConfirm(false)}
       />
     </div>
+    </MobileBlocker>
   );
 };
 
