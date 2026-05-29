@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import ConfirmModal from './components/ConfirmModal';
 import { Analytics } from '@vercel/analytics/react';
@@ -24,6 +24,7 @@ import TermsOfService from './components/TermsOfService';
 import CreateEventPage from './components/CreateEventPage';
 import ManageReminders from './components/ManageReminders';
 import EditDashboard from './components/EditDashboard';
+import EmailPreferences from './components/EmailPreferences';
 import ProfileLink from './components/ProfileLink';
 import ResetPassword from './components/ResetPassword';
 import Therapists from './Therapists';
@@ -149,7 +150,7 @@ const NotificationsPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { notifications, markAsRead, markAllAsRead, refresh } = useNotifications();
   const toast = useToast();
 
-  const handleTransferAction = async (transferId: number, action: 'approve' | 'reject', notifId: number) => {
+  const handleTransferAction = useCallback(async (transferId: number, action: 'approve' | 'reject', notifId: number) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/clients/transfers/${transferId}/${action}`, {
         method: 'POST',
@@ -166,7 +167,7 @@ const NotificationsPage: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     } catch {
       toast.error('Network error');
     }
-  };
+  }, [toast, markAsRead, refresh]);
 
   const formatTime = (iso: string) => {
     const d = new Date(iso);
@@ -1492,6 +1493,7 @@ const PageTitle: React.FC = () => {
       '/settings': { title: 'My Settings – MelloMinds', description: DEFAULT_DESCRIPTION },
       '/settings/my-profile': { title: 'My Profile – MelloMinds', description: DEFAULT_DESCRIPTION },
       '/settings/client-notes-template': { title: 'Client Notes Template – MelloMinds', description: DEFAULT_DESCRIPTION },
+      '/settings/email-preferences': { title: 'Email Preferences – MelloMinds', description: DEFAULT_DESCRIPTION },
       '/notifications': { title: 'Notifications – MelloMinds', description: DEFAULT_DESCRIPTION },
     };
 
@@ -1546,6 +1548,7 @@ const AppContent: React.FC = () => {
               <Route path="settings" element={<MySettings />} />
               <Route path="settings/my-profile" element={<MyProfile onBack={() => window.history.back()} />} />
               <Route path="settings/client-notes-template" element={<ClientNotesTemplate onBack={() => window.history.back()} />} />
+              <Route path="settings/email-preferences" element={<EmailPreferences onBack={() => window.history.back()} />} />
               <Route path="settings/reminders" element={<ManageReminders onBack={() => window.history.back()} />} />
               <Route path="settings/edit-dashboard" element={<EditDashboard onBack={() => window.history.back()} />} />
               <Route path="settings/profile-link" element={<ProfileLink onBack={() => window.history.back()} />} />

@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import crypto from 'crypto';
+import { getIO } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -89,6 +90,10 @@ router.delete('/disconnect', ensureAuthenticated, async (req, res) => {
             `DELETE FROM UserIntegrations WHERE user_id = $1 AND provider = 'razorpay'`,
             [req.user.id]
         );
+        // Emit real-time integrations update
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('integrations_updated');
+
         res.json({ connected: false });
     } catch (err) {
         res.status(500).json({ error: 'Failed to disconnect' });
@@ -329,6 +334,10 @@ router.post('/refund', ensureAuthenticated, async (req, res) => {
             `UPDATE Appointments SET payment_status = $1 WHERE id = $2`,
             [newStatus, appt.id]
         );
+
+        // Emit real-time bookings update
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('bookings_updated');
 
         res.json({ success: true, status: newStatus });
     } catch (err) {

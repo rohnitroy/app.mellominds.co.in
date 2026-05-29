@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { isAuthenticated } from '../middleware/auth.js';
+import { getIO } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -15,6 +16,7 @@ const CONTROLLABLE_KEYS = [
     'activity_notification',
     'booking_link',
     'invoice',
+    'payment_confirmation',
     'transfer_request',
     'transfer_status',
     'use_own_email',
@@ -63,6 +65,10 @@ router.put('/', isAuthenticated, async (req, res) => {
             'SELECT email_preferences FROM Users WHERE id = $1',
             [req.user.id]
         );
+
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('email_preferences_updated');
+
         res.json(updated.rows[0].email_preferences);
     } catch (err) {
         console.error('Error updating email preferences:', err.message);

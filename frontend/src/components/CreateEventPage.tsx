@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styles from './CreateEventPage.module.css';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +6,7 @@ import AddLocationModal from './AddLocationModal';
 import QuestionModal from './QuestionModal';
 import AvailabilityModal from './AvailabilityModal';
 import { useToast } from '../context/ToastContext';
+import { useSocket } from '../context/SocketContext';
 import API_BASE_URL from '../config/api';
 
 const CreateEventPage: React.FC = () => {
@@ -13,6 +14,7 @@ const CreateEventPage: React.FC = () => {
     const location = useLocation();
     const { user } = useAuth();
     const toast = useToast();
+    const { socket } = useSocket();
     
     // Check if we're in edit mode
     const isEditMode = location.state?.isEditing || false;
@@ -281,7 +283,7 @@ const CreateEventPage: React.FC = () => {
         return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     };
 
-    const fetchAvailability = async () => {
+    const fetchAvailability = useCallback(async () => {
         try {
             const response = await fetch(`${API_BASE_URL}/api/availability`, {
                 credentials: 'include'
@@ -324,11 +326,20 @@ const CreateEventPage: React.FC = () => {
             console.error('Error fetching availability:', error);
             setDisplayAvailability(prev => prev.map(d => ({ ...d, time: 'Unavailable' })));
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchAvailability();
-    }, []);
+    }, [fetchAvailability]);
+
+    // Socket.io listener for real-time calendar updates
+    useEffect(() => {
+        if (!socket) return;
+        socket.on('calendars_updated', fetchAvailability);
+        return () => {
+            socket.off('calendars_updated', fetchAvailability);
+        };
+    }, [socket, fetchAvailability]);
 
     // Currently supported backend only allows one schedule per user
     const availableSchedules = [

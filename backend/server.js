@@ -762,12 +762,14 @@ async function ensureUserIntegrationsSchema() {
         access_token VARCHAR(1024),
         refresh_token VARCHAR(1024),
         calendar_id VARCHAR(255),
+        gmail_email VARCHAR(255),
         expiry_date BIGINT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, provider)
       )
     `);
+    await pool.query(`ALTER TABLE IF EXISTS UserIntegrations ADD COLUMN IF NOT EXISTS gmail_email VARCHAR(255)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_integrations_user_id ON UserIntegrations(user_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_integrations_provider ON UserIntegrations(provider)`);
     console.log('✅ UserIntegrations schema verified');
@@ -842,7 +844,7 @@ async function ensureNoteTemplatesSchema() {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS NoteTemplates (
         id SERIAL PRIMARY KEY,
-        therapist_id INT NOT NULL REFERENCES Users(id) ON DELETE CASCADE,
+        therapist_id INT NOT NULL UNIQUE REFERENCES Users(id) ON DELETE CASCADE,
         fields JSONB DEFAULT '[]'::jsonb,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

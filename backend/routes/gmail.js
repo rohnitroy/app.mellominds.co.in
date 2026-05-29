@@ -2,6 +2,7 @@ import express from 'express';
 import { google } from 'googleapis';
 import pool from '../config/database.js';
 import { isAuthenticated } from '../middleware/auth.js';
+import { getIO } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -53,17 +54,21 @@ router.get('/callback', isAuthenticated, async (req, res) => {
         );
         if (existing.rows.length > 0) {
             await pool.query(
-                `UPDATE UserIntegrations SET access_token=$1, refresh_token=$2, expiry_date=$3, calendar_id=$4, updated_at=NOW()
+                `UPDATE UserIntegrations SET access_token=$1, refresh_token=$2, expiry_date=$3, gmail_email=$4, updated_at=NOW()
                  WHERE user_id=$5 AND provider='gmail'`,
                 [tokens.access_token, tokens.refresh_token, tokens.expiry_date, gmailEmail, req.user.id]
             );
         } else {
             await pool.query(
-                `INSERT INTO UserIntegrations (user_id, provider, access_token, refresh_token, expiry_date, calendar_id)
+                `INSERT INTO UserIntegrations (user_id, provider, access_token, refresh_token, expiry_date, gmail_email)
                  VALUES ($1, 'gmail', $2, $3, $4, $5)`,
                 [req.user.id, tokens.access_token, tokens.refresh_token, tokens.expiry_date, gmailEmail]
             );
         }
+
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('gmail_status_updated');
+
         res.redirect(`${process.env.FRONTEND_URL}/settings?gmail_connected=true`);
     } catch (err) {
         console.error('[gmail] OAuth callback error:', err.message);
@@ -75,7 +80,7 @@ router.get('/callback', isAuthenticated, async (req, res) => {
 router.get('/status', isAuthenticated, async (req, res) => {
     try {
         const result = await pool.query(
-            "SELECT calendar_id as gmail_email FROM UserIntegrations WHERE user_id=$1 AND provider='gmail'",
+            "SELECT gmail_email FROM UserIntegrations WHERE user_id=$1 AND provider='gmail'",
             [req.user.id]
         );
         const connected = result.rows.length > 0;
@@ -104,6 +109,9 @@ router.delete('/disconnect', isAuthenticated, async (req, res) => {
             const oauth2Client = makeOAuthClient();
             await oauth2Client.revokeToken(result.rows[0].access_token);
         } catch (_) { /* non-fatal */ }
+
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('gmail_status_updated');
 
         res.json({ message: 'Gmail disconnected successfully' });
     } catch (err) {

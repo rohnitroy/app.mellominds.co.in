@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useSocket } from '../context/SocketContext';
 import { useProfileCompletion } from '../hooks/useProfileCompletion';
 import './CalendarPage.css';
 import AvailabilityModal from './AvailabilityModal';
@@ -24,6 +25,7 @@ const CalendarPage: React.FC = () => {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const { socket } = useSocket();
   const [searchParams] = useSearchParams();
   const { isProfileComplete, showProfileModal, setShowProfileModal, checkProfileCompletion } = useProfileCompletion();
   const [calendars, setCalendars] = useState<Calendar[]>([]);
@@ -55,7 +57,7 @@ const CalendarPage: React.FC = () => {
     }
   }, []);
 
-  const fetchCalendars = async () => {
+  const fetchCalendars = useCallback(async () => {
     setFetchError(false);
     try {
       const response = await fetch(`${API_BASE_URL}/api/calendars`, { credentials: 'include' });
@@ -71,9 +73,9 @@ const CalendarPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchCalendars(); }, []);
+  useEffect(() => { fetchCalendars(); }, [fetchCalendars]);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/connect-calendar/status`, { credentials: 'include' })
@@ -81,6 +83,14 @@ const CalendarPage: React.FC = () => {
       .then(d => setIsGoogleConnected(!!d.connected))
       .catch(() => setIsGoogleConnected(false));
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('calendars_updated', fetchCalendars);
+    return () => {
+      socket.off('calendars_updated', fetchCalendars);
+    };
+  }, [socket, fetchCalendars]);
 
   // Close 3-dot menu on outside click
   useEffect(() => {

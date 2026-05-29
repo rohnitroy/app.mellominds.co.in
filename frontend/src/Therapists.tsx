@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './Therapists.module.css';
 import API_BASE_URL from './config/api';
 import { useToast } from './context/ToastContext';
+import { useSocket } from './context/SocketContext';
 import Loader from './components/Loader';
 
 interface Therapist {
@@ -22,6 +23,7 @@ interface Therapist {
 const Therapists: React.FC = () => {
   const toast = useToast();
   const navigate = useNavigate();
+  const { socket } = useSocket();
   const [therapists, setTherapists] = useState<Therapist[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -50,6 +52,14 @@ const Therapists: React.FC = () => {
     fetchTherapists();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('therapists_updated', fetchTherapists);
+    return () => {
+      socket.off('therapists_updated', fetchTherapists);
+    };
+  }, [socket]);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,11 +112,6 @@ const Therapists: React.FC = () => {
       setRemovingId(null);
       setConfirmRemove(null);
     }
-  };
-
-  const getInitials = (name: string | null, email: string) => {
-    if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    return email[0].toUpperCase();
   };
 
   const formatDate = (iso: string) =>

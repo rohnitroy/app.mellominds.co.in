@@ -8,6 +8,7 @@ import cloudinary from '../config/cloudinary.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import { getIO } from '../lib/socket.js';
 import { sendEmail, passwordResetEmail, newUserAlertEmail } from '../lib/email.js';
 import { sanitizeStr, isValidEmail } from '../middleware/sanitize.js';
 
@@ -249,13 +250,17 @@ router.post('/complete-profile', async (req, res) => {
 
     // Update user in database
     const result = await pool.query(
-      `UPDATE users 
-       SET phone = $1, dob = $2, gender = $3, specialization = $4, language_spoken = $5, 
-           country = $6, state = $7, city = $8, pincode = $9, clinic_address = $10 
-       WHERE id = $11 
+      `UPDATE users
+       SET phone = $1, dob = $2, gender = $3, specialization = $4, language_spoken = $5,
+           country = $6, state = $7, city = $8, pincode = $9, clinic_address = $10
+       WHERE id = $11
        RETURNING *`,
       [phoneNumber, dateOfBirth, formattedGender, specialization || null, languagesArray, country, state, city, pincode, address, userId]
     );
+
+    // Emit real-time profile update
+    const io = getIO();
+    if (io) io.to(`user:${userId}`).emit('profile_updated');
 
     res.json({ message: 'Profile updated successfully', user: result.rows[0] });
 
@@ -427,6 +432,10 @@ router.put('/dashboard-prefs', async (req, res) => {
          updated_at = NOW()`,
       [req.user.id, JSON.stringify(widgets)]
     );
+
+    const io = getIO();
+    if (io) io.to(`user:${req.user.id}`).emit('dashboard_preferences_updated');
+
     res.json({ message: 'Dashboard preferences saved', widgets });
   } catch (err) {
     console.error('Save dashboard prefs error:', err);
@@ -475,6 +484,21 @@ router.put('/enterprise-settings', async (req, res) => {
          updated_at = NOW()`,
       [req.user.id, JSON.stringify(settings)]
     );
+    // Emit real-time enterprise settings update
+    const io = getIO();
+    if (io) {
+      // Notify owner
+      io.to(`user:${req.user.id}`).emit('enterprise_settings_updated');
+      // Optionally notify all team members
+      const membersRes = await pool.query(
+        'SELECT therapist_user_id FROM organization_therapists WHERE owner_id = $1 AND status = $2',
+        [req.user.id, 'active']
+      );
+      for (const member of membersRes.rows) {
+        io.to(`user:${member.therapist_user_id}`).emit('enterprise_settings_updated');
+      }
+    }
+
     res.json({ message: 'Enterprise settings saved', settings });
   } catch (err) {
     console.error('Save enterprise settings error:', err);
@@ -579,6 +603,11 @@ router.put('/organization', async (req, res) => {
        RETURNING *`,
       [req.user.id, company_name || null, company_email || null, gst || null, street || null, city || null, pincode || null, state || null, country || null]
     );
+
+    // Emit real-time organization update
+    const io = getIO();
+    if (io) io.to(`user:${req.user.id}`).emit('profile_updated');
+
     res.json({ message: 'Organization details saved', organization: result.rows[0] });
   } catch (err) {
     console.error('Save org details error:', err);
@@ -637,6 +666,10 @@ router.post('/upload-profile-picture', upload.single('profilePicture'), async (r
         // Continue even if deletion fails
       }
     }
+
+    // Emit real-time profile update
+    const io = getIO();
+    if (io) io.to(`user:${userId}`).emit('profile_updated');
 
     res.json({
       message: 'Profile picture uploaded successfully',

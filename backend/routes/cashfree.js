@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../config/database.js';
+import { getIO } from '../lib/socket.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -65,6 +66,10 @@ router.post('/connect', ensureAuthenticated, async (req, res) => {
              DO UPDATE SET app_id = $2, secret_key = $3, environment = $4, updated_at = NOW()`,
             [req.user.id, app_id, secret_key, environment]
         );
+        // Emit real-time integrations update
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('integrations_updated');
+
         res.json({ connected: true, environment });
     } catch (err) {
         console.error('Error saving Cashfree credentials:', err);
@@ -93,6 +98,11 @@ router.delete('/disconnect', ensureAuthenticated, async (req, res) => {
             `DELETE FROM UserIntegrations WHERE user_id = $1 AND provider = 'cashfree'`,
             [req.user.id]
         );
+
+        // Emit real-time integrations update
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('integrations_updated');
+
         res.json({ connected: false });
     } catch (err) {
         res.status(500).json({ error: 'Failed to disconnect' });
@@ -251,6 +261,9 @@ router.post('/refund', ensureAuthenticated, async (req, res) => {
             `UPDATE Appointments SET payment_status = $1 WHERE id = $2`,
             [newStatus, appt.id]
         );
+
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('bookings_updated');
 
         res.json({ success: true, refund_id: refundId, status: newStatus });
     } catch (err) {

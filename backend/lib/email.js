@@ -161,7 +161,7 @@ export async function sendEmail({ to, cc, subject, html, text, senderId }) {
             if (isEnterprise && useOwnEmail) {
                 // Get the connected Gmail address
                 const integResult = await pool.query(
-                    "SELECT calendar_id as gmail_email FROM UserIntegrations WHERE user_id = $1 AND provider = 'gmail'",
+                    "SELECT gmail_email FROM UserIntegrations WHERE user_id = $1 AND provider = 'gmail'",
                     [senderId]
                 );
                 const gmailEmail = integResult.rows[0]?.gmail_email;

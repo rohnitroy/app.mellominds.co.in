@@ -10,7 +10,7 @@ router.get('/therapists', async (req, res) => {
         const result = await pool.query(`
             SELECT id, user_name, profile_slug, specialization, city, state, country
             FROM Users
-            WHERE is_therapist = true OR user_name IS NOT NULL
+            WHERE user_name IS NOT NULL
             ORDER BY user_name ASC
             LIMIT 50
         `);

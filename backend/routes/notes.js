@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import multer from 'multer';
 import cloudinary from '../config/cloudinary.js';
+import { getIO } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -109,6 +110,10 @@ router.post('/template/me', async (req, res) => {
              DO UPDATE SET fields = $2, updated_at = NOW()`,
             [req.user.id, JSON.stringify(fields)]
         );
+
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('notes_template_updated');
+
         res.json({ success: true });
     } catch (error) {
         console.error('Error saving note template:', error);

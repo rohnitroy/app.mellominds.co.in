@@ -80,25 +80,36 @@ router.delete('/:id', async (req, res) => {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function sendImmediateActivityEmail(clientId, therapistId, activityName, activityDescription) {
-    if (!await isEmailEnabled(therapistId, 'activity_notification')) return;
-    const clientRes = await pool.query(
-        'SELECT name, email FROM Clients WHERE id = $1 AND therapist_id = $2',
-        [clientId, therapistId]
-    );
-    if (!clientRes.rows.length || !clientRes.rows[0].email) return;
+    try {
+        if (!await isEmailEnabled(therapistId, 'activity_notification')) {
+            console.log(`⚠️ Activity notification email disabled for therapist ${therapistId}`);
+            return;
+        }
+        const clientRes = await pool.query(
+            'SELECT name, email FROM Clients WHERE id = $1 AND therapist_id = $2',
+            [clientId, therapistId]
+        );
+        if (!clientRes.rows.length || !clientRes.rows[0].email) {
+            console.warn(`⚠️ Client ${clientId} not found or has no email`);
+            return;
+        }
 
-    const therapistRes = await pool.query('SELECT user_name FROM Users WHERE id = $1', [therapistId]);
-    const therapistName = therapistRes.rows[0]?.user_name || 'Your therapist';
-    const client = clientRes.rows[0];
+        const therapistRes = await pool.query('SELECT user_name FROM Users WHERE id = $1', [therapistId]);
+        const therapistName = therapistRes.rows[0]?.user_name || 'Your therapist';
+        const client = clientRes.rows[0];
 
-    const emailContent = activityNotificationEmail({
-        clientName: client.name,
-        therapistName,
-        activityName,
-        activityDescription,
-        isReminder: false
-    });
-    await sendEmail({ to: client.email, ...emailContent, senderId: therapistId });
+        const emailContent = activityNotificationEmail({
+            clientName: client.name,
+            therapistName,
+            activityName,
+            activityDescription,
+            isReminder: false
+        });
+        await sendEmail({ to: client.email, ...emailContent, senderId: therapistId });
+        console.log(`✅ Activity notification email sent to client: ${client.email}`);
+    } catch (err) {
+        console.error(`❌ Failed to send activity notification email for client ${clientId}:`, err.message);
+    }
 }
 
 export default router;

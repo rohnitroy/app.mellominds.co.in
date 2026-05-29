@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './Appointments.module.css';
@@ -61,7 +61,7 @@ const Appointments: React.FC = () => {
 
   const { socket } = useSocket();
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
       if (response.ok) {
@@ -73,16 +73,16 @@ const Appointments: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchAppointments(); }, []);
+  useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
 
   // Real-time: refresh when socket emits bookings_updated
   useEffect(() => {
     if (!socket) return;
     socket.on('bookings_updated', fetchAppointments);
     return () => { socket.off('bookings_updated', fetchAppointments); };
-  }, [socket]);
+  }, [socket, fetchAppointments]);
 
   const updateStatus = async (id: number, status: string) => {
     setActionLoading(id);

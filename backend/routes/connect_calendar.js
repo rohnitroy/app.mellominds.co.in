@@ -1,6 +1,7 @@
 import express from 'express';
 import { google } from 'googleapis';
 import pool from '../config/database.js';
+import { getIO } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -100,8 +101,11 @@ router.get('/callback', async (req, res) => {
             console.log(`✅ Default availability seeded for user ${req.user.id}`);
         }
 
-        // 4. Redirect back to frontend
-        // Assuming frontend is running on process.env.FRONTEND_URL (e.g. localhost:5173)
+        // Emit real-time calendar update
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('calendar_updated');
+
+        // Redirect back to frontend
         res.redirect(`${process.env.FRONTEND_URL}/dashboard?calendar_connected=true`);
 
     } catch (error) {
@@ -152,7 +156,11 @@ router.delete('/disconnect', async (req, res) => {
             return res.status(404).json({ error: 'No Google Calendar connection found' });
         }
 
-        res.json({ message: 'Google Calendar disconnected successfully' });
+        // Emit real-time calendar update
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('calendar_updated');
+
+                res.json({ message: 'Google Calendar disconnected successfully' });
     } catch (error) {
         console.error('Error disconnecting calendar:', error);
         res.status(500).json({ error: 'Failed to disconnect' });
