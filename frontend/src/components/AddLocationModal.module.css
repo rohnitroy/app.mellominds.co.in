@@ -1,0 +1,213 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: white;
+    width: 700px;
+    max-width: 95vw;
+    max-height: 90vh;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: none;
+}
+
+.header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.title {
+    font-family: 'Urbanist', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+    color: #333;
+}
+
+.closeButton {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 24px;
+    color: #666;
+    padding: 0;
+    display: flex;
+    align-items: center;
+}
+
+.content {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.tabs {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.tab {
+    flex: 1;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+.tab:hover {
+    background: #f8f9fa;
+    border-color: #d0d0d0;
+}
+
+.activeTab {
+    border: 2px solid #082421;
+    background: #f8ffff;
+}
+
+.tabIcon {
+    width: 24px;
+    height: 24px;
+    color: #082421;
+}
+
+.tabLabel {
+    font-family: 'Urbanist', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+    color: #333;
+    line-height: 1.2;
+}
+
+/* Form Styles */
+.formGrid {
+    display: grid;
+    gap: 16px;
+}
+
+.formRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.label {
+    font-family: 'Urbanist', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.input {
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-family: 'Urbanist', sans-serif;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input:focus {
+    border-color: #082421;
+}
+
+/* Location Options List (Google Meet) */
+.optionList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.optionItem {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.optionItem:hover {
+    background: #f8f9fa;
+}
+
+.optionIcon {
+    width: 32px;
+    height: 32px;
+}
+
+.optionText h4 {
+    margin: 0;
+    font-family: 'Urbanist', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.optionText p {
+    margin: 4px 0 0;
+    font-family: 'Urbanist', sans-serif;
+    font-size: 13px;
+    color: #666;
+}
+
+.footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.cancelBtn {
+    padding: 8px 16px;
+    border: 1px solid #e0e0e0;
+    background: white;
+    border-radius: 6px;
+    font-family: 'Urbanist', sans-serif;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+}
+
+.addBtn {
+    padding: 8px 20px;
+    border: none;
+    background: #082421;
+    border-radius: 6px;
+    font-family: 'Urbanist', sans-serif;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+}

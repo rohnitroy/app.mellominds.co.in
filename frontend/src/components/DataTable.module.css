@@ -1,0 +1,165 @@
+.wrapper {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #f1f3f4;
+  overflow: hidden;
+}
+
+.tableScroll {
+  overflow-x: auto;
+  width: 100%;
+}
+
+/* Table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Urbanist', sans-serif;
+}
+
+/* Header */
+.thead {
+  background: #ffffff;
+}
+
+.th {
+  padding: 14px 20px;
+  text-align: left;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #082421;
+  border-bottom: 1px solid #e9ecef;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.th.sortable {
+  cursor: pointer;
+}
+
+.th.sortable:hover {
+  color: #2D7579;
+}
+
+.sortIcon {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  color: #aaa;
+}
+
+.th.sorted .sortIcon {
+  color: #2D7579;
+}
+
+/* Body */
+.tbody tr {
+  border-bottom: 1px solid #f1f3f4;
+  transition: background 0.15s ease;
+}
+
+.tbody tr:last-child {
+  border-bottom: none;
+}
+
+.tbody tr:hover {
+  background: #f8fffe;
+}
+
+.td {
+  padding: 14px 20px;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  vertical-align: middle;
+}
+
+/* Empty state */
+.empty {
+  padding: 48px 20px;
+  text-align: center;
+  color: #6E6E6E;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+}
+
+/* Footer / Pagination */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-top: 1px solid #f1f3f4;
+  background: white;
+}
+
+.footerInfo {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #9CA3AF;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pageBtn {
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.pageBtn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 768px) {
+  .th {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .td {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+
+  .footerInfo {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .th {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .td {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .empty {
+    padding: 32px 16px;
+    font-size: 13px;
+  }
+}

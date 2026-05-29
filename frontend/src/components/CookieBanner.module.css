@@ -1,0 +1,91 @@
+.banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 48px);
+  max-width: 640px;
+  background: #082421;
+  color: #D5FFFA;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 8px 32px rgba(8, 36, 33, 0.25);
+  z-index: 9999;
+  font-family: 'Urbanist', sans-serif;
+}
+
+.text {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  margin: 0;
+  flex: 1;
+  color: #D5FFFA;
+}
+
+.link {
+  color: #F9E141;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.link:hover {
+  color: #ffe96b;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.declineBtn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(213, 255, 250, 0.3);
+  background: transparent;
+  color: #D5FFFA;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Urbanist', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.declineBtn:hover {
+  background: rgba(213, 255, 250, 0.1);
+}
+
+.acceptBtn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: #F9E141;
+  color: #082421;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Urbanist', sans-serif;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.acceptBtn:hover {
+  background: #ffe96b;
+}
+
+@media (max-width: 480px) {
+  .banner {
+    flex-direction: column;
+    align-items: flex-start;
+    bottom: 16px;
+  }
+
+  .actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

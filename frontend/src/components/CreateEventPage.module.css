@@ -1,0 +1,1257 @@
+.pageContainer {
+    background-color: #f8f9fa;
+    height: 100%;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    background: white;
+    padding: 16px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e9ecef;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.backButton {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+}
+
+.titleSection h1 {
+    font-family: 'Urbanist', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    margin: 0;
+    color: #000;
+}
+
+.titleSection p {
+    font-family: 'Urbanist', sans-serif;
+    font-size: 14px;
+    color: #666;
+    margin: 2px 0 0 0;
+}
+
+.headerActions {
+    display: flex;
+    gap: 12px;
+}
+
+.actionBtn {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: 'Urbanist', sans-serif;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.saveBtn {
+    background: #082421;
+    color: white;
+    border: none;
+}
+
+.content {
+    display: flex;
+    flex: 1;
+    padding: 24px 32px;
+    gap: 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.sidebar {
+    width: 200px;
+    flex-shrink: 0;
+}
+
+.navItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    border-radius: 8px;
+    color: #666;
+    font-family: 'Urbanist', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.navItem:hover {
+    background: #e9ecef;
+}
+
+.activeNav {
+    background: #e9ecef;
+    color: #000;
+}
+
+.mainForm {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.formGroup {
+    margin-bottom: 24px;
+}
+
+.formGroup:last-child {
+    margin-bottom: 0;
+}
+
+.label {
+    display: block;
+    font-family: 'Urbanist', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: #000;
+    margin-bottom: 8px;
+}
+
+.input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: 'Urbanist', sans-serif;
+    font-size: 14px;
+    transition: border-color 0.2s;
+    height: 48px;
+    /* Consistent height for inputs */
+    display: flex;
+    align-items: center;
+    /* For flex inputs container */
+    background: #fff;
+}
+
+.input:focus-within,
+.input:focus {
+    outline: none;
+    border-color: #082421;
+}
+
+.editor {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    min-height: 150px;
+}
+
+.editorToolbar {
+    border-bottom: 1px solid #e0e0e0;
+    padding: 8px;
+    display: flex;
+    gap: 12px;
+}
+
+.editorBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    font-weight: 600;
+}
+
+.editorContent {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    min-height: 120px;
+    border: none;
+    outline: none;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 14px;
+    color: #333;
+    background: transparent;
+    box-sizing: border-box;
+    line-height: 1.6;
+}
+
+.row {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    /* Ensure labels align at top */
+}
+
+.col {
+    flex: 1;
+    min-width: 0;
+    /* Prevent flex overflow */
+}
+
+.colorPicker {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    /* Allow wrapping on small screens */
+}
+
+.colorOption {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+    box-shadow: none;
+}
+
+.colorOption.selected {
+    border-color: #082421;
+    transform: scale(1.1);
+    box-shadow: none;
+}
+
+.locationSelector {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.locationChip {
+    background: #f1f3f4;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    width: fit-content;
+    min-width: 150px;
+    transition: background 0.2s;
+}
+
+
+/* Schedule Tab */
+.scheduleSection {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    box-shadow: none;
+    /* Remove shadow for cleaner flat look, or keep subtle if preferred */
+    margin-bottom: 24px;
+}
+
+.scheduleSection:last-child {
+    margin-bottom: 0;
+}
+
+.scheduleSection h3 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a1a;
+    font-family: 'Urbanist', sans-serif;
+}
+
+.scheduleSection p {
+    margin: 0 0 24px 0;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+}
+
+.rowInputs {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.smallInput {
+    width: 100px;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: 'Urbanist', sans-serif;
+    transition: all 0.2s;
+}
+
+.smallInput:focus {
+    outline: none;
+    border-color: #082421;
+}
+
+.selectInput {
+    padding: 10px 36px 10px 12px;
+    /* Extra right padding for arrow */
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: white;
+    font-size: 14px;
+    font-family: 'Urbanist', sans-serif;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L2 4h8z' fill='%23666'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+}
+
+.selectInput:focus {
+    outline: none;
+    border-color: #082421;
+}
+
+.addDurationBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: #3787F8;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.addDurationBtn:hover {
+    text-decoration: underline;
+    background: transparent;
+}
+
+.radioGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.radioOption {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    user-select: none;
+}
+
+.radioOption input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #082421;
+    cursor: pointer;
+}
+
+.scheduleGrid {
+    margin-top: 24px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.scheduleDay {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    align-items: center;
+    font-size: 14px;
+    color: #333;
+    padding: 4px 0;
+}
+
+.scheduleDay span:first-child {
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.scheduleDay.unavailable {
+    color: #888;
+}
+
+.scheduleDay.unavailable span:first-child {
+    color: #888;
+}
+
+.subInputContainer {
+    margin-left: 28px;
+    margin-bottom: 12px;
+}
+
+.scheduleActions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.scheduleActions .input {
+    flex: 1;
+}
+
+.sectionLabel {
+    margin: 24px 0 12px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.link {
+    color: #3787F8;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.link:hover {
+    color: #2666be;
+    text-decoration: underline;
+}
+
+/* Form Tab Styles */
+.formGroup {
+    margin-bottom: 32px;
+}
+
+.label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 8px;
+    font-family: 'Urbanist', sans-serif;
+}
+
+.templatesContainer {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
+.templateBtn {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: none;
+}
+
+.templateBtn:hover {
+    border-color: #3787F8;
+    color: #3787F8;
+    background: #f0f7ff;
+    box-shadow: none;
+}
+
+.questionsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    margin-top: 40px;
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 12px;
+}
+
+.addQuestionBtn {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.addQuestionBtn:hover {
+    border-color: #333;
+    background: #f8f9fa;
+}
+
+.questionsList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.questionItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.questionItem:hover {
+    box-shadow: none;
+    border-color: #d0d0d0;
+}
+
+.questionItem:hover .questionActions {
+    opacity: 1;
+}
+
+.questionLeft {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.dragHandle {
+    color: #d0d0d0;
+    cursor: grab;
+    font-size: 20px;
+    user-select: none;
+    display: flex;
+    align-items: center;
+}
+
+.dragHandle:hover {
+    color: #999;
+}
+
+.questionContent {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.questionLabel {
+    font-weight: 600;
+    font-size: 15px;
+    color: #1a1a1a;
+}
+
+.requiredBadge {
+    background: #f3f3f3;
+    color: #666;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+    margin-left: 12px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.questionActions {
+    display: flex;
+    gap: 12px;
+    opacity: 1;
+    transition: opacity 0.2s;
+}
+
+.iconBtn {
+    background: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    color: #888;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.iconBtn:hover {
+    background: #f0f0f0;
+    color: #333;
+    border-color: #e0e0e0;
+}
+
+/* Modal Styles */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: white;
+    border-radius: 12px;
+    box-shadow: none;
+    width: 500px;
+    max-width: 90%;
+    margin: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modalHeader {
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.modalHeader h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a1a;
+    font-family: 'Urbanist', sans-serif;
+}
+
+.closeButton {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #999;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.closeButton:hover {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.modalBody {
+    padding: 24px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.modalFooter {
+    padding: 16px 24px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: #f8f9fa;
+}
+
+/* Toggle Switch */
+.toggleSwitch {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggleInput {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggleSlider {
+    position: relative;
+    cursor: pointer;
+    width: 44px;
+    height: 24px;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.toggleSlider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+.toggleInput:checked+.toggleSlider {
+    background-color: #082421;
+}
+
+.toggleInput:checked+.toggleSlider:before {
+    transform: translateX(20px);
+}
+
+/* Multi-Select Styles */
+.multiSelectContainer {
+    position: relative;
+    width: 100%;
+}
+
+.multiSelectTrigger {
+    width: 100%;
+    min-height: 48px;
+    padding: 8px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: white;
+    font-size: 14px;
+    font-family: 'Urbanist', sans-serif;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.tagsContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    flex: 1;
+}
+
+.gatewayTag {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 16px;
+    padding: 4px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1a1a1a;
+    box-shadow: none;
+}
+
+.tagRemoveBtn {
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 50%;
+    color: #666;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.tagRemoveBtn:hover {
+    background: #f0f0f0;
+    color: #000;
+}
+
+.chevronDown {
+    color: #666;
+    font-size: 20px;
+    margin-left: 8px;
+}
+
+.multiSelectDropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    z-index: 100;
+    padding: 4px 0;
+}
+
+.checkboxOption {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.checkboxOption:hover {
+    background: #f8f9fa;
+}
+
+.checkboxOption input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #082421;
+    cursor: pointer;
+}
+
+/* Pricing Form Styles */
+.pricingList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.priceItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.priceDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.priceAmount {
+    font-weight: 700;
+    color: #1a1a1a;
+    font-size: 15px;
+}
+
+.priceLabel {
+    font-size: 13px;
+    color: #666;
+}
+
+.priceInputForm {
+    width: 100%;
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.priceInputRow {
+    display: flex;
+    gap: 12px;
+}
+
+
+
+.actionButtons {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.cancelBtn {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #666;
+    cursor: pointer;
+    font-family: 'Urbanist', sans-serif;
+}
+
+.savePriceBtn {
+    background: #082421;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: white;
+    cursor: pointer;
+    font-family: 'Urbanist', sans-serif;
+}
+
+.toggleLabel {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+    font-family: 'Urbanist', sans-serif;
+}
+
+/* Custom Select styling to match design */
+.selectInput {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background-color: white;
+    font-size: 14px;
+    font-family: 'Urbanist', sans-serif;
+    color: #333;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L2 4h8z' fill='%23666'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    transition: border-color 0.2s;
+}
+
+.selectInput:focus {
+    outline: none;
+    border-color: #082421;
+}
+
+.input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: 'Urbanist', sans-serif;
+    font-size: 14px;
+    color: #333;
+    transition: border-color 0.2s;
+}
+
+.input:focus {
+    outline: none;
+    border-color: #082421;
+}
+
+/* Payment Tab Styles */
+.paymentSection {
+    background: white;
+    padding: 32px;
+    border-radius: 12px;
+    border: 1px solid #e0e0e0;
+    margin-bottom: 24px;
+}
+
+.paymentHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.paymentHeader h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1a1a;
+    font-family: 'Urbanist', sans-serif;
+}
+
+.paymentDescription {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.5;
+}
+
+.paymentGatewaySelect {
+    margin-top: 16px;
+}
+
+.pricingContainer {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: #fff;
+    margin-top: 16px;
+}
+
+.noPricesText {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+}
+
+.addPriceBtn {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Urbanist', sans-serif;
+}
+
+.addPriceBtn:hover {
+    background: #f8f9fa;
+    border-color: #d0d0d0;
+}
+
+.connectionsLink {
+    margin-top: 24px;
+    font-size: 13px;
+    color: #666;
+}
+
+/* Payment UI Fixes */
+.currencySelect {
+    width: 100px !important;
+    min-width: 100px;
+    flex-shrink: 0;
+}
+
+.priceAmountInput {
+    flex: 1;
+    min-width: 0;
+}
+
+.priceInputRow {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+/* Toggle Switch (Copied from QuestionModal) */
+.toggleSwitch {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggleInput {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.toggleSlider {
+    position: relative;
+    cursor: pointer;
+    width: 44px;
+    height: 24px;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.toggleSlider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+.toggleInput:checked+.toggleSlider {
+    background-color: #082421;
+}
+
+.toggleInput:checked+.toggleSlider:before {
+    transform: translateX(20px);
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .content {
+    padding: 20px 24px;
+    gap: 24px;
+  }
+
+  .sidebar {
+    width: 160px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .headerLeft {
+    gap: 12px;
+  }
+
+  .titleSection h1 {
+    font-size: 18px;
+  }
+
+  .titleSection p {
+    font-size: 13px;
+  }
+
+  .headerActions {
+    gap: 8px;
+  }
+
+  .actionBtn {
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .content {
+    flex-direction: column;
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .sidebar {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 4px;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .navItem {
+    white-space: nowrap;
+    flex-shrink: 0;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .card {
+    padding: 18px;
+  }
+
+  .row {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .scheduleSection {
+    padding: 20px;
+  }
+
+  .scheduleDay {
+    grid-template-columns: 50px 1fr;
+  }
+
+  .rowInputs {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .priceInputRow {
+    flex-direction: column;
+  }
+
+  .currencySelect {
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 10px 12px;
+  }
+
+  .titleSection h1 {
+    font-size: 16px;
+  }
+
+  .content {
+    padding: 12px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  .scheduleSection {
+    padding: 16px;
+  }
+
+  .actionBtn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}

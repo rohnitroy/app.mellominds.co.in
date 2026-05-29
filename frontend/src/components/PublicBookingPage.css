@@ -1,0 +1,969 @@
+/* ── Container ─────────────────────────────────────────────────────────────── */
+
+/* Allow scroll on the public booking page — App.css sets overflow:hidden on
+   html/body for the dashboard layout. This class is added/removed by the
+   PublicBookingPage component on mount/unmount. */
+html.pbp-page,
+body.pbp-page {
+    overflow: auto !important;
+    height: auto !important;
+}
+
+.pbp-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    background: #f4f6f9;
+    font-family: 'Urbanist', 'Inter', sans-serif;
+    padding: 24px 16px;
+    box-sizing: border-box;
+}
+
+/* ── Grid ──────────────────────────────────────────────────────────────────── */
+.pbp-grid {
+    display: grid;
+    grid-template-columns: 300px 380px 260px;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+    overflow: hidden;
+    width: 100%;
+    max-width: 980px;
+    height: 85vh;
+    min-height: 560px;
+}
+
+.pbp-grid-details {
+    grid-template-columns: 300px 1fr;
+    height: 85vh;
+    min-height: 560px;
+}
+
+/* ── Service Panel ─────────────────────────────────────────────────────────── */
+.pbp-col-service {
+    padding: 36px 28px;
+    border-right: 1px solid #f0f0f0;
+    background: #fff;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.pbp-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: #555;
+    padding: 0;
+    margin-bottom: 20px;
+    transition: color 0.15s;
+}
+.pbp-back-btn:hover { color: #082421; }
+
+.pbp-logo {
+    margin-bottom: 24px;
+}
+
+.pbp-service-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f1a19;
+    margin: 0 0 8px;
+    line-height: 1.3;
+}
+
+.pbp-therapist {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 500;
+    margin-bottom: 14px;
+}
+
+.pbp-service-desc {
+    font-size: 13px;
+    color: #555;
+    line-height: 1.65;
+    margin: 0 0 20px;
+}
+
+.pbp-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.pbp-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #444;
+    font-weight: 500;
+}
+.pbp-meta-row svg { color: #2D7579; flex-shrink: 0; }
+
+/* ── Calendar Column ───────────────────────────────────────────────────────── */
+.pbp-col-calendar {
+    padding: 36px 28px;
+    border-right: 1px solid #f0f0f0;
+    overflow-y: auto;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.pbp-col-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.pbp-col-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f1a19;
+    margin: 0;
+}
+
+.pbp-tz-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    background: #f3f4f6;
+    padding: 5px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.pbp-tz-pill svg { color: #2D7579; }
+
+/* ── Slots Column ──────────────────────────────────────────────────────────── */
+.pbp-col-slots {
+    padding: 36px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.pbp-next-container {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.pbp-next-btn {
+    width: 100%;
+    padding: 13px;
+    background: #082421;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.pbp-next-btn:hover { background: #0d3330; }
+
+/* ── Details Column ────────────────────────────────────────────────────────── */
+.pbp-col-details {
+    padding: 36px 40px;
+    overflow-y: auto;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.pbp-details-form {
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.pbp-details-heading {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f1a19;
+    margin: 0 0 24px;
+}
+
+/* ── Slot Summary ──────────────────────────────────────────────────────────── */
+.pbp-slot-summary {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: #f8fffe;
+    border: 1px solid #d1ede9;
+    border-radius: 10px;
+    margin-bottom: 28px;
+}
+
+.pbp-slot-badge {
+    background: #082421;
+    color: #fff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: center;
+    min-width: 52px;
+    flex-shrink: 0;
+}
+.pbp-slot-month { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.pbp-slot-day { font-size: 22px; font-weight: 800; line-height: 1.1; }
+
+.pbp-slot-info { display: flex; flex-direction: column; gap: 3px; }
+.pbp-slot-date { font-size: 15px; font-weight: 600; color: #0f1a19; }
+.pbp-slot-time { font-size: 13px; color: #555; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+.pbp-tz-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #2D7579;
+    background: #edfaf8;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+.pbp-tz-badge svg { color: #2D7579; }
+
+/* ── Form Elements ─────────────────────────────────────────────────────────── */
+.pbp-form-group {
+    margin-bottom: 18px;
+}
+
+.pbp-form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 7px;
+}
+
+.pbp-required { color: #e53e3e; margin-left: 2px; }
+
+.pbp-input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    color: #1a1a1a;
+    background: #fafafa;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+.pbp-input:focus { outline: none; border-color: #2D7579; background: #fff; }
+
+.pbp-textarea {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    color: #1a1a1a;
+    background: #fafafa;
+    box-sizing: border-box;
+    resize: vertical;
+    transition: border-color 0.15s;
+}
+.pbp-textarea:focus { outline: none; border-color: #2D7579; background: #fff; }
+
+.pbp-select { appearance: none; cursor: pointer; }
+
+.pbp-phone-group {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fafafa;
+}
+.pbp-country-code {
+    padding: 11px 14px;
+    background: #f3f4f6;
+    border-right: 1px solid #e0e0e0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+}
+.pbp-phone-group .pbp-input {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+}
+.pbp-phone-group .pbp-input:focus { border: none; }
+
+/* ── Radio / Checkbox groups ───────────────────────────────────────────────── */
+.pbp-radio-group, .pbp-checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.pbp-radio-label, .pbp-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+}
+
+/* ── Custom checkbox ───────────────────────────────────────────────────────── */
+.pbp-custom-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #d1d5db;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    background: #fff;
+}
+.pbp-custom-checkbox.checked {
+    background: #082421;
+    border-color: #082421;
+}
+
+.pbp-terms-group {
+    margin: 20px 0;
+    padding: 14px 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+.pbp-terms-group .pbp-checkbox-label { font-size: 13px; color: #444; }
+.pbp-link { color: #2D7579; text-decoration: underline; }
+
+/* ── Selection Cards ───────────────────────────────────────────────────────── */
+.pbp-selection-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.pbp-selection-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    padding: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    transition: all 0.15s;
+}
+.pbp-selection-card:hover { border-color: #b0b0b0; }
+.pbp-selection-card.selected { border-color: #082421; background: #f8fffe; box-shadow: 0 0 0 1px #082421 inset; }
+
+.pbp-card-radio {
+    width: 18px; height: 18px;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+}
+.pbp-selection-card.selected .pbp-card-radio { border-color: #082421; }
+.pbp-radio-inner { width: 10px; height: 10px; background: #082421; border-radius: 50%; }
+
+.pbp-card-title {
+    font-size: 13px; font-weight: 600; color: #1a1a1a;
+    display: flex; align-items: center; gap: 6px;
+}
+.pbp-card-title svg { color: #2D7579; }
+.pbp-card-desc { font-size: 12px; color: #6b7280; margin-top: 3px; }
+
+/* ── Price ─────────────────────────────────────────────────────────────────── */
+.pbp-price-row {
+    font-size: 16px;
+    font-weight: 700;
+    color: #082421;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pbp-price-label { font-size: 12px; font-weight: 400; color: #6b7280; }
+
+/* ── Form Actions ──────────────────────────────────────────────────────────── */
+.pbp-form-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.pbp-confirm-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 28px;
+    background: #082421;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.pbp-confirm-btn:hover { background: #0d3330; }
+.pbp-confirm-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.pbp-confirm-btn svg { color: #fff; }
+
+.pbp-cancel-btn {
+    padding: 13px 20px;
+    background: none;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.pbp-cancel-btn:hover { background: #f5f5f5; }
+
+/* ── Success ───────────────────────────────────────────────────────────────── */
+.pbp-success-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 56px 48px;
+    text-align: center;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+}
+.pbp-success-icon {
+    width: 72px; height: 72px;
+    background: #edfaf8;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+}
+.pbp-success-card h2 { font-size: 24px; font-weight: 800; color: #0f1a19; margin: 0 0 12px; }
+.pbp-success-card p { font-size: 15px; color: #444; margin: 0 0 8px; }
+.pbp-success-sub { font-size: 13px; color: #6b7280; }
+
+/* ── Confirmation Card ─────────────────────────────────────────────────────── */
+.pbp-confirm-card {
+    background: #fff;
+    border-radius: 20px;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+
+.pbp-confirm-header {
+    background: #082421;
+    padding: 32px 32px 28px;
+    text-align: center;
+}
+
+.pbp-confirm-check {
+    width: 60px;
+    height: 60px;
+    background: #2D7579;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.pbp-confirm-title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 8px;
+}
+
+.pbp-confirm-subtitle {
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    margin: 0;
+}
+.pbp-confirm-subtitle strong { color: #fff; }
+
+.pbp-confirm-body {
+    padding: 28px 32px 32px;
+}
+
+.pbp-confirm-detail-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.pbp-confirm-date-badge {
+    background: #082421;
+    color: #fff;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    min-width: 56px;
+    flex-shrink: 0;
+}
+
+.pbp-confirm-info { display: flex; flex-direction: column; gap: 4px; }
+.pbp-confirm-service { font-size: 16px; font-weight: 700; color: #0f1a19; }
+.pbp-confirm-therapist { font-size: 13px; color: #6b7280; font-weight: 500; }
+.pbp-confirm-time { font-size: 14px; font-weight: 600; color: #333; margin-top: 2px; }
+.pbp-confirm-tz {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #2D7579;
+    margin-top: 2px;
+}
+
+.pbp-confirm-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.pbp-confirm-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #444;
+    font-weight: 500;
+}
+.pbp-confirm-meta-item svg { color: #2D7579; flex-shrink: 0; }
+
+.pbp-meet-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    background: #1a73e8;
+    color: #fff;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    transition: background 0.15s;
+    box-sizing: border-box;
+}
+.pbp-meet-btn:hover { background: #1558b0; }
+
+.pbp-gcal-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
+    background: #f3f4f6;
+    color: #082421;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    transition: background 0.15s;
+    box-sizing: border-box;
+    border: 1px solid #e0e0e0;
+}
+.pbp-gcal-btn:hover { background: #e5e7eb; }
+
+.pbp-confirm-manage {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 20px;
+    text-align: center;
+}
+
+.pbp-confirm-manage-label {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0 0 12px;
+}
+
+.pbp-confirm-manage-btns {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.pbp-manage-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s;
+    font-family: inherit;
+}
+
+.pbp-manage-cancel {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    color: #555;
+}
+.pbp-manage-cancel:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+
+.pbp-manage-reschedule {
+    background: #082421;
+    border: 1px solid #082421;
+    color: #fff;
+}
+.pbp-manage-reschedule:hover { background: #0d3330; }
+
+.pbp-confirm-manage-note {
+    font-size: 11px;
+    color: #9ca3af;
+    margin: 10px 0 0;
+}
+
+/* ── Error ─────────────────────────────────────────────────────────────────── */
+.pbp-error {
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; font-family: sans-serif; color: #666; font-size: 16px;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    /* Container: tighter padding on tablets */
+    .pbp-container {
+        padding: 16px 12px;
+        align-items: flex-start;
+    }
+
+    /* Grid: collapse to single column, remove fixed height so content flows naturally */
+    .pbp-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: unset;
+        max-height: none;
+        border-radius: 16px;
+    }
+    .pbp-grid-details {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: unset;
+    }
+
+    /* All columns: remove fixed height, allow natural scroll */
+    .pbp-col-service {
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 24px 20px;
+    }
+    .pbp-col-calendar {
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #f0f0f0;
+        padding: 24px 20px;
+    }
+
+    /* Slots column: switch from fixed-height flex to natural flow */
+    .pbp-col-slots {
+        height: auto;
+        overflow: visible;
+        padding: 24px 20px;
+    }
+
+    /* Time slot list: remove overflow hidden so all slots show */
+    .time-slot-list {
+        flex: none;
+        overflow: visible;
+    }
+    .slots-scroll-container {
+        overflow: visible;
+        flex: none;
+        max-height: none;
+    }
+
+    /* Next button: no longer needs margin-top: auto */
+    .pbp-next-container {
+        margin-top: 16px;
+    }
+
+    /* Details column */
+    .pbp-col-details {
+        height: auto;
+        padding: 24px 20px;
+    }
+
+    /* Selection cards: stack vertically */
+    .pbp-selection-cards {
+        grid-template-columns: 1fr;
+    }
+
+    /* Meta row: allow wrapping on small screens */
+    .pbp-meta {
+        margin-top: 16px;
+    }
+
+    /* Form actions: stack buttons on small screens */
+    .pbp-form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .pbp-confirm-btn {
+        justify-content: center;
+        width: 100%;
+    }
+    .pbp-cancel-btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Extra small phones */
+    .pbp-container {
+        padding: 12px 8px;
+    }
+
+    .pbp-grid,
+    .pbp-grid-details {
+        border-radius: 12px;
+    }
+
+    .pbp-col-service,
+    .pbp-col-calendar,
+    .pbp-col-slots,
+    .pbp-col-details {
+        padding: 20px 16px;
+    }
+
+    .pbp-service-title {
+        font-size: 18px;
+    }
+
+    .pbp-details-heading {
+        font-size: 18px;
+    }
+
+    /* Slot summary: keep badge and info side by side but allow wrapping */
+    .pbp-slot-summary {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    /* Success card: reduce padding on small phones */
+    .pbp-success-card {
+        padding: 36px 20px;
+    }
+    .pbp-success-card h2 {
+        font-size: 20px;
+    }
+
+    /* Confirmation card mobile */
+    .pbp-confirm-card {
+        border-radius: 16px;
+    }
+    .pbp-confirm-header {
+        padding: 24px 20px 20px;
+    }
+    .pbp-confirm-body {
+        padding: 20px 20px 24px;
+    }
+    .pbp-confirm-manage-btns {
+        flex-direction: column;
+    }
+    .pbp-manage-btn {
+        text-align: center;
+    }
+
+    /* Timezone pill: allow text to wrap if needed */
+    .pbp-tz-pill {
+        white-space: normal;
+        text-align: right;
+    }
+
+    /* Col header: wrap if title + tz pill are too wide */
+    .pbp-col-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
+
+/* ── InlineCalendar classes ────────────────────────────────────────────────── */
+.inline-calendar { width: 100%; }
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.current-month {
+    font-weight: 700;
+    font-size: 15px;
+    color: #1a1a1a;
+}
+
+.nav-btn {
+    border: none;
+    background: #f3f4f6;
+    cursor: pointer;
+    color: #444;
+    padding: 6px 8px;
+    border-radius: 6px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+.nav-btn:hover { background: #e5e7eb; color: #000; }
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #9ca3af;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.calendar-grid-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    row-gap: 4px;
+}
+
+.calendar-day {
+    height: 34px;
+    width: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.15s;
+    color: #333;
+}
+.calendar-day:hover:not(.disabled):not(.empty) { background: #f0fdf4; color: #082421; }
+.calendar-day.selected { background: #082421; color: #fff; font-weight: 700; }
+.calendar-day.today:not(.selected) { border: 2px solid #2D7579; color: #2D7579; font-weight: 700; }
+.calendar-day.empty { cursor: default; }
+.calendar-day.disabled { cursor: not-allowed; opacity: 0.3; }
+.calendar-day.disabled:hover { background: transparent; }
+
+/* ── TimeSlotList classes ──────────────────────────────────────────────────── */
+.time-slot-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.slot-header {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0 0 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+}
+
+.slots-scroll-container {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 2px;
+    min-height: 0;
+}
+
+.no-slots {
+    font-size: 13px;
+    color: #9ca3af;
+    text-align: center;
+    padding: 20px 0;
+}
+
+.time-slot-btn {
+    width: 100%;
+    margin-bottom: 8px;
+    padding: 11px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    transition: all 0.15s;
+    text-align: left;
+}
+.time-slot-btn:hover { border-color: #2D7579; background: #f0fdf4; color: #082421; }
+.time-slot-btn.selected { border-color: #082421; background: #f0fdf4; color: #082421; font-weight: 700; }
+
+.status-dot {
+    height: 8px;
+    width: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+.status-dot.available { background: #22c55e; }
+
+/* ── Session mode info (single mode, read-only) ────────────────────────────── */
+.pbp-session-mode-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    background: #f8fffe;
+    border: 1px solid #d1ede9;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #0f1a19;
+}
+.pbp-session-mode-info svg { color: #2D7579; flex-shrink: 0; }

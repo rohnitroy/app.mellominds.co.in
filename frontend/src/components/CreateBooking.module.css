@@ -1,0 +1,482 @@
+.createBookingContent {
+  flex: 1;
+  padding: 32px;
+  background: #f8f9fa;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 32px;
+  gap: 16px;
+}
+
+.backButton {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.backButton img {
+  width: 28px;
+  height: 28px;
+}
+
+.pageHeader h1 {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #000000;
+  margin: 0;
+}
+
+.formContainer {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: none;
+  border: 1px solid #f1f3f4;
+}
+
+.formRow {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.formRow:last-of-type {
+  margin-bottom: 32px;
+}
+
+.formGroup {
+  flex: 1;
+}
+
+.label {
+  display: block;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #000000;
+  margin-bottom: 8px;
+}
+
+.required {
+  color: #ff0000;
+}
+
+.input {
+  width: 100%;
+  height: 50px;
+  padding: 0 16px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  background: white;
+  color: #000000;
+  box-sizing: border-box;
+}
+
+.input::placeholder {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #6E6E6E;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #2D7579;
+}
+
+.phoneInputContainer {
+  display: flex;
+  height: 50px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.countryCode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  background: #f8f9fa;
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #000000;
+  min-width: 60px;
+}
+
+.phoneInput {
+  flex: 1;
+  border: none;
+  padding: 0 16px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  background: white;
+  color: #000000;
+}
+
+.phoneInput::placeholder {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #6E6E6E;
+}
+
+.phoneInput:focus {
+  outline: none;
+}
+
+.dateInputContainer {
+  position: relative;
+  width: 100%;
+}
+
+.dateInput {
+  width: 100%;
+  height: 50px;
+  padding: 0 50px 0 16px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  background: white;
+  color: #000000;
+  box-sizing: border-box;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: #2D7579;
+}
+
+.dateInput::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  width: 50px;
+  height: 100%;
+  cursor: pointer;
+}
+
+.calendarIcon {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+  z-index: 1;
+  filter: brightness(0) saturate(100%) invert(70%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(90%) contrast(90%);
+}
+
+.selectContainer {
+  position: relative;
+  width: 100%;
+}
+
+.select {
+  width: 100%;
+  height: 50px;
+  padding: 0 40px 0 16px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  background: white;
+  color: #6E6E6E;
+  box-sizing: border-box;
+  appearance: none;
+  cursor: pointer;
+}
+
+.select:focus {
+  outline: none;
+  border-color: #2D7579;
+  color: #000000;
+}
+
+.selectContainer::after {
+  content: '▼';
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6E6E6E;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.availableSlotsSection {
+  margin-bottom: 40px;
+}
+
+.slotsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.slotsHeader h3 {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #000000;
+  margin: 0;
+}
+
+.sessionTypeOptions {
+  display: flex;
+  gap: 24px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #000000;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  appearance: none;
+  position: relative;
+  background: white;
+}
+
+.checkbox:checked {
+  background: #2D7579;
+  border-color: #2D7579;
+}
+
+.checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.timeSlots {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.timeSlot {
+  padding: 12px 24px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  background: #D5FFFA;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #000000;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.timeSlot:hover {
+  background: #B8F5F0;
+  border-color: #2D7579;
+}
+
+.selectedSlot {
+  background: #2D7579 !important;
+  color: white !important;
+  border-color: #2D7579 !important;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.grandTotal {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.totalLabel {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: #6E6E6E;
+}
+
+.totalAmount {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: #000000;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 16px;
+}
+
+.payLaterBtn {
+  padding: 12px 24px;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  background: white;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #000000;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.payLaterBtn:hover {
+  background: #f8f9fa;
+  border-color: #2D7579;
+}
+
+.sendPaymentBtn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #082421;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sendPaymentBtn:hover {
+  background: #0a2d28;
+}
+
+.calendarDropdown {
+  font-size: 14px !important;
+}
+
+.calendarDropdown * {
+  font-size: 14px !important;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 768px) {
+  .createBookingContent {
+    padding: 20px 16px;
+  }
+
+  .formContainer {
+    padding: 20px 16px;
+  }
+
+  .formRow {
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .footer {
+    flex-direction: column;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .grandTotal {
+    justify-content: space-between;
+  }
+
+  .actionButtons {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .payLaterBtn,
+  .sendPaymentBtn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .timeSlots {
+    gap: 10px;
+  }
+
+  .timeSlot {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .sessionTypeOptions {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .createBookingContent {
+    padding: 16px 12px;
+  }
+
+  .formContainer {
+    padding: 16px 12px;
+  }
+
+  .pageHeader h1 {
+    font-size: 20px;
+  }
+
+  .timeSlot {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+}

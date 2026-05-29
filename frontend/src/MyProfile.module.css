@@ -1,0 +1,369 @@
+.profilePage {
+  flex: 1;
+  background: #f8f9fa;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.profileHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.profileHeader h1 {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 30px;
+  color: #000000;
+  margin: 0 0 4px 0;
+}
+
+.profileHeader p {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  color: #6E6E6E;
+  margin: 0;
+}
+
+.saveBtn {
+  background: #082421;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.saveBtn:hover,
+.saveBtn:active {
+  background: #1f5a5e;
+}
+
+.profileContent {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.profileImageSection {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.profileAvatar {
+  width: 120px;
+  height: 120px;
+  background: #F9E141;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.profileImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.changeImageBtn {
+  background: none;
+  border: 1px solid #00403980;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #2D7579;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.changeImageBtn:hover,
+.changeImageBtn:active {
+  background: #2D7579;
+  color: white;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 24px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.formGroup label {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #050505;
+  margin-bottom: 8px;
+  margin-left: 10px;
+}
+
+.required {
+  color: #dc3545;
+}
+
+.formGroup input {
+  padding: 12px 16px;
+  border: 1px solid #00000080;
+  border-radius: 8px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #050505;
+  background: white;
+  height: auto;
+}
+
+.phoneInput {
+  display: flex;
+  gap: 8px;
+}
+
+.countryCode {
+  padding: 12px 16px;
+  border: 1px solid #00000080;
+  border-radius: 8px;
+  background: #f8f9fa;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6E6E6E;
+  display: flex;
+  align-items: center;
+}
+
+.phoneInput input {
+  flex: 1;
+}
+
+.selectWrapper {
+  position: relative;
+}
+
+.selectWrapper select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #00000080;
+  border-radius: 8px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #050505;
+  background: white;
+  appearance: none;
+  cursor: pointer;
+}
+
+.selectWrapper::after {
+  content: '▼';
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6E6E6E;
+  pointer-events: none;
+  font-size: 12px;
+}
+
+.sectionHeader {
+  margin-bottom: 28px;
+}
+
+.sectionTitle {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 20px;
+  color: #000000;
+  margin: 0 0 6px 0;
+}
+
+.sectionSubtitle {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 15px;
+  color: #6E6E6E;
+  margin: 0;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .formGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .profilePage {
+    padding: 16px 16px 100px 16px;
+  }
+
+  /* Header: title left, save button right — single row */
+  .profileHeader {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .headerLeft {
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .profileHeader h1 {
+    font-size: 20px;
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .profileHeader p {
+    display: none;
+  }
+
+  /* Save button — compact, right-aligned */
+  .saveBtn {
+    flex-shrink: 0;
+    padding: 10px 16px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .profileContent {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  /* Profile image section — horizontal row */
+  .profileImageSection {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .profileAvatar {
+    width: 72px;
+    height: 72px;
+    flex-shrink: 0;
+  }
+
+  .changeImageBtn {
+    padding: 8px 14px;
+    font-size: 14px;
+  }
+
+  /* Form — single column */
+  .formGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .fullWidth {
+    grid-column: 1;
+  }
+
+  .formGroup label {
+    font-size: 14px;
+    margin-left: 4px;
+  }
+
+  .formGroup input {
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+
+  .sectionTitle {
+    font-size: 17px;
+  }
+
+  .sectionSubtitle {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .profilePage {
+    padding: 12px 12px 100px 12px;
+  }
+
+  .profileContent {
+    padding: 14px 12px;
+  }
+
+  .profileAvatar {
+    width: 60px;
+    height: 60px;
+  }
+
+  .changeImageBtn {
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .profileHeader h1 {
+    font-size: 20px;
+  }
+
+  .saveBtn {
+    padding: 9px 14px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  .backBtn {
+    display: none;
+  }
+}

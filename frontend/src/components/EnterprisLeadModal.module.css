@@ -1,0 +1,232 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+  padding: 20px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  padding: 40px 36px 36px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+}
+
+.modal::-webkit-scrollbar { width: 6px; }
+.modal::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 6px; }
+.modal::-webkit-scrollbar-thumb { background: #2D7579; border-radius: 6px; }
+
+.closeBtn {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  font-size: 30px;
+  color: #6E6E6E;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.2s;
+}
+.closeBtn:hover { color: #082421; }
+
+/* ── Header ── */
+.header {
+  margin-bottom: 28px;
+}
+
+.badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #2D7579, #1f5a5e);
+  color: #fff;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 12px;
+}
+
+.header h2 {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  color: #082421;
+  margin: 0 0 8px;
+}
+
+.header p {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 15px;
+  color: #6E6E6E;
+  margin: 0;
+}
+
+/* ── Form ── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #082421;
+}
+
+.field label span {
+  color: #e53935;
+  margin-left: 2px;
+}
+
+.optional {
+  color: #9CA3AF !important;
+  font-weight: 500 !important;
+}
+
+.field input,
+.field textarea {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  color: #082421;
+  background: #f8fafa;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 11px 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  resize: none;
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: #2D7579;
+  box-shadow: 0 0 0 3px rgba(45, 117, 121, 0.1);
+  background: #fff;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: #b0b8b8;
+}
+
+/* ── Error ── */
+.error {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 13px;
+  color: #e53935;
+  background: #fff5f5;
+  border: 1px solid #ffcdd2;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 0;
+}
+
+/* ── Submit ── */
+.submitBtn {
+  width: 100%;
+  padding: 14px;
+  background: #082421;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  margin-top: 4px;
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: #2D7579;
+  transform: translateY(-1px);
+}
+
+.submitBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ── Success State ── */
+.successState {
+  text-align: center;
+  padding: 20px 0 10px;
+}
+
+.successIcon {
+  width: 64px;
+  height: 64px;
+  background: #D5FFFA;
+  color: #2D7579;
+  border-radius: 50%;
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.successState h2 {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: #082421;
+  margin: 0 0 12px;
+}
+
+.successState p {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 15px;
+  color: #6E6E6E;
+  margin: 0 0 28px;
+  line-height: 1.6;
+}
+
+.doneBtn {
+  background: #082421;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 36px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.doneBtn:hover { background: #2D7579; }
+
+/* ── Responsive ── */
+@media (max-width: 520px) {
+  .modal { padding: 32px 20px 28px; }
+  .row { grid-template-columns: 1fr; }
+}

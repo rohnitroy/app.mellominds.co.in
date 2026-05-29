@@ -1,0 +1,1189 @@
+.clientView {
+  flex: 1;
+  background: #f8f9fa;
+  overflow-y: auto;
+}
+
+.clientLayout {
+  display: flex;
+  gap: 5px;
+  min-height: 100vh;
+}
+
+.leftPanel {
+  width: 500px;
+  background: #ffffff;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+
+.clientTitleSection {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.backButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.backButton img {
+  width: 24px;
+  height: 24px;
+}
+
+.clientInfo {
+  flex: 1;
+}
+
+.clientInfo h1 {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 25px;
+  line-height: 100%;
+  color: #000000;
+  margin: 0;
+}
+
+.clientInfo p {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 100%;
+  color: #00403999;
+  margin: 4px 0 0 0;
+}
+
+.editButton {
+  background: #082421;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #ffffff;
+  transition: background 0.2s;
+}
+
+.editButton:hover {
+  background: #2D7579;
+}
+
+.actionMenuWrapper {
+  position: relative;
+}
+
+.actionMenuBtn {
+  background: none;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 700;
+  color: #082421;
+  line-height: 1;
+  letter-spacing: 2px;
+  transition: background 0.2s;
+}
+
+.actionMenuBtn:hover {
+  background: #f1f3f4;
+}
+
+.actionMenuDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  min-width: 140px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.actionMenuItem {
+  padding: 12px 16px;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #082421;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.actionMenuItem:hover {
+  background: #f0faf9;
+  color: #2D7579;
+}
+
+.leftPanel .infoSection h3 {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #6E6E6E;
+  margin: 0 0 16px 0;
+}
+
+.leftPanel .contactItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #000000;
+}
+
+.leftPanel .contactItem img {
+  width: 20px;
+  height: 20px;
+}
+
+.leftPanel .emergencyContactCard {
+  border: 1px solid #00000080;
+  border-radius: 12px;
+  padding: 20px;
+  background: white;
+  max-width: 420px;
+}
+
+.leftPanel .emergencyName {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #000000;
+  margin-bottom: 8px;
+}
+
+.leftPanel .relationship {
+  color: #6E6E6E;
+  font-weight: 500;
+}
+
+.leftPanel .emergencyPhone {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #6E6E6E;
+}
+
+.leftPanel .demographicsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.leftPanel .demoRow {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.leftPanel .demoLabel {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: #000000;
+}
+
+.leftPanel .demoValue {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #6E6E6E;
+}
+
+.leftPanel .clinicalProfileCard {
+  border: 1px solid #00000080;
+  border-radius: 12px;
+  padding: 48px 24px;
+  background: white;
+  text-align: center;
+  max-width: 420px;
+}
+
+.leftPanel .addClinicalBtn {
+  background: none;
+  border: none;
+  color: #00403999;
+  cursor: pointer;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 18px;
+}
+
+.rightPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 5px 8px 8px 8px;
+}
+
+.tabNavigation {
+  display: flex;
+  justify-content: space-around;
+  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 0;
+  margin-left: -8px;
+  margin-right: -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  background: #ffffff;
+}
+
+.tabButton {
+  background: none;
+  border: none;
+  padding: 32px 8px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #6E6E6E;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex: 1;
+  text-align: center;
+}
+
+.tabButton.active {
+  color: #2D7579;
+  border-bottom: 5px solid #2D7579;
+}
+
+.overviewContent {
+  padding: 0;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.statCard {
+  background: white;
+  border: 1px solid #0040394D;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: left;
+}
+
+.statLabel {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #6E6E6E;
+  margin-bottom: 8px;
+}
+
+.statValue {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: #000000;
+  line-height: 1;
+}
+
+.tabContent {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sessionsHeader {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+.dateSelector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 24px;
+  border: 1px solid #e9ecef;
+  cursor: pointer;
+  font-weight: 500;
+  box-shadow: none;
+  position: relative;
+  color: #6E6E6E;
+  font-size: 14px;
+  font-family: 'Urbanist', sans-serif;
+  height: 50px;
+  transition: all 0.2s ease;
+}
+
+.dateSelector:hover {
+  border-color: rgba(0, 0, 0, 0.5);
+}
+
+.dateIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+}
+
+.dateIcon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.dropdownArrow {
+  color: #6E6E6E;
+  font-size: 12px;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropdownArrow svg {
+  width: 12px;
+  height: 12px;
+}
+
+.dateDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 16px;
+  box-shadow: none;
+  z-index: 10;
+  margin-top: 4px;
+}
+
+.dropdownHeader {
+  padding: 8px 16px;
+  font-family: Urbanist;
+  font-weight: 600;
+  font-style: SemiBold;
+  font-size: 15px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #2D7579;
+  border-bottom: 2px solid #e9ecef;
+  text-align: center;
+}
+
+.dropdownItem {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #6E6E6E;
+  cursor: pointer;
+  transition: background 0.2s;
+  text-align: center;
+}
+
+.dropdownItem:hover {
+  background: #f8f9fa;
+}
+
+.sessionList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 20px;
+  padding-bottom: 80px;
+}
+
+.sessionItem {
+  background: white;
+  border: 1px solid #0040394D;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.sessionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #0040394D;
+  flex-wrap: wrap;
+  background: #f9fafb;
+  border-radius: 16px 16px 0 0;
+}
+
+.sessionHeader > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.sessionTime {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #082421;
+}
+
+.sessionTags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sessionMode {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  color: #6E6E6E;
+  background: #f1f3f4;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.sessionType {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 12px;
+  color: #2D7579;
+  background: #e8f5f5;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.sessionNotes {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.noteCard {
+  background: #f8fffe;
+  border: 1px solid #e0f0ef;
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.noteCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.noteDate {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 11px;
+  color: #9CA3AF;
+  font-weight: 500;
+}
+
+.noteEditBtn {
+  background: none;
+  border: 1px solid #d0d5dd;
+  border-radius: 6px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  color: #082421;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.noteEditBtn:hover {
+  background: #f1f3f4;
+  border-color: #adb5bd;
+}
+
+.noteFieldLabel {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6E6E6E;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.noteFieldValue {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.noteFieldValue:last-child {
+  margin-bottom: 0;
+}
+
+.notePlainText {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+  line-height: 1.6;
+}
+
+.noNotesText {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 13px;
+  color: #9CA3AF;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.addNotesSection {
+  position: fixed;
+  bottom: 28px;
+  right: 100px;
+  z-index: 1000;
+}
+
+.addNotesButton {
+  background: #F9E141;
+  border: 2px solid #08242180;
+  border-radius: 24px;
+  padding: 12px 24px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: #082421;
+  cursor: pointer;
+}
+
+.appointmentsSection {
+  margin-top: 32px;
+}
+
+.appointmentsSection h3 {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 25px;
+  line-height: 100%;
+  color: #082421;
+  margin: 0 0 24px 0;
+}
+
+.appointmentsTable {
+  background: white;
+  border-radius: 10px;
+  padding: 0 20px;
+  box-shadow: none;
+  border: 1px solid #f1f3f4;
+}
+
+.appointmentsTable .tableHeader {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  padding: 16px 0;
+  margin: 0 -20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  border-bottom: 1px solid #00000033;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #082421;
+  align-items: center;
+}
+
+.appointmentsTable .tableRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  padding: 14px 0;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 100%;
+  letter-spacing: 0%;
+  color: #1a1a1a;
+  align-items: center;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.appointmentsTable .tableRow:last-child {
+  border-bottom: none;
+}
+
+.appointmentsTable .tableFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  margin: 0 -20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  border-top: 1px solid #f1f3f4;
+  color: #9CA3AF;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.appointmentsTable .pagination {
+  display: flex;
+  gap: 4px;
+}
+
+.appointmentsTable .pagination img {
+  width: 25px;
+  height: 25px;
+  cursor: pointer;
+}
+
+.documentsContent {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.documentsContent .sessionsHeader {
+  margin-bottom: 10px;
+}
+
+.documentList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.documentItem {
+  background: white;
+  border: 1px solid #0040394D;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.documentInfo {
+  flex: 1;
+}
+
+.documentName {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: #000000;
+  margin-bottom: 4px;
+}
+
+.documentAction {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #6E6E6E;
+  cursor: pointer;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.addDocumentsBtn {
+  position: fixed;
+  bottom: 20px;
+  right: 30px;
+  background: #F9E141;
+  border: 2px solid #08242180;
+  border-radius: 24px;
+  padding: 12px 24px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: #082421;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.activityContent {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.activityContent .sessionsHeader {
+  margin-bottom: 10px;
+}
+
+.activityList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.activityItem {
+  background: white;
+  border: 1px solid #0040394D;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.activityInfo {
+  flex: 1;
+}
+
+.activityName {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: #000000;
+  margin-bottom: 4px;
+}
+
+.activityDescription {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #6E6E6E;
+}
+
+.addActivitiesBtn {
+  position: fixed;
+  bottom: 28px;
+  right: 100px;
+  background: #F9E141;
+  border: 2px solid #08242180;
+  border-radius: 24px;
+  padding: 12px 24px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  color: #082421;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.leftPanel .contactItem svg {
+  width: 20px;
+  height: 20px;
+}
+
+.backButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+.editButton svg {
+  width: 16px;
+  height: 16px;
+}
+
+.deleteBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 85vh;
+  overflow-y: auto;
+  margin: auto;
+}
+
+.modalContent h2 {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: #000000;
+  margin: 0 0 8px 0;
+}
+
+.modalContent p {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  color: #6E6E6E;
+  margin: 0 0 24px 0;
+}
+
+.formGroup {
+  margin-bottom: 20px;
+}
+
+.formGroup label {
+  display: block;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  color: #000000;
+  margin-bottom: 8px;
+}
+
+.formInput, .formSelect {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  color: #000000;
+  background: white;
+  box-sizing: border-box;
+}
+
+.formInput::placeholder {
+  color: #9CA3AF;
+}
+
+.formTextarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  color: #000000;
+  background: white;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.formTextarea::placeholder {
+  color: #9CA3AF;
+}
+
+.uploadArea {
+  border: 2px dashed #e9ecef;
+  border-radius: 12px;
+  padding: 40px 20px;
+  text-align: center;
+  margin-bottom: 20px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.uploadArea:hover {
+  border-color: #2D7579;
+}
+
+.uploadIcon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.uploadText {
+  font-family: 'Urbanist', sans-serif;
+  color: #6E6E6E;
+}
+
+.uploadText strong {
+  color: #000000;
+  font-weight: 600;
+}
+
+.modalSubmitBtn {
+  background: #082421;
+  color: white;
+  border: 1px solid #2D7579;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  width: auto;
+  transition: background 0.2s;
+  display: block;
+  margin: 0 auto;
+}
+
+.modalSubmitBtn:hover {
+  background: #1f5a5e;
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+@media (max-width: 1024px) {
+  .leftPanel {
+    width: 340px;
+    padding: 24px;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  /* Stack layout vertically */
+  .clientLayout {
+    flex-direction: column;
+    min-height: auto;
+    gap: 0;
+  }
+
+  /* Left panel: full width, compact */
+  .leftPanel {
+    width: 100%;
+    padding: 16px;
+    gap: 20px;
+    border-bottom: 1px solid #f1f3f4;
+  }
+
+  /* Client title row: name left, action menu right */
+  .clientTitleSection {
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  /* Hide back button on mobile — use bottom nav */
+  .backButton {
+    display: none;
+  }
+
+  .clientInfo h1 {
+    font-size: 20px;
+    margin: 0 0 2px 0;
+  }
+
+  .clientInfo p {
+    font-size: 13px;
+  }
+
+  /* Info sections: tighter spacing */
+  .infoSection h3 {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .contactItem {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .emergencyContactCard {
+    padding: 14px;
+  }
+
+  .emergencyName {
+    font-size: 14px;
+  }
+
+  .emergencyPhone {
+    font-size: 13px;
+  }
+
+  .demoLabel {
+    font-size: 14px;
+  }
+
+  .demoValue {
+    font-size: 13px;
+  }
+
+  /* Right panel: full width */
+  .rightPanel {
+    padding: 0;
+  }
+
+  /* Tabs: scrollable row */
+  .tabNavigation {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    justify-content: flex-start;
+    padding: 0 16px;
+    margin: 0;
+    border-bottom: 1px solid #e9ecef;
+  }
+
+  .tabNavigation::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tabButton {
+    padding: 16px 14px;
+    font-size: 13px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  /* Tab content padding */
+  .tabContent {
+    padding: 0 16px;
+  }
+
+  .overviewContent {
+    padding: 16px 0;
+  }
+
+  /* Stats: 2x3 grid */
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .statCard {
+    padding: 14px 12px;
+  }
+
+  .statLabel {
+    font-size: 13px;
+  }
+
+  .statValue {
+    font-size: 22px;
+  }
+
+  /* Sessions header */
+  .sessionsHeader {
+    margin-bottom: 12px;
+  }
+
+  /* Session items */
+  .sessionHeader {
+    padding: 12px 14px;
+  }
+
+  .sessionTime {
+    font-size: 13px;
+  }
+
+  .sessionNotes {
+    padding: 12px 14px;
+  }
+
+  /* Appointments table */
+  .appointmentsSection h3 {
+    font-size: 17px;
+    margin-bottom: 16px;
+  }
+
+  /* Floating action buttons */
+  .addNotesSection,
+  .addDocumentsBtn,
+  .addActivitiesBtn {
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .addNotesButton,
+  .addDocumentsBtn,
+  .addActivitiesBtn {
+    font-size: 14px;
+    padding: 10px 18px;
+  }
+
+  /* Modals */
+  .modalContent {
+    padding: 20px 16px;
+    width: 95%;
+    max-height: 80vh;
+  }
+
+  .modalContent h2 {
+    font-size: 20px;
+  }
+
+  .formGroup label {
+    font-size: 14px;
+  }
+
+  .formInput,
+  .formSelect,
+  .formTextarea {
+    font-size: 14px;
+    padding: 10px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .leftPanel {
+    padding: 14px 12px;
+    gap: 16px;
+  }
+
+  .clientInfo h1 {
+    font-size: 20px;
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .statCard {
+    padding: 12px 10px;
+  }
+
+  .statValue {
+    font-size: 22px;
+  }
+
+  .tabButton {
+    padding: 14px 12px;
+    font-size: 13px;
+  }
+
+  .tabContent {
+    padding: 0 12px;
+  }
+
+  .modalContent {
+    padding: 16px 12px;
+  }
+}

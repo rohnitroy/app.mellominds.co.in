@@ -1,0 +1,289 @@
+/* Allow scroll — same pattern as PublicBookingPage */
+html.tpp-page,
+body.tpp-page {
+    overflow: auto !important;
+    height: auto !important;
+}
+
+/* ── Page wrapper ─────────────────────────────────────────────────────────── */
+.tpp-page-wrapper {
+    min-height: 100vh;
+    background: #f4f6f9;
+    font-family: 'Urbanist', 'Inter', sans-serif;
+    padding: 32px 16px 48px;
+    box-sizing: border-box;
+}
+
+/* ── Top nav bar ──────────────────────────────────────────────────────────── */
+.tpp-navbar {
+    max-width: 860px;
+    margin: 0 auto 28px;
+    display: flex;
+    align-items: center;
+}
+
+.tpp-navbar img {
+    height: 30px;
+}
+
+/* ── Profile card ─────────────────────────────────────────────────────────── */
+.tpp-profile-card {
+    max-width: 860px;
+    margin: 0 auto 28px;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    padding: 36px 40px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+
+.tpp-avatar {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #edfaf8;
+    overflow: hidden;
+}
+
+.tpp-avatar-placeholder {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: #edfaf8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.tpp-info {
+    flex: 1;
+}
+
+.tpp-name {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f1a19;
+    margin: 0 0 6px;
+}
+
+.tpp-specialization {
+    font-size: 15px;
+    font-weight: 600;
+    color: #2D7579;
+    margin: 0 0 10px;
+}
+
+.tpp-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 8px;
+}
+
+.tpp-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #555;
+    font-weight: 500;
+}
+
+.tpp-meta-item svg {
+    color: #2D7579;
+    flex-shrink: 0;
+}
+
+.tpp-about-me {
+    margin-top: 16px;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.6;
+    padding: 12px 0;
+}
+
+/* ── Section heading ──────────────────────────────────────────────────────── */
+.tpp-section-heading {
+    max-width: 860px;
+    margin: 0 auto 16px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f1a19;
+}
+
+/* ── Calendars grid ───────────────────────────────────────────────────────── */
+.tpp-calendars-grid {
+    max-width: 860px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+/* ── Calendar card ────────────────────────────────────────────────────────── */
+.tpp-cal-card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+    text-decoration: none;
+}
+
+.tpp-cal-card:hover {
+    border-color: #2D7579;
+    box-shadow: 0 6px 24px rgba(45,117,121,0.12);
+    transform: translateY(-2px);
+}
+
+.tpp-cal-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #2D7579;
+    background: #edfaf8;
+    padding: 4px 10px;
+    border-radius: 20px;
+    width: fit-content;
+}
+
+.tpp-cal-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f1a19;
+    margin: 0;
+    line-height: 1.3;
+}
+
+.tpp-cal-desc {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.6;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.tpp-cal-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.tpp-cal-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #444;
+}
+
+.tpp-cal-meta-item svg {
+    color: #2D7579;
+}
+
+.tpp-cal-footer {
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.tpp-cal-price {
+    font-size: 16px;
+    font-weight: 800;
+    color: #082421;
+}
+
+.tpp-cal-price-free {
+    font-size: 13px;
+    font-weight: 600;
+    color: #22c55e;
+}
+
+.tpp-book-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    background: #082421;
+    color: #fff;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-decoration: none;
+}
+
+.tpp-book-btn:hover {
+    background: #0d3330;
+}
+
+/* ── Empty state ──────────────────────────────────────────────────────────── */
+.tpp-empty {
+    max-width: 860px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    padding: 48px 32px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 15px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+
+/* ── Error / loader ───────────────────────────────────────────────────────── */
+.tpp-error {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Urbanist', sans-serif;
+    color: #666;
+    font-size: 16px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .tpp-page-wrapper {
+        padding: 20px 12px 40px;
+    }
+
+    .tpp-profile-card {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 24px 20px;
+        gap: 16px;
+    }
+
+    .tpp-name {
+        font-size: 22px;
+    }
+
+    .tpp-calendars-grid {
+        grid-template-columns: 1fr;
+    }
+}
