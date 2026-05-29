@@ -298,6 +298,9 @@ router.post('/public', publicBookingLimiter, async (req, res) => {
                 frontendUrl: process.env.FRONTEND_URL
             });
             await sendEmail({ to: client_email, ...emailContent, senderId: userId });
+            console.log(`✅ Booking confirmation sent to client: ${client_email}`);
+        } else {
+            console.log(`⚠️ Booking confirmation disabled for client: ${client_email}`);
         }
 
         // Send confirmation email to therapist
@@ -319,6 +322,9 @@ router.post('/public', publicBookingLimiter, async (req, res) => {
                     `A new session has been booked by <strong>${client_name}</strong>${partner_name ? ` &amp; <strong>${partner_name}</strong>` : ''}`
                 );
             await sendEmail({ to: calendarService.therapist_email, ...therapistNotifContent, senderId: userId });
+            console.log(`✅ Booking confirmation sent to therapist: ${calendarService.therapist_email}`);
+        } else {
+            console.log(`⚠️ Booking confirmation NOT sent to therapist. Email: ${calendarService.therapist_email}, Preference enabled: ${calendarService.therapist_email ? await isEmailEnabled(userId, 'booking_confirmation_therapist') : false}`);
         }
 
         // If couples session — upsert partner as client and send them a confirmation too
@@ -1063,6 +1069,46 @@ router.post('/', async (req, res) => {
             description: `A new session has been scheduled for ${client_name || 'a client'}`,
             relatedId: insertRes.rows[0].id
         });
+
+        // Send confirmation email to client
+        if (client_email && await isEmailEnabled(userId, 'booking_confirmation')) {
+            const emailContent = bookingConfirmationEmail({
+                clientName: client_name,
+                therapistName: calendarService.therapist_name || 'your therapist',
+                sessionTitle: calendarService.title,
+                startTime: startTime.toISOString(),
+                meetLink: meetLink,
+                locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet',
+                cancelToken: insertRes.rows[0].cancel_token,
+                frontendUrl: process.env.FRONTEND_URL
+            });
+            await sendEmail({ to: client_email, ...emailContent, senderId: userId });
+            console.log(`✅ Booking confirmation sent to client: ${client_email}`);
+        }
+
+        // Send confirmation email to therapist
+        const therapistRes = await client.query('SELECT email FROM Users WHERE id = $1', [userId]);
+        const therapistEmail = therapistRes.rows[0]?.email;
+        if (therapistEmail && await isEmailEnabled(userId, 'booking_confirmation_therapist')) {
+            const therapistNotifContent = bookingConfirmationEmail({
+                clientName: 'Therapist',
+                therapistName: client_name,
+                sessionTitle: calendarService.title,
+                startTime: startTime.toISOString(),
+                meetLink: meetLink,
+                locationText: location_type === 'in_person' ? 'In-person (Clinic)' : 'Google Meet',
+                cancelToken: null,
+                frontendUrl: process.env.FRONTEND_URL
+            });
+            therapistNotifContent.subject = `New Booking — ${calendarService.title} with ${client_name}`;
+            therapistNotifContent.html = therapistNotifContent.html
+                .replace(
+                    `Your session has been confirmed with <strong>${client_name}</strong>`,
+                    `A new session has been booked by <strong>${client_name}</strong>`
+                );
+            await sendEmail({ to: therapistEmail, ...therapistNotifContent, senderId: userId });
+            console.log(`✅ Booking confirmation sent to therapist: ${therapistEmail}`);
+        }
 
         // Real-time update
         const io = getIO();
