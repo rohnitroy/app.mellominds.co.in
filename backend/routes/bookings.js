@@ -541,32 +541,43 @@ router.post('/manage/:token/cancel', async (req, res) => {
             relatedId: appt.id
         });
 
-        // Email client (non-fatal)
+        // Send cancellation emails if therapist has this preference enabled
         if (await isEmailEnabled(appt.therapist_id, 'cancellation')) {
-            sendEmail({
-                to: appt.client_email,
-                ...cancellationEmail({
-                    clientName: appt.client_name,
-                    therapistName: appt.therapist_name,
-                    sessionTitle: appt.title,
-                    startTime: appt.start_time,
-                    cancelledBy: 'you'
-                }),
-                senderId: appt.therapist_id
-            }).catch(err => console.error('Client cancellation email failed:', err.message));
+            try {
+                // Email client
+                await sendEmail({
+                    to: appt.client_email,
+                    ...cancellationEmail({
+                        clientName: appt.client_name,
+                        therapistName: appt.therapist_name,
+                        sessionTitle: appt.title,
+                        startTime: appt.start_time,
+                        cancelledBy: 'you'
+                    }),
+                    senderId: appt.therapist_id
+                });
+                console.log(`✅ Cancellation email sent to client: ${appt.client_email}`);
+            } catch (err) {
+                console.error(`❌ Client cancellation email failed for ${appt.client_email}:`, err.message);
+            }
 
-            // Email therapist (non-fatal)
-            sendEmail({
-                to: appt.therapist_email,
-                ...cancellationEmail({
-                    clientName: appt.client_name,
-                    therapistName: appt.therapist_name,
-                    sessionTitle: appt.title,
-                    startTime: appt.start_time,
-                    cancelledBy: appt.client_name
-                }),
-                senderId: appt.therapist_id
-            }).catch(err => console.error('Therapist cancellation email failed:', err.message));
+            try {
+                // Email therapist
+                await sendEmail({
+                    to: appt.therapist_email,
+                    ...cancellationEmail({
+                        clientName: appt.client_name,
+                        therapistName: appt.therapist_name,
+                        sessionTitle: appt.title,
+                        startTime: appt.start_time,
+                        cancelledBy: appt.client_name
+                    }),
+                    senderId: appt.therapist_id
+                });
+                console.log(`✅ Cancellation email sent to therapist: ${appt.therapist_email}`);
+            } catch (err) {
+                console.error(`❌ Therapist cancellation email failed for ${appt.therapist_email}:`, err.message);
+            }
         }
 
         res.json({ message: 'Booking cancelled successfully' });
@@ -679,27 +690,38 @@ router.post('/manage/:token/reschedule', async (req, res) => {
             relatedId: appt.id
         });
 
-        // Email client
+        // Send reschedule emails if therapist has this preference enabled
         if (await isEmailEnabled(appt.therapist_id, 'reschedule')) {
-            const clientEmail = rescheduleConfirmationEmail({
-                clientName: appt.client_name,
-                therapistName: appt.therapist_name,
-                sessionTitle: appt.title,
-                newStartTime: newStart.toISOString(),
-                meetLink: newMeetLink
-            });
-            await sendEmail({ to: appt.client_email, ...clientEmail, senderId: appt.therapist_id });
+            try {
+                // Email client
+                const clientEmail = rescheduleConfirmationEmail({
+                    clientName: appt.client_name,
+                    therapistName: appt.therapist_name,
+                    sessionTitle: appt.title,
+                    newStartTime: newStart.toISOString(),
+                    meetLink: newMeetLink
+                });
+                await sendEmail({ to: appt.client_email, ...clientEmail, senderId: appt.therapist_id });
+                console.log(`✅ Reschedule email sent to client: ${appt.client_email}`);
+            } catch (err) {
+                console.error(`❌ Client reschedule email failed for ${appt.client_email}:`, err.message);
+            }
 
-            // Email therapist
-            const therapistRescheduleEmail = rescheduleConfirmationEmail({
-                clientName: appt.therapist_name,
-                therapistName: appt.client_name,
-                sessionTitle: appt.title,
-                newStartTime: newStart.toISOString(),
-                meetLink: newMeetLink
-            });
-            therapistRescheduleEmail.subject = `Session Rescheduled — ${appt.title} with ${appt.client_name}`;
-            await sendEmail({ to: appt.therapist_email, ...therapistRescheduleEmail, senderId: appt.therapist_id });
+            try {
+                // Email therapist
+                const therapistRescheduleEmail = rescheduleConfirmationEmail({
+                    clientName: appt.therapist_name,
+                    therapistName: appt.client_name,
+                    sessionTitle: appt.title,
+                    newStartTime: newStart.toISOString(),
+                    meetLink: newMeetLink
+                });
+                therapistRescheduleEmail.subject = `Session Rescheduled — ${appt.title} with ${appt.client_name}`;
+                await sendEmail({ to: appt.therapist_email, ...therapistRescheduleEmail, senderId: appt.therapist_id });
+                console.log(`✅ Reschedule email sent to therapist: ${appt.therapist_email}`);
+            } catch (err) {
+                console.error(`❌ Therapist reschedule email failed for ${appt.therapist_email}:`, err.message);
+            }
         }
 
         res.json({ message: 'Booking rescheduled successfully', new_start_time: newStart });
@@ -1257,7 +1279,12 @@ router.patch('/:id/reschedule', async (req, res) => {
                 newStartTime: newStart.toISOString(),
                 meetLink: appt.meet_link
             });
-            sendEmail({ to: appt.client_email, ...emailContent, senderId: userId }).catch(() => {});
+            try {
+                await sendEmail({ to: appt.client_email, ...emailContent, senderId: userId });
+                console.log(`✅ Reschedule notification sent to client: ${appt.client_email}`);
+            } catch (err) {
+                console.error(`❌ Reschedule notification failed for ${appt.client_email}:`, err.message);
+            }
         }
 
         // Notify therapist of their own reschedule action
@@ -1344,7 +1371,12 @@ router.patch('/:id/status', async (req, res) => {
                 startTime: appt.start_time,
                 cancelledBy: 'your therapist'
             });
-            sendEmail({ to: appt.client_email, ...emailContent, senderId: userId }).catch(() => {});
+            try {
+                await sendEmail({ to: appt.client_email, ...emailContent, senderId: userId });
+                console.log(`✅ Cancellation email sent to client: ${appt.client_email}`);
+            } catch (err) {
+                console.error(`❌ Cancellation email failed for ${appt.client_email}:`, err.message);
+            }
         }
 
         // Notify therapist of their own cancellation action

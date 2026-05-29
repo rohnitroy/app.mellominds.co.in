@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import { sendEmail } from '../lib/email.js';
 import { isValidEmail } from '../middleware/sanitize.js';
+import { getIO } from '../lib/socket.js';
 import crypto from 'crypto';
 
 const router = express.Router();
@@ -164,7 +165,7 @@ router.post('/invite', async (req, res) => {
     try {
         // Block if email already exists in the system
         const existingUser = await pool.query(
-            'SELECT id FROM Users WHERE LOWER(email) = $1', [email]
+            'SELECT id FROM users WHERE LOWER(email) = $1', [email]
         );
         if (existingUser.rows.length > 0) {
             return res.status(409).json({
@@ -201,6 +202,9 @@ router.post('/invite', async (req, res) => {
             subject: `${req.user.user_name} invited you to join their team on MelloMinds`,
             html: therapistInviteEmail({ ownerName: req.user.user_name, signupUrl }),
         }).catch(err => console.error('Therapist invite email failed:', err.message));
+
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('therapists_updated');
 
         return res.status(201).json({
             success: true,
@@ -245,7 +249,7 @@ router.delete('/:id', async (req, res) => {
 
             // Revoke enterprise member status — revert to free
             await pool.query(
-                `UPDATE Users SET plan_name = 'free', org_role = NULL, org_owner_id = NULL WHERE id = $1`,
+                `UPDATE users SET plan_name = 'free', org_role = NULL, org_owner_id = NULL WHERE id = $1`,
                 [therapistUserId]
             );
         }
@@ -254,6 +258,9 @@ router.delete('/:id', async (req, res) => {
             `DELETE FROM organization_therapists WHERE id = $1 AND owner_id = $2`,
             [id, req.user.id]
         );
+
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('therapists_updated');
 
         res.json({ success: true });
     } catch (err) {

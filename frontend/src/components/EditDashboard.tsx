@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft } from 'react-iconly';
 import API_BASE_URL from '../config/api';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import Loader from './Loader';
 
 interface EditDashboardProps {
@@ -20,26 +22,58 @@ const ALL_WIDGETS = [
 ];
 
 const EditDashboard: React.FC<EditDashboardProps> = ({ onBack }) => {
+  const { user } = useAuth();
+  const { socket } = useSocket();
   const toast = useToast();
+  const isEnterprise = user?.plan_name === 'enterprise';
+
   const [widgets, setWidgets] = useState<Record<string, boolean>>(
     Object.fromEntries(ALL_WIDGETS.map(w => [w.key, true]))
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const fetchPreferences = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_BASE_URL}/auth/dashboard-prefs`, { credentials: 'include' });
+      if (r.ok) {
+        const d = await r.json();
+        if (d?.widgets) setWidgets(prev => ({ ...prev, ...d.widgets }));
+      } else if (r.status === 403) {
+        toast.error('Dashboard customization requires Enterprise plan');
+      } else {
+        toast.error('Failed to load dashboard preferences');
+      }
+    } catch (err) {
+      toast.error('Failed to load preferences. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
-    fetch(`${API_BASE_URL}/auth/dashboard-prefs`, { credentials: 'include' })
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.widgets) setWidgets(prev => ({ ...prev, ...d.widgets })); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    if (!isEnterprise) {
+      setLoading(false);
+      return;
+    }
+    fetchPreferences();
+  }, [isEnterprise, fetchPreferences]);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('dashboard_preferences_updated', fetchPreferences);
+    return () => { socket.off('dashboard_preferences_updated', fetchPreferences); };
+  }, [socket, fetchPreferences]);
+
+  const handleToggle = useCallback((key: string) => {
+    setWidgets(prev => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  const handleToggle = (key: string) => {
-    setWidgets(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
+    if (!isEnterprise) {
+      toast.error('Only Enterprise plan users can customize the dashboard');
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE_URL}/auth/dashboard-prefs`, {
@@ -51,15 +85,17 @@ const EditDashboard: React.FC<EditDashboardProps> = ({ onBack }) => {
       if (res.ok) {
         toast.success('Dashboard preferences saved!');
         onBack();
+      } else if (res.status === 403) {
+        toast.error('Dashboard customization requires Enterprise plan');
       } else {
-        toast.error('Failed to save preferences.');
+        toast.error('Failed to save preferences. Please try again.');
       }
-    } catch {
+    } catch (err) {
       toast.error('Network error. Please try again.');
     } finally {
       setSaving(false);
     }
-  };
+  }, [widgets, isEnterprise, toast, onBack]);
 
   if (loading) return <Loader fullScreen />;
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './PaymentsInvoice.module.css';
@@ -9,6 +9,7 @@ import Loader from './components/Loader';
 import { exportToCSV } from './utils/exportCSV';
 import { useAuth } from './context/AuthContext';
 import { useToast } from './context/ToastContext';
+import { useSocket } from './context/SocketContext';
 
 const TAB_SLUGS: Record<string, string> = {
   'all-payments': 'All Payments',
@@ -37,6 +38,7 @@ const PaymentsInvoice: React.FC = () => {
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const { socket } = useSocket();
   const { tab: tabParam } = useParams<{ tab?: string }>();
   const resolvedTab = (tabParam && TAB_SLUGS[tabParam]) || 'All Payments';
   const [activeTab, setActiveTab] = useState<string>(resolvedTab);
@@ -77,22 +79,32 @@ const PaymentsInvoice: React.FC = () => {
     navigate(`/payment-invoice/${TAB_TO_SLUG[tab]}`, { replace: true });
   };
 
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          setBookings(data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch bookings for payments:', error);
-      } finally {
-        setLoading(false);
+  const fetchBookings = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setBookings(data);
       }
-    };
-    fetchBookings();
+    } catch (error) {
+      console.error('Failed to fetch bookings for payments:', error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  // Socket.io listener for real-time payment updates
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('bookings_updated', fetchBookings);
+    return () => {
+      socket.off('bookings_updated', fetchBookings);
+    };
+  }, [socket, fetchBookings]);
 
   // Close menu on outside click
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styles from './MyProfile.module.css';
 import { ArrowLeft } from 'react-iconly';
 import DateInput from './components/DateInput';
@@ -9,6 +9,7 @@ import StateSelect from './components/StateSelect';
 import { useToast } from './context/ToastContext';
 import API_BASE_URL from './config/api';
 import Loader from './components/Loader';
+import { useSocket } from './context/SocketContext';
 
 interface MyProfileProps {
   onBack: () => void;
@@ -27,6 +28,7 @@ interface OrgData {
 
 const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   const toast = useToast();
+  const { socket } = useSocket();
   const [profilePicture, setProfilePicture] = useState<string>('');
   const [isEnterpriseOwner, setIsEnterpriseOwner] = useState(false);
   const [formData, setFormData] = useState({
@@ -118,24 +120,58 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     fetchProfile();
   }, []);
 
-  const handleInputChange = (field: string, value: string) => {
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('profile_updated', async () => {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.user) {
+          let profilePicUrl = data.user.profile_picture || '';
+          if (profilePicUrl && !profilePicUrl.startsWith('http')) {
+            profilePicUrl = `${API_BASE_URL}${profilePicUrl}`;
+          }
+          setProfilePicture(profilePicUrl);
+          setFormData({
+            fullName: data.user.user_name || '',
+            phoneNumber: data.user.phone || '',
+            dateOfBirth: data.user.date_of_birth ? new Date(data.user.date_of_birth).toISOString().split('T')[0] : '',
+            email: data.user.email || '',
+            gender: data.user.gender || '',
+            specialization: data.user.specialization || '',
+            languages: data.user.language_spoken ? (Array.isArray(data.user.language_spoken) ? data.user.language_spoken.join(', ') : data.user.language_spoken) : '',
+            country: data.user.country || 'India',
+            state: data.user.state || '',
+            city: data.user.city || '',
+            pincode: data.user.pincode || '',
+            address: data.user.clinic_address || ''
+          });
+        }
+      }
+    });
+    return () => { socket.off('profile_updated'); };
+  }, [socket]);
+
+  const handleInputChange = useCallback((field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
-    
+
     // Auto-fill city and state when pincode is entered
     if (field === 'pincode' && value.length === 6) {
       fetchLocationByPincode(value);
     }
-  };
+  }, []);
 
-  const handleOrgChange = (field: keyof OrgData, value: string) => {
+  const handleOrgChange = useCallback((field: keyof OrgData, value: string) => {
     setOrgData(prev => ({ ...prev, [field]: value }));
     if (field === 'pincode' && value.length === 6) {
       fetchOrgLocationByPincode(value);
     }
-  };
+  }, []);
 
   const fetchOrgLocationByPincode = async (pincode: string) => {
     if (!/^\d{6}$/.test(pincode)) return;
@@ -197,7 +233,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     }
   };
 
-  const handleSaveChanges = async () => {
+  const handleSaveChanges = useCallback(async () => {
     // Validate required fields before hitting the API
     if (!formData.phoneNumber.trim()) {
       toast.error('Phone number is required.');
@@ -290,9 +326,9 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
       console.error('Error saving profile:', error);
       toast.error('Error saving profile changes.');
     }
-  };
+  }, [formData, isEnterpriseOwner, orgData, toast]);
 
-  const handleImageChange = async () => {
+  const handleImageChange = useCallback(async () => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -330,7 +366,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
       }
     };
     input.click();
-  };
+  }, [toast]);
 
   if (loading) return <Loader fullScreen />;
 

@@ -241,6 +241,13 @@ router.post('/transfers/:transferId/approve', async (req, res) => {
 
         await dbClient.query('COMMIT');
 
+        // Emit real-time notifications
+        const io = getIO();
+        if (io) {
+            io.to(`user:${transfer.from_therapist_id}`).emit('notifications_updated');
+            io.to(`user:${toTherapistId}`).emit('notifications_updated');
+        }
+
         // Send email to Therapist A
         const fromTherapistRes = await pool.query('SELECT user_name, email FROM Users WHERE id = $1', [transfer.from_therapist_id]);
         if (fromTherapistRes.rows.length > 0 && await isEmailEnabled(toTherapistId, 'transfer_status')) {
@@ -304,19 +311,27 @@ router.post('/transfers/:transferId/reject', async (req, res) => {
              `Your transfer request for client "${transfer.client_name}" was declined.`, transferId]
         );
 
+        const io = getIO();
+        if (io) io.to(`user:${transfer.from_therapist_id}`).emit('notifications_updated');
+
         res.json({ message: 'Transfer rejected' });
 
-        // Send email to Therapist A (non-blocking, after response)
-        pool.query('SELECT user_name, email FROM Users WHERE id = $1', [transfer.from_therapist_id])
-            .then(async r => {
+        // Send transfer rejection email to requesting therapist (non-blocking)
+        (async () => {
+            try {
+                const r = await pool.query('SELECT user_name, email FROM Users WHERE id = $1', [transfer.from_therapist_id]);
                 if (r.rows.length > 0 && await isEmailEnabled(toTherapistId, 'transfer_status')) {
                     const emailContent = transferRejectedEmail({
                         fromTherapistName: r.rows[0].user_name,
                         clientName: transfer.client_name
                     });
-                    sendEmail({ to: r.rows[0].email, ...emailContent, senderId: toTherapistId });
+                    await sendEmail({ to: r.rows[0].email, ...emailContent, senderId: toTherapistId });
+                    console.log(`✅ Transfer rejection email sent to therapist: ${r.rows[0].email}`);
                 }
-            }).catch(() => {});
+            } catch (err) {
+                console.error('Error sending transfer rejection email:', err.message);
+            }
+        })();
     } catch (error) {
         console.error('Error rejecting transfer:', error);
         res.status(500).json({ error: 'Failed to reject transfer' });
@@ -420,6 +435,14 @@ router.post('/transfers/:transferId/owner-approve', async (req, res) => {
         );
 
         await dbClient.query('COMMIT');
+
+        // Emit real-time notifications
+        const io = getIO();
+        if (io) {
+            io.to(`user:${transfer.from_therapist_id}`).emit('notifications_updated');
+            io.to(`user:${toTherapistId}`).emit('notifications_updated');
+        }
+
         res.json({ message: 'Transfer approved by owner.' });
     } catch (error) {
         await dbClient.query('ROLLBACK');
@@ -467,33 +490,44 @@ router.delete('/transfers/:transferId/cancel', async (req, res) => {
             relatedId: transferId
         }).catch(() => {});
 
-        // Email receiving therapist
-        isEmailEnabled(fromTherapistId, 'transfer_status').then(enabled => {
-            if (!enabled) return;
-            sendEmail({
-                to: t.to_therapist_email,
-                senderId: fromTherapistId,
-                ...transferCancelledEmail({
-                    recipientName: t.to_therapist_name,
-                    fromTherapistName: t.from_therapist_name,
-                    clientName: t.client_name
-                })
-            }).catch(() => {});
+        // Send transfer cancellation emails if enabled
+        const emailEnabled = await isEmailEnabled(fromTherapistId, 'transfer_status');
+        if (emailEnabled) {
+            try {
+                // Email receiving therapist
+                await sendEmail({
+                    to: t.to_therapist_email,
+                    senderId: fromTherapistId,
+                    ...transferCancelledEmail({
+                        recipientName: t.to_therapist_name,
+                        fromTherapistName: t.from_therapist_name,
+                        clientName: t.client_name
+                    })
+                });
+                console.log(`✅ Transfer cancellation email sent to therapist: ${t.to_therapist_email}`);
+            } catch (err) {
+                console.error(`❌ Transfer cancellation email failed for therapist ${t.to_therapist_email}:`, err.message);
+            }
 
             // Email client (if they have an email)
             if (t.client_email) {
-                sendEmail({
-                    to: t.client_email,
-                    senderId: fromTherapistId,
-                    ...transferCancelledEmail({
-                        recipientName: t.client_name,
-                        fromTherapistName: t.from_therapist_name,
-                        clientName: t.client_name,
-                        isClient: true
-                    })
-                }).catch(() => {});
+                try {
+                    await sendEmail({
+                        to: t.client_email,
+                        senderId: fromTherapistId,
+                        ...transferCancelledEmail({
+                            recipientName: t.client_name,
+                            fromTherapistName: t.from_therapist_name,
+                            clientName: t.client_name,
+                            isClient: true
+                        })
+                    });
+                    console.log(`✅ Transfer cancellation email sent to client: ${t.client_email}`);
+                } catch (err) {
+                    console.error(`❌ Transfer cancellation email failed for client ${t.client_email}:`, err.message);
+                }
             }
-        }).catch(() => {});
+        }
 
     } catch (error) {
         console.error('Error cancelling transfer:', error);
@@ -730,6 +764,10 @@ router.post('/:id/transfer', async (req, res) => {
         );
 
         await dbClient.query('COMMIT');
+
+        // Emit real-time notification to receiving therapist
+        const io = getIO();
+        if (io) io.to(`user:${toTherapistId}`).emit('notifications_updated');
 
         // Send email to Therapist B
         if (await isEmailEnabled(req.user.id, 'transfer_request')) {

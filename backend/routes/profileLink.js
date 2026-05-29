@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { isAuthenticated } from '../middleware/auth.js';
+import { getIO } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -13,20 +14,8 @@ const COOLDOWN_DAYS = 14;
 // GET /api/profile-link
 router.get('/', isAuthenticated, async (req, res) => {
     try {
-        // Check if about_me column exists
-        const columnsResult = await pool.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'users' AND column_name = 'about_me'
-        `);
-        
-        const hasAboutMe = columnsResult.rows.length > 0;
-        
-        const selectColumns = ['profile_slug', 'profile_slug_updated_at', 'plan_name'];
-        if (hasAboutMe) selectColumns.push('about_me');
-        
         const result = await pool.query(
-            `SELECT ${selectColumns.join(', ')} FROM Users WHERE id = $1`,
+            `SELECT profile_slug, profile_slug_updated_at, plan_name, about_me FROM Users WHERE id = $1`,
             [req.user.id]
         );
         const row = result.rows[0];
@@ -111,26 +100,13 @@ router.put('/', isAuthenticated, async (req, res) => {
             return res.status(409).json({ error: 'This profile link is already taken.' });
         }
 
-        // Check if about_me column exists before updating
-        const columnsResult = await pool.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'users' AND column_name = 'about_me'
-        `);
-        
-        const hasAboutMe = columnsResult.rows.length > 0;
-        
-        if (hasAboutMe) {
-            await pool.query(
-                'UPDATE Users SET profile_slug = $1, about_me = $2, profile_slug_updated_at = NOW() WHERE id = $3',
-                [slug, aboutMe || null, req.user.id]
-            );
-        } else {
-            await pool.query(
-                'UPDATE Users SET profile_slug = $1, profile_slug_updated_at = NOW() WHERE id = $2',
-                [slug, req.user.id]
-            );
-        }
+        await pool.query(
+            'UPDATE Users SET profile_slug = $1, about_me = $2, profile_slug_updated_at = NOW() WHERE id = $3',
+            [slug, aboutMe || null, req.user.id]
+        );
+
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('profile_link_updated');
 
         const nextEditAt = new Date(Date.now() + COOLDOWN_DAYS * 86400000);
         res.json({ profile_slug: slug, about_me: aboutMe, next_edit_at: nextEditAt });
@@ -146,23 +122,13 @@ router.put('/about-me', isAuthenticated, async (req, res) => {
     const aboutMe = (req.body.about_me || '').trim();
 
     try {
-        // Check if about_me column exists
-        const columnsResult = await pool.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'users' AND column_name = 'about_me'
-        `);
-        
-        const hasAboutMe = columnsResult.rows.length > 0;
-        
-        if (!hasAboutMe) {
-            return res.status(400).json({ error: 'About Me feature is not available yet' });
-        }
-
         await pool.query(
             'UPDATE Users SET about_me = $1 WHERE id = $2',
             [aboutMe || null, req.user.id]
         );
+
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('profile_link_updated');
 
         res.json({ about_me: aboutMe, message: 'About Me updated successfully' });
     } catch (err) {

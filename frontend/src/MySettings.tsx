@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styles from './MySettings.module.css';
-import { Wallet, Document, Paper, Filter, People } from 'react-iconly';
+import { Wallet, Document, Paper, Filter, People, Message } from 'react-iconly';
 import { useNavigate } from 'react-router-dom';
 import API_BASE_URL from './config/api';
 import ConfirmModal from './components/ConfirmModal';
@@ -8,7 +8,9 @@ import Loader from './components/Loader';
 import { useAuth } from './context/AuthContext';
 import { useToast } from './context/ToastContext';
 
+import { useSocket } from './context/SocketContext';
 const MySettings: React.FC = () => {
+  const { socket } = useSocket();
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
@@ -91,7 +93,35 @@ const MySettings: React.FC = () => {
         .catch(() => {})
         .finally(() => setEnterpriseSettingsLoading(false));
     }
-  }, []);  const handleCashfreeConnect = async (e: React.FormEvent) => {
+  }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('integrations_updated', () => {
+      fetch(`${API_BASE_URL}/api/cashfree/status`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : { connected: false })
+        .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
+        .catch(() => {});
+      fetch(`${API_BASE_URL}/api/razorpay/status`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : { connected: false })
+        .then(d => { setRazorpayConnected(d.connected); })
+        .catch(() => {});
+    });
+    socket.on('enterprise_settings_updated', () => {
+      if (isEnterpriseOwner) {
+        fetch(`${API_BASE_URL}/auth/enterprise-settings`, { credentials: 'include' })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d?.settings) setEnterpriseSettings(s => ({ ...s, ...d.settings })); })
+          .catch(() => {});
+      }
+    });
+    return () => {
+      socket.off('integrations_updated');
+      socket.off('enterprise_settings_updated');
+    };
+  }, [socket, isEnterpriseOwner]);
+
+  const handleCashfreeConnect = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setCashfreeLoading(true);
     try {
@@ -117,18 +147,18 @@ const MySettings: React.FC = () => {
     } finally {
       setCashfreeLoading(false);
     }
-  };
+  }, [toast, setCashfreeConnected, setCashfreeEnv, setShowCashfreeForm, setCashfreeForm, setRazorpayConnected]);
 
-  const handleCashfreeDisconnect = async () => {
+  const handleCashfreeDisconnect = useCallback(async () => {
     setDisconnectingCashfree(true);
     await fetch(`${API_BASE_URL}/api/cashfree/disconnect`, { method: 'DELETE', credentials: 'include' });
     setCashfreeConnected(false);
     setShowCashfreeForm(false);
     setShowDisconnectConfirm(false);
     setDisconnectingCashfree(false);
-  };
+  }, []);
 
-  const handleRazorpayConnect = async (e: React.FormEvent) => {
+  const handleRazorpayConnect = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setRazorpayLoading(true);
     try {
@@ -154,18 +184,18 @@ const MySettings: React.FC = () => {
     } finally {
       setRazorpayLoading(false);
     }
-  };
+  }, [toast, setCashfreeConnected]);
 
-  const handleRazorpayDisconnect = async () => {
+  const handleRazorpayDisconnect = useCallback(async () => {
     setDisconnectingRazorpay(true);
     await fetch(`${API_BASE_URL}/api/razorpay/disconnect`, { method: 'DELETE', credentials: 'include' });
     setRazorpayConnected(false);
     setShowRazorpayForm(false);
     setShowRazorpayDisconnectConfirm(false);
     setDisconnectingRazorpay(false);
-  };
+  }, []);
 
-  const handleGoogleDisconnect = async () => {
+  const handleGoogleDisconnect = useCallback(async () => {
     setDisconnectingGoogle(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/connect-calendar/disconnect`, { method: 'DELETE', credentials: 'include' });
@@ -181,9 +211,9 @@ const MySettings: React.FC = () => {
       setDisconnectingGoogle(false);
       setShowGoogleDisconnectConfirm(false);
     }
-  };
+  }, [toast]);
 
-  const handleEnterpriseToggle = async (key: keyof typeof defaultEnterpriseSettings, value: boolean) => {
+  const handleEnterpriseToggle = useCallback(async (key: keyof typeof defaultEnterpriseSettings, value: boolean) => {
     const updated = { ...enterpriseSettings, [key]: value };
     setEnterpriseSettings(updated);
     setEnterpriseSettingsSaving(true);
@@ -204,7 +234,7 @@ const MySettings: React.FC = () => {
     } finally {
       setEnterpriseSettingsSaving(false);
     }
-  };
+  }, [toast]);
 
   return (
     <>
@@ -275,6 +305,21 @@ const MySettings: React.FC = () => {
                 Client Notes
               </h3>
               <p>customize client notes form...</p>
+            </div>
+            <div className={styles.cardArrow}>
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+          </div>
+
+          <div className={styles.settingCard} onClick={() => navigate('/settings/email-preferences')} style={{ cursor: 'pointer' }}>
+            <div className={styles.cardContent}>
+              <h3>
+                <Message set="bulk" size="medium" primaryColor="#082421" />
+                Email Preferences
+              </h3>
+              <p>control which emails you and your clients receive...</p>
             </div>
             <div className={styles.cardArrow}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -475,7 +520,10 @@ const MySettings: React.FC = () => {
             )}
             <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
-                <Wallet set="bulk" size="medium" primaryColor="#082421" />
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#082421" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <line x1="2" y1="10" x2="22" y2="10" />
+                </svg>
                 Connect Cashfree
               </h3>
               <p>Accept appointment payments via Cashfree payment gateway</p>
@@ -529,7 +577,10 @@ const MySettings: React.FC = () => {
             )}
             <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
-                <Wallet set="bulk" size="medium" primaryColor="#082421" />
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#082421" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <line x1="2" y1="10" x2="22" y2="10" />
+                </svg>
                 Connect Razorpay
               </h3>
               <p>Accept appointment payments via Razorpay payment gateway</p>

@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import API_BASE_URL from '../config/api';
 import styles from './EnterpriseSettings.module.css';
 import { ChevronLeft } from 'react-iconly';
@@ -25,7 +27,10 @@ interface EnterpriseControlSettings {
 }
 
 const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
+  const { user } = useAuth();
+  const { socket } = useSocket();
   const toast = useToast();
+  const isEnterprise = user?.plan_name === 'enterprise';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [orgDetails, setOrgDetails] = useState<OrgDetails>({
@@ -43,12 +48,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
     require_transfer_approval: false,
   });
 
-  useEffect(() => {
-    fetchSettings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
       const [settingsRes, orgRes] = await Promise.all([
@@ -59,29 +59,58 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         setSettings(data.settings);
+      } else if (settingsRes.status === 403) {
+        toast.error('Enterprise settings require Enterprise plan access');
+      } else {
+        toast.error('Failed to load enterprise settings');
       }
 
       if (orgRes.ok) {
         const data = await orgRes.json();
         setOrgDetails(data.organization || orgDetails);
+      } else if (orgRes.status === 403) {
+        toast.error('Organization details require Enterprise plan access');
+      } else {
+        toast.error('Failed to load organization details');
       }
     } catch (error) {
-      console.error('Error fetching settings:', error);
-      toast.error('Failed to load settings');
+      toast.error('Failed to load settings. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast, orgDetails]);
 
-  const handleOrgDetailsChange = (field: keyof OrgDetails, value: string) => {
+  useEffect(() => {
+    if (!isEnterprise) {
+      setLoading(false);
+      return;
+    }
+    fetchSettings();
+  }, [isEnterprise, fetchSettings]);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('enterprise_settings_updated', fetchSettings);
+    socket.on('profile_updated', fetchSettings);
+    return () => {
+      socket.off('enterprise_settings_updated', fetchSettings);
+      socket.off('profile_updated', fetchSettings);
+    };
+  }, [socket, fetchSettings]);
+
+  const handleOrgDetailsChange = useCallback((field: keyof OrgDetails, value: string) => {
     setOrgDetails(prev => ({ ...prev, [field]: value }));
-  };
+  }, []);
 
-  const handleSettingChange = (field: keyof EnterpriseControlSettings, value: boolean) => {
+  const handleSettingChange = useCallback((field: keyof EnterpriseControlSettings, value: boolean) => {
     setSettings(prev => ({ ...prev, [field]: value }));
-  };
+  }, []);
 
-  const saveOrgDetails = async () => {
+  const saveOrgDetails = useCallback(async () => {
+    if (!isEnterprise) {
+      toast.error('Only Enterprise plan users can update organization details');
+      return;
+    }
     try {
       setSaving(true);
       const res = await fetch(`${API_BASE_URL}/auth/organization`, {
@@ -93,19 +122,24 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
 
       if (res.ok) {
         toast.success('Organization details saved successfully');
+      } else if (res.status === 403) {
+        toast.error('Organization details require Enterprise plan access');
       } else {
         const err = await res.json();
         toast.error(err.error || 'Failed to save organization details');
       }
     } catch (error) {
-      console.error('Error saving org details:', error);
-      toast.error('Error saving organization details');
+      toast.error('Network error. Please try again.');
     } finally {
       setSaving(false);
     }
-  };
+  }, [orgDetails, isEnterprise, toast]);
 
-  const saveSettings = async () => {
+  const saveSettings = useCallback(async () => {
+    if (!isEnterprise) {
+      toast.error('Only Enterprise plan users can update enterprise settings');
+      return;
+    }
     try {
       setSaving(true);
       const res = await fetch(`${API_BASE_URL}/auth/enterprise-settings`, {
@@ -117,17 +151,18 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
 
       if (res.ok) {
         toast.success('Enterprise settings saved successfully');
+      } else if (res.status === 403) {
+        toast.error('Enterprise settings require Enterprise plan access');
       } else {
         const err = await res.json();
         toast.error(err.error || 'Failed to save settings');
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
-      toast.error('Error saving enterprise settings');
+      toast.error('Network error. Please try again.');
     } finally {
       setSaving(false);
     }
-  };
+  }, [settings, isEnterprise, toast]);
 
   if (loading) {
     return (

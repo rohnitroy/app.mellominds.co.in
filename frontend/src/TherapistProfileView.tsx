@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import styles from './TherapistProfileView.module.css';
 import API_BASE_URL from './config/api';
 import { useToast } from './context/ToastContext';
+import { useSocket } from './context/SocketContext';
 import Loader from './components/Loader';
 interface TherapistInfo {
   id: number;
@@ -53,6 +54,7 @@ const TherapistProfileView: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const toast = useToast();
+  const { socket } = useSocket();
 
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,6 +108,14 @@ const TherapistProfileView: React.FC = () => {
   }, [id]);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('therapists_updated', fetchProfile);
+    return () => {
+      socket.off('therapists_updated', fetchProfile);
+    };
+  }, [socket, fetchProfile]);
 
   const filteredClients = useMemo(() => {
     if (!data) return [];

@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import API_BASE_URL from '../config/api';
 import styles from './ManageReminders.module.css';
 import Loader from './Loader';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
+import { useToast } from '../context/ToastContext';
 
 interface EmailPreferences {
     booking_confirmation: boolean;
+    booking_confirmation_therapist: boolean;
     cancellation: boolean;
     reschedule: boolean;
     session_reminder: boolean;
@@ -14,11 +17,14 @@ interface EmailPreferences {
     activity_notification: boolean;
     booking_link: boolean;
     invoice: boolean;
+    transfer_request: boolean;
+    transfer_status: boolean;
     use_own_email: boolean;
 }
 
 const EMAIL_LABELS: { key: keyof Omit<EmailPreferences, 'use_own_email'>; label: string; description: string }[] = [
     { key: 'booking_confirmation', label: 'Booking Confirmation (Client)', description: 'Sent to client when a new session is booked' },
+    { key: 'booking_confirmation_therapist', label: 'Booking Confirmation (You)', description: 'Sent to you when a new session is booked with your integrated calendar' },
     { key: 'cancellation', label: 'Cancellation', description: 'Sent to client and you when a session is cancelled' },
     { key: 'reschedule', label: 'Reschedule', description: 'Sent to client and you when a session is rescheduled' },
     { key: 'session_reminder', label: 'Session Reminder (24 hours)', description: 'Sent to client 24 hours before their session' },
@@ -27,6 +33,8 @@ const EMAIL_LABELS: { key: keyof Omit<EmailPreferences, 'use_own_email'>; label:
     { key: 'activity_notification', label: 'Activity Notification', description: 'Sent to client when you assign an activity or reminder' },
     { key: 'booking_link', label: 'Booking Link', description: 'Sent to client when you share a booking link' },
     { key: 'invoice', label: 'Invoice', description: 'Sent to client when you send a payment invoice' },
+    { key: 'transfer_request', label: 'Transfer Request', description: 'Sent to you when a client transfer request is initiated' },
+    { key: 'transfer_status', label: 'Transfer Status Update', description: 'Sent to you when a transfer request is accepted or declined' },
 ];
 
 interface GmailStatus {
@@ -40,6 +48,8 @@ interface ManageRemindersProps {
 
 const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
     const { user } = useAuth();
+    const { socket } = useSocket();
+    const toast = useToast();
     const isEnterprise = user?.plan_name === 'enterprise';
 
     const [prefs, setPrefs] = useState<EmailPreferences | null>(null);
@@ -48,27 +58,49 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
     const [gmailStatus, setGmailStatus] = useState<GmailStatus | null>(null);
     const [gmailLoading, setGmailLoading] = useState(false);
 
-    useEffect(() => {
-        fetch(`${API_BASE_URL}/api/email-preferences`, { credentials: 'include' })
-            .then(r => r.json())
-            .then(data => setPrefs({ use_own_email: false, ...data }))
-            .catch(() => setError('Failed to load preferences'));
+    const fetchPreferences = useCallback(async () => {
+        try {
+            const r = await fetch(`${API_BASE_URL}/api/email-preferences`, { credentials: 'include' });
+            const data = await r.json();
+            setPrefs({ use_own_email: false, ...data });
+            setError(null);
+        } catch {
+            setError('Failed to load preferences');
+        }
+    }, []);
 
-        if (isEnterprise) {
-            fetch(`${API_BASE_URL}/api/gmail/status`, { credentials: 'include' })
-                .then(r => r.json())
-                .then(setGmailStatus)
-                .catch(() => {});
+    const fetchGmailStatus = useCallback(async () => {
+        if (!isEnterprise) return;
+        try {
+            const r = await fetch(`${API_BASE_URL}/api/gmail/status`, { credentials: 'include' });
+            const data = await r.json();
+            setGmailStatus(data);
+        } catch (err) {
+            console.error('Failed to load Gmail status:', err);
         }
     }, [isEnterprise]);
 
-    const toggle = async (key: keyof EmailPreferences) => {
+    useEffect(() => {
+        fetchPreferences();
+        fetchGmailStatus();
+    }, [fetchPreferences, fetchGmailStatus]);
+
+    useEffect(() => {
+        if (!socket) return;
+        socket.on('email_preferences_updated', fetchPreferences);
+        socket.on('gmail_status_updated', fetchGmailStatus);
+        return () => {
+            socket.off('email_preferences_updated', fetchPreferences);
+            socket.off('gmail_status_updated', fetchGmailStatus);
+        };
+    }, [socket, fetchPreferences, fetchGmailStatus]);
+
+    const toggle = useCallback(async (key: keyof EmailPreferences) => {
         if (!prefs || saving) return;
         const newVal = !prefs[key];
 
-        // If enabling use_own_email, Gmail must be connected
         if (key === 'use_own_email' && newVal && !gmailStatus?.connected) {
-            setError('Connect your Gmail account first before enabling this option.');
+            toast.error('Connect your Gmail account first before enabling this option.');
             return;
         }
 
@@ -82,19 +114,20 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
                 body: JSON.stringify({ [key]: newVal }),
             });
             if (!res.ok) throw new Error();
+            toast.success('Preference updated');
         } catch {
             setPrefs(p => p ? { ...p, [key]: !newVal } : p);
-            setError('Failed to save. Please try again.');
+            toast.error('Failed to save. Please try again.');
         } finally {
             setSaving(null);
         }
-    };
+    }, [prefs, saving, gmailStatus?.connected, toast]);
 
-    const connectGmail = () => {
+    const connectGmail = useCallback(() => {
         window.location.href = `${API_BASE_URL}/api/gmail/start`;
-    };
+    }, []);
 
-    const disconnectGmail = async () => {
+    const disconnectGmail = useCallback(async () => {
         setGmailLoading(true);
         try {
             const res = await fetch(`${API_BASE_URL}/api/gmail/disconnect`, {
@@ -104,12 +137,13 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
             if (!res.ok) throw new Error();
             setGmailStatus({ connected: false, gmail_email: null });
             setPrefs(p => p ? { ...p, use_own_email: false } : p);
+            toast.success('Gmail disconnected successfully');
         } catch {
-            setError('Failed to disconnect Gmail.');
+            toast.error('Failed to disconnect Gmail.');
         } finally {
             setGmailLoading(false);
         }
-    };
+    }, [toast]);
 
     return (
         <div className={styles.page}>
@@ -125,7 +159,6 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
                 </div>
             </div>
 
-            {error && <div className={styles.error}>{error}</div>}
 
             {/* Email sender section — enterprise only */}
             {isEnterprise && (

@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
 import { sanitizeStr, isValidSlug } from '../middleware/sanitize.js';
+import { getIO } from '../lib/socket.js';
 
 const router = express.Router();
 
@@ -203,6 +204,9 @@ router.post('/', async (req, res) => {
             );
         }
 
+        const io = getIO();
+        if (io) io.to(`user:${targetUserId}`).emit('calendars_updated');
+        
         res.status(201).json(result.rows[0]);
     } catch (error) {
         console.error('Error creating calendar:', error);
@@ -295,6 +299,8 @@ router.put('/:id', async (req, res) => {
         );
 
         if (result.rows.length === 0) return res.status(404).json({ error: 'Calendar not found or unauthorized' });
+        const io = getIO();
+        if (io) io.to(`user:${targetUserId}`).emit('calendars_updated');
         res.json(result.rows[0]);
     } catch (error) {
         console.error('Error updating calendar:', error);
@@ -311,6 +317,8 @@ router.delete('/:id', async (req, res) => {
             [req.params.id, req.user.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Calendar not found or unauthorized' });
+        const io = getIO();
+        if (io) io.to(`user:${req.user.id}`).emit('calendars_updated');
         res.json({ message: 'Calendar deleted successfully' });
     } catch (error) {
         console.error('Error deleting calendar:', error);

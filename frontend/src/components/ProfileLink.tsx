@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import API_BASE_URL from '../config/api';
 import styles from './ProfileLink.module.css';
 import { useAuth } from '../context/AuthContext';
+import { useSocket } from '../context/SocketContext';
 import Loader from './Loader';
 
 const BASE_URL = 'https://app.mellominds.co.in';
@@ -12,6 +13,7 @@ interface ProfileLinkProps {
 
 const ProfileLink: React.FC<ProfileLinkProps> = ({ onBack }) => {
     const { user } = useAuth();
+    const { socket } = useSocket();
     const [currentSlug, setCurrentSlug] = useState<string | null>(null);
     const [aboutMe, setAboutMe] = useState('');
     const [nextEditAt, setNextEditAt] = useState<Date | null>(null);
@@ -23,22 +25,32 @@ const ProfileLink: React.FC<ProfileLinkProps> = ({ onBack }) => {
     const [loading, setLoading] = useState(true);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    useEffect(() => {
-        fetch(`${API_BASE_URL}/api/profile-link`, { credentials: 'include' })
-            .then(r => r.json())
-            .then(d => {
-                setCurrentSlug(d.profile_slug || null);
-                setInput(d.profile_slug || '');
-                setAboutMe(d.about_me || '');
-                setNextEditAt(d.next_edit_at ? new Date(d.next_edit_at) : null);
-            })
-            .catch(() => setError('Failed to load profile link'))
-            .finally(() => setLoading(false));
+    const fetchProfileLink = useCallback(async () => {
+        try {
+            const r = await fetch(`${API_BASE_URL}/api/profile-link`, { credentials: 'include' });
+            const d = await r.json();
+            setCurrentSlug(d.profile_slug || null);
+            setInput(d.profile_slug || '');
+            setAboutMe(d.about_me || '');
+            setNextEditAt(d.next_edit_at ? new Date(d.next_edit_at) : null);
+        } catch {
+            setError('Failed to load profile link');
+        }
     }, []);
+
+    useEffect(() => {
+        fetchProfileLink().finally(() => setLoading(false));
+    }, [fetchProfileLink]);
+
+    useEffect(() => {
+        if (!socket) return;
+        socket.on('profile_link_updated', fetchProfileLink);
+        return () => { socket.off('profile_link_updated', fetchProfileLink); };
+    }, [socket, fetchProfileLink]);
 
     const canEdit = true; // Always allow editing
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         if (!canEdit) return;
         const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
         setInput(val);
@@ -60,9 +72,9 @@ const ProfileLink: React.FC<ProfileLinkProps> = ({ onBack }) => {
                 setStatus('idle');
             }
         }, 500);
-    };
+    }, [currentSlug]);
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!input || status === 'taken' || status === 'invalid' || saving || !canEdit) return;
         setSaving(true);
         setError(null);
@@ -89,9 +101,9 @@ const ProfileLink: React.FC<ProfileLinkProps> = ({ onBack }) => {
         } finally {
             setSaving(false);
         }
-    };
+    }, [input, status, saving, aboutMe]);
 
-    const handleSaveAboutMe = async () => {
+    const handleSaveAboutMe = useCallback(async () => {
         setSaving(true);
         setError(null);
         try {
@@ -114,7 +126,7 @@ const ProfileLink: React.FC<ProfileLinkProps> = ({ onBack }) => {
         } finally {
             setSaving(false);
         }
-    };
+    }, [aboutMe]);
 
     // Current live URL
     const currentUrl = currentSlug
