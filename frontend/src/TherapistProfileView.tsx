@@ -62,6 +62,9 @@ const TherapistProfileView: React.FC = () => {
   const [clientSearch, setClientSearch] = useState('');
   const [bookingSearch, setBookingSearch] = useState('');
   const [calendarChecking, setCalendarChecking] = useState(false);
+  const [clientPage, setClientPage] = useState(1);
+  const [bookingPage, setBookingPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   const handleCreateCalendar = async (therapistUserId: number, therapistName: string | null) => {
     setCalendarChecking(true);
@@ -389,7 +392,7 @@ const TherapistProfileView: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredClients.map(c => (
+                  paginatedClients.map(c => (
                     <tr key={c.id}>
                       <td className={styles.boldCell}>{c.name}</td>
                       <td className={styles.mutedCell}>{c.email}</td>
@@ -401,6 +404,31 @@ const TherapistProfileView: React.FC = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Pagination for Clients */}
+          {totalClientPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e0e0e0' }}>
+              <span style={{ fontSize: '13px', color: '#666', fontFamily: 'Urbanist' }}>
+                Page {clientPage} of {totalClientPages} • Showing {paginatedClients.length} of {filteredClients.length}
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setClientPage(p => Math.max(1, p - 1))}
+                  disabled={clientPage === 1}
+                  style={{ padding: '6px 12px', border: '1px solid #ddd', background: '#fff', borderRadius: '4px', cursor: clientPage === 1 ? 'not-allowed' : 'pointer', fontFamily: 'Urbanist', fontSize: '13px', opacity: clientPage === 1 ? 0.5 : 1 }}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setClientPage(p => Math.min(totalClientPages, p + 1))}
+                  disabled={clientPage === totalClientPages}
+                  style={{ padding: '6px 12px', border: '1px solid #ddd', background: '#fff', borderRadius: '4px', cursor: clientPage === totalClientPages ? 'not-allowed' : 'pointer', fontFamily: 'Urbanist', fontSize: '13px', opacity: clientPage === totalClientPages ? 0.5 : 1 }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -439,7 +467,7 @@ const TherapistProfileView: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredBookings.map(b => (
+                  paginatedBookings.map(b => (
                     <tr key={b.id}>
                       <td className={styles.boldCell}>{b.client_name || '—'}</td>
                       <td className={styles.mutedCell}>{b.calendar_title || <span className={styles.na}>—</span>}</td>
@@ -458,6 +486,31 @@ const TherapistProfileView: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination for Bookings */}
+          {totalBookingPages > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e0e0e0' }}>
+              <span style={{ fontSize: '13px', color: '#666', fontFamily: 'Urbanist' }}>
+                Page {bookingPage} of {totalBookingPages} • Showing {paginatedBookings.length} of {filteredBookings.length}
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setBookingPage(p => Math.max(1, p - 1))}
+                  disabled={bookingPage === 1}
+                  style={{ padding: '6px 12px', border: '1px solid #ddd', background: '#fff', borderRadius: '4px', cursor: bookingPage === 1 ? 'not-allowed' : 'pointer', fontFamily: 'Urbanist', fontSize: '13px', opacity: bookingPage === 1 ? 0.5 : 1 }}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setBookingPage(p => Math.min(totalBookingPages, p + 1))}
+                  disabled={bookingPage === totalBookingPages}
+                  style={{ padding: '6px 12px', border: '1px solid #ddd', background: '#fff', borderRadius: '4px', cursor: bookingPage === totalBookingPages ? 'not-allowed' : 'pointer', fontFamily: 'Urbanist', fontSize: '13px', opacity: bookingPage === totalBookingPages ? 0.5 : 1 }}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
