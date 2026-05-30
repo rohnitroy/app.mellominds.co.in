@@ -132,9 +132,15 @@ router.get('/:id/profile', async (req, res) => {
             [therapistUserId]
         );
 
+        // Parse specializations if it's a JSON string
+        const specializations = info.specializations ? 
+            (typeof info.specializations === 'string' ? JSON.parse(info.specializations) : info.specializations) : 
+            null;
+
         res.json({
             info: {
                 ...info, id: Number(id),
+                specializations: specializations,
                 status: member.status, created_at: member.created_at,
                 calendar_count: parseInt(info.calendar_count || 0),
             },
@@ -171,7 +177,12 @@ router.get('/', async (req, res) => {
              ORDER BY ot.created_at DESC`,
             [req.user.id]
         );
-        res.json(result.rows);
+        // Parse specializations from JSON string to array
+        const therapists = result.rows.map(t => ({
+            ...t,
+            specializations: t.specializations ? (typeof t.specializations === 'string' ? JSON.parse(t.specializations) : t.specializations) : null
+        }));
+        res.json(therapists);
     } catch (err) {
         console.error('GET /api/therapists error:', err.message);
         res.status(500).json({ error: 'Failed to fetch therapists.' });
