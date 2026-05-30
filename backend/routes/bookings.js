@@ -904,40 +904,72 @@ router.get('/', async (req, res) => {
     const client = await pool.connect();
     try {
         const userId = req.user.id;
-        const { email, upcoming } = req.query;
+        const { email, upcoming, enterprise } = req.query;
+
+        // Check if user is enterprise owner
+        const userRes = await client.query(
+            'SELECT plan_name, org_role FROM users WHERE id = $1',
+            [userId]
+        );
+        const user = userRes.rows[0];
+        const isEnterpriseOwner = user && user.plan_name === 'enterprise' && user.org_role !== 'member';
+
+        // If enterprise mode and user is not owner, deny
+        if (enterprise === 'true' && !isEnterpriseOwner) {
+            return res.status(403).json({ error: 'Not authorized for enterprise analytics' });
+        }
 
         let query = `
-            SELECT 
-                a.*,
-                COALESCE(a.client_phone, cl.phone) as client_phone,
+            SELECT
+                a.id, a.therapist_id, a.client_id, a.calendar_id, a.title, a.start_time, a.end_time,
+                a.status, a.google_event_id, a.meet_link, a.client_email, a.client_name, a.client_phone,
+                a.payment_status, a.payment_amount, a.form_responses, a.location_type,
+                a.cancel_token, a.cashfree_order_id, a.cashfree_payment_link, a.created_at,
+                u.user_name as therapist_name,
                 COALESCE(
                     json_agg(
                         json_build_object(
-                            'id', sn.id, 
-                            'content', sn.note_content, 
+                            'id', sn.id,
+                            'content', sn.note_content,
                             'created_at', sn.created_at,
                             'attachments', COALESCE(sn.attachments, '[]'::jsonb)
                         )
-                    ) FILTER (WHERE sn.id IS NOT NULL), 
+                    ) FILTER (WHERE sn.id IS NOT NULL),
                     '[]'
                 ) as notes
             FROM Appointments a
-            LEFT JOIN Clients cl ON LOWER(a.client_email) = LOWER(cl.email) AND cl.therapist_id = a.therapist_id
-            LEFT JOIN SessionNotes sn ON a.id = sn.appointment_id AND sn.therapist_id = $1
-            WHERE a.therapist_id = $1
+            LEFT JOIN SessionNotes sn ON a.id = sn.appointment_id AND sn.therapist_id = a.therapist_id
+            LEFT JOIN users u ON a.therapist_id = u.id
         `;
-        let params = [userId];
+        let params = [];
+
+        if (enterprise === 'true') {
+            // Enterprise owner - get all team members' bookings
+            query += `
+                WHERE a.therapist_id IN (
+                    SELECT therapist_user_id FROM organization_therapists WHERE owner_id = $1 AND status = 'active' AND therapist_user_id IS NOT NULL
+                    UNION
+                    SELECT $1 as therapist_id
+                )
+            `;
+            params.push(userId);
+        } else {
+            // Personal - get only this therapist's bookings
+            query += ' WHERE a.therapist_id = $1';
+            params.push(userId);
+        }
 
         if (upcoming === 'true') {
             query += " AND a.start_time >= NOW() AND a.status = 'scheduled'";
         }
 
         if (email) {
-            query += " AND LOWER(a.client_email) = LOWER($2)";
+            const emailParam = enterprise === 'true' ? params.length + 1 : 2;
+            query += ` AND LOWER(a.client_email) = LOWER($${emailParam})`;
             params.push(email);
         }
 
-        query += " GROUP BY a.id, cl.phone ORDER BY a.created_at DESC";
+        query += " GROUP BY a.id, u.user_name ORDER BY a.created_at DESC";
 
         const result = await client.query(query, params);
         res.json(result.rows);

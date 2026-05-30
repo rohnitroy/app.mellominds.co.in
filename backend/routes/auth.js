@@ -513,6 +513,18 @@ router.get('/enterprise-analytics', async (req, res) => {
     return res.status(403).json({ error: 'Only enterprise owners can access analytics' });
   }
   try {
+    const { startDate, endDate } = req.query;
+    let dateCondition = '';
+    let dateParams = [];
+    let paramIndex = 2;
+
+    // Only apply date filter if BOTH startDate and endDate are provided (match personal endpoint logic)
+    if (startDate && endDate) {
+      dateCondition = ` AND a.start_time >= $${paramIndex} AND a.start_time <= $${paramIndex + 1}`;
+      dateParams.push(startDate, endDate);
+      paramIndex += 2;
+    }
+
     // Get all therapist IDs under this owner (including the owner themselves)
     const therapistIds = [req.user.id];
     const membersRes = await pool.query(
@@ -520,25 +532,41 @@ router.get('/enterprise-analytics', async (req, res) => {
       [req.user.id, 'active']
     );
     therapistIds.push(...membersRes.rows.map(r => r.therapist_user_id));
+    console.log('Enterprise Analytics - User ID:', req.user.id, 'Therapist IDs:', therapistIds, 'Date condition:', dateCondition, 'Date params:', dateParams);
 
-    // Aggregate analytics across all therapists
+    // Aggregate analytics across all therapists with date filtering
+    const totalRes = await pool.query(
+      `SELECT COUNT(*) FROM Appointments a
+       WHERE a.therapist_id = ANY($1)${dateCondition}`,
+      [therapistIds, ...dateParams]
+    );
+    const totalSessions = parseInt(totalRes.rows[0].count);
+
+    const cancelledRes = await pool.query(
+      `SELECT COUNT(*) FROM Appointments a
+       WHERE a.therapist_id = ANY($1) AND a.status = 'cancelled'${dateCondition}`,
+      [therapistIds, ...dateParams]
+    );
+    const cancelledSessions = parseInt(cancelledRes.rows[0].count);
+
+    console.log('DEBUG - Total:', totalSessions, 'Cancelled:', cancelledSessions, 'Therapist IDs:', therapistIds);
+
     const analyticsRes = await pool.query(
       `SELECT
-        COALESCE(SUM(payment_amount) FILTER (WHERE payment_status IN ('Paid', 'Partial Refund') AND status != 'cancelled'), 0) AS revenue,
-        COALESCE(SUM(payment_amount) FILTER (WHERE payment_status IN ('Refunded', 'Partial Refund')), 0) AS refund,
-        COUNT(*) FILTER (WHERE status NOT IN ('cancelled')) AS sessions,
-        COUNT(*) FILTER (WHERE status = 'cancelled') AS cancelled,
-        COUNT(*) FILTER (WHERE status = 'noshow') AS noshow,
-        COUNT(*) FILTER (WHERE payment_status = 'Pending' AND status != 'cancelled') AS pending_payment
-      FROM Appointments WHERE therapist_id = ANY($1)`,
-      [therapistIds]
+        COALESCE(SUM(a.payment_amount) FILTER (WHERE a.payment_status IN ('Paid', 'Partial Refund') AND a.status != 'cancelled'), 0) AS revenue,
+        COALESCE(SUM(a.payment_amount) FILTER (WHERE a.payment_status IN ('Refunded', 'Partial Refund')), 0) AS refund,
+        COUNT(*) FILTER (WHERE a.status = 'noshow') AS noshow,
+        COUNT(*) FILTER (WHERE a.payment_status = 'Pending' AND a.status != 'cancelled') AS pending_payment
+      FROM Appointments a
+      WHERE a.therapist_id = ANY($1)${dateCondition}`,
+      [therapistIds, ...dateParams]
     );
 
     const pendingNotesRes = await pool.query(
       `SELECT COUNT(*) FROM Appointments a
        WHERE a.therapist_id = ANY($1) AND a.status = 'scheduled'
-       AND a.end_time < NOW()`,
-      [therapistIds]
+       AND a.end_time < NOW()${dateCondition}`,
+      [therapistIds, ...dateParams]
     );
 
     const clientsRes = await pool.query(
@@ -547,15 +575,16 @@ router.get('/enterprise-analytics', async (req, res) => {
     );
 
     const a = analyticsRes.rows[0];
+    console.log('Enterprise Analytics Result:', { revenue: a.revenue, refund: a.refund, sessions: totalSessions, cancelled: cancelledSessions, noshow: a.noshow, pending_payment: a.pending_payment });
     res.json({
-      revenue: parseFloat(a.revenue || 0),
-      refund: parseFloat(a.refund || 0),
-      sessions: parseInt(a.sessions || 0),
-      cancelled: parseInt(a.cancelled || 0),
-      noshow: parseInt(a.noshow || 0),
-      pending_notes: parseInt(pendingNotesRes.rows[0].count || 0),
-      pending_payment: parseInt(a.pending_payment || 0),
-      clients: parseInt(clientsRes.rows[0].count || 0),
+      revenue: `₹${parseFloat(a.revenue || 0)}`,
+      refund: `₹${parseFloat(a.refund || 0)}`,
+      sessions: totalSessions,
+      cancelled: cancelledSessions,
+      noShow: parseInt(a.noshow || 0),
+      pendingNotes: parseInt(pendingNotesRes.rows[0].count || 0),
+      pendingPayment: parseInt(a.pending_payment || 0),
+      noOfClients: parseInt(clientsRes.rows[0].count || 0),
     });
   } catch (err) {
     console.error('Fetch enterprise analytics error:', err);

@@ -802,11 +802,13 @@ const DashboardHome: React.FC = () => {
   const { setShowSendLinkModal } = useOutletContext<{ setShowSendLinkModal: any }>();
   const isFreeTier = !user?.plan_name || user.plan_name === 'free';
   const [dateFilter, setDateFilter] = useState<string>('all_time');
+  const [showEnterpriseAnalytics, setShowEnterpriseAnalytics] = useState<boolean>(false);
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
   const [showCustomDatePicker, setShowCustomDatePicker] = useState<boolean>(false);
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const navigate = useNavigate();
+  const location = useLocation();
   const dateDropdownRef = React.useRef<HTMLDivElement>(null);
 
   // Earliest date free-tier users can query analytics for
@@ -830,6 +832,15 @@ const DashboardHome: React.FC = () => {
       navigate('/dashboard', { replace: true });
     }
   }, []);
+
+  // Load analytics mode from URL params
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const analyticsMode = params.get('analytics');
+    if (analyticsMode === 'enterprise') {
+      setShowEnterpriseAnalytics(true);
+    }
+  }, [location.search]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -890,11 +901,19 @@ const DashboardHome: React.FC = () => {
       setShowCustomDatePicker(true);
     } else if (isFreeTier && value !== 'all_time' && value !== 'custom') {
       // Check if the selected month is entirely before the free-tier cutoff
-      const [month, year] = value.split(' ');
-      const monthIndex = new Date(`${month} 1, 2000`).getMonth();
-      const monthEnd = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59);
-      if (monthEnd < getFreeTierMinDate()) {
-        toast.error(`Free plan analytics is limited to the last ${FREE_TIER_ANALYTICS_DAYS} days. Upgrade to access older data.`);        return;
+      const parts = value.split(' ');
+      if (parts.length === 2) {
+        const month = parts[0];
+        const year = parts[1];
+        const monthIndex = new Date(`${month} 1, 2000`).getMonth();
+        const yearNum = parseInt(year);
+        if (!isNaN(yearNum)) {
+          const monthEnd = new Date(yearNum, monthIndex + 1, 0, 23, 59, 59);
+          if (monthEnd < getFreeTierMinDate()) {
+            toast.error(`Free plan analytics is limited to the last ${FREE_TIER_ANALYTICS_DAYS} days. Upgrade to access older data.`);
+            return;
+          }
+        }
       }
     }
     setDateFilter(value);
@@ -992,18 +1011,26 @@ const DashboardHome: React.FC = () => {
       setLoading(true);
       try {
         // Build stats URL with date filter
-        let statsUrl = `${API_BASE_URL}/api/bookings/stats`;
+        const isEnterpriseOwner = user?.plan_name === 'enterprise' && user?.org_role !== 'member';
+        let statsUrl = `${API_BASE_URL}/${showEnterpriseAnalytics && isEnterpriseOwner ? 'auth/enterprise-analytics' : 'api/bookings/stats'}`;
         const freeCutoff = isFreeTier ? getFreeTierMinDate() : null;
 
         if (dateFilter !== 'all_time' && dateFilter !== 'custom') {
           // Parse month filter (e.g., "Dec 2025")
-          const [month, year] = dateFilter.split(' ');
-          const monthIndex = new Date(`${month} 1, 2000`).getMonth();
-          let startDate = new Date(parseInt(year), monthIndex, 1);
-          const endDate = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59);
-          // Clamp start date for free tier
-          if (freeCutoff && startDate < freeCutoff) startDate = freeCutoff;
-          statsUrl += `?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`;
+          const parts = dateFilter.split(' ');
+          if (parts.length === 2) {
+            const month = parts[0];
+            const year = parts[1];
+            const monthIndex = new Date(`${month} 1, 2000`).getMonth();
+            const yearNum = parseInt(year);
+            if (!isNaN(yearNum)) {
+              let startDate = new Date(yearNum, monthIndex, 1);
+              const endDate = new Date(yearNum, monthIndex + 1, 0, 23, 59, 59);
+              // Clamp start date for free tier
+              if (freeCutoff && startDate < freeCutoff) startDate = freeCutoff;
+              statsUrl += `?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`;
+            }
+          }
         } else if (dateFilter === 'custom' && customStartDate && customEndDate) {
           let startDate = new Date(customStartDate);
           const endDate = new Date(customEndDate);
@@ -1025,7 +1052,10 @@ const DashboardHome: React.FC = () => {
         }
 
         // Fetch Upcoming Bookings only
-        const bookingsRes = await fetch(`${API_BASE_URL}/api/bookings?upcoming=true`, { credentials: 'include' });
+        const bookingsUrl = showEnterpriseAnalytics
+          ? `${API_BASE_URL}/api/bookings?upcoming=true&enterprise=true`
+          : `${API_BASE_URL}/api/bookings?upcoming=true`;
+        const bookingsRes = await fetch(bookingsUrl, { credentials: 'include' });
         if (bookingsRes.ok) {
           const data = await bookingsRes.json();
           setRecentBookings(data);
@@ -1040,7 +1070,7 @@ const DashboardHome: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, [dateFilter, customStartDate, customEndDate]);
+  }, [dateFilter, customStartDate, customEndDate, showEnterpriseAnalytics]);
 
   const refreshBookings = async () => {
     const res = await fetch(`${API_BASE_URL}/api/bookings?upcoming=true`, { credentials: 'include' });
@@ -1102,14 +1132,14 @@ const DashboardHome: React.FC = () => {
   };
 
   const statsData: StatData[] = [
-    { label: 'Revenue', value: stats.revenue },
-    { label: 'Refund', value: stats.refund },
-    { label: 'Sessions', value: stats.sessions.toString() },
-    { label: 'Cancelled', value: stats.cancelled.toString() },
-    { label: 'No Show', value: stats.noShow.toString() },
-    { label: 'Pending Notes', value: stats.pendingNotes.toString() },
-    { label: 'Pending Payment', value: stats.pendingPayment.toString() },
-    { label: 'No of Clients', value: stats.noOfClients.toString() }
+    { label: 'Revenue', value: stats.revenue || '₹0' },
+    { label: 'Refund', value: stats.refund || '₹0' },
+    { label: 'Sessions', value: (stats.sessions ?? 0).toString() },
+    { label: 'Cancelled', value: (stats.cancelled ?? 0).toString() },
+    { label: 'No Show', value: (stats.noShow ?? 0).toString() },
+    { label: 'Pending Notes', value: (stats.pendingNotes ?? 0).toString() },
+    { label: 'Pending Payment', value: (stats.pendingPayment ?? 0).toString() },
+    { label: 'No of Clients', value: (stats.noOfClients ?? 0).toString() }
   ].filter(s => !isEnterprise || widgetPrefs[s.label] !== false);
 
   const handleSaveWidgetPrefs = async () => {
@@ -1163,6 +1193,11 @@ const DashboardHome: React.FC = () => {
       accessorKey: 'title',
       header: 'Session Type',
       cell: ({ getValue }) => <span className="session-type">{getValue()}</span>,
+    },
+    {
+      accessorKey: 'therapist_name',
+      header: 'Therapist Name',
+      cell: ({ getValue }) => <span className="therapist-name">{getValue() || 'N/A'}</span>,
     },
     {
       id: 'mode',
@@ -1240,6 +1275,28 @@ const DashboardHome: React.FC = () => {
               </div>
             )}
           </div>
+          {user?.plan_name === 'enterprise' && user?.org_role !== 'member' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f5f5f5', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+              <label style={{ fontSize: '13px', fontWeight: 500, color: '#333', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={showEnterpriseAnalytics}
+                  onChange={(e) => {
+                    setShowEnterpriseAnalytics(e.target.checked);
+                    const params = new URLSearchParams(location.search);
+                    if (e.target.checked) {
+                      params.set('analytics', 'enterprise');
+                    } else {
+                      params.delete('analytics');
+                    }
+                    navigate(`/dashboard?${params.toString()}`, { replace: true });
+                  }}
+                  style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                />
+                <span>{showEnterpriseAnalytics ? 'Enterprise Analytics' : 'My Analytics'}</span>
+              </label>
+            </div>
+          )}
           {showCustomDatePicker && (
             <div className="custom-date-modal" onClick={() => setShowCustomDatePicker(false)}>
               <div className="custom-date-content" onClick={(e) => e.stopPropagation()}>
