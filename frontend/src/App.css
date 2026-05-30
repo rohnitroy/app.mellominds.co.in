@@ -1335,3 +1335,44 @@ body.scrollable {
     flex-direction: column;
   }
 }
+
+/* ===== ANALYTICS TOGGLE SWITCH ===== */
+.analytics-toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: #d1d5db;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.analytics-toggle-switch:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.analytics-toggle-switch.toggle-on {
+  background: #082421;
+}
+
+.analytics-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s ease;
+  display: block;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  pointer-events: none;
+}
+
+.analytics-toggle-switch.toggle-on .analytics-toggle-thumb {
+  transform: translateX(20px);
+}

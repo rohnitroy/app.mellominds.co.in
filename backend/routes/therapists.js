@@ -19,6 +19,34 @@ const ensureEnterpriseOwner = (req, res, next) => {
     res.status(403).json({ error: 'This feature is available to Enterprise plan owners only.' });
 };
 
+// ─── PUBLIC ENDPOINTS (no authentication) ────────────────────────────────────
+// ─── GET /api/therapists/validate-invite ────────────────────────────────────
+router.get('/validate-invite', async (req, res) => {
+    const { token, email } = req.query;
+
+    if (!token || !email) {
+        return res.status(400).json({ valid: false, error: 'Token and email are required.' });
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT id, status, invite_expires_at FROM organization_therapists
+             WHERE invite_token = $1 AND LOWER(invite_email) = $2 AND status = 'pending' AND invite_expires_at > NOW()`,
+            [token.trim(), email.toLowerCase()]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ valid: false, error: 'Invitation not found or has expired.' });
+        }
+
+        return res.json({ valid: true });
+    } catch (err) {
+        console.error('GET /api/therapists/validate-invite error:', err.message);
+        res.status(500).json({ valid: false, error: 'Failed to validate invitation.' });
+    }
+});
+
+// ─── AUTHENTICATED ENDPOINTS (require auth + enterprise owner) ───────────────
 router.use(ensureAuthenticated);
 router.use(ensureEnterpriseOwner);
 
@@ -195,13 +223,18 @@ router.post('/invite', async (req, res) => {
             [req.user.id, email, inviteToken, inviteExpires]
         );
 
-        const signupUrl = `${process.env.FRONTEND_URL || 'https://mellominds.co.in'}/signup?invite=${inviteToken}`;
+        const signupUrl = `${process.env.FRONTEND_URL || 'https://mellominds.co.in'}/signup?invite=${inviteToken}&email=${encodeURIComponent(email)}`;
+
+        console.log(`[INVITE] Generated signup URL: ${signupUrl}`);
+        console.log(`[INVITE] Sending email to: ${email}`);
 
         await sendEmail({
             to: email,
             subject: `${req.user.user_name} invited you to join their team on MelloMinds`,
             html: therapistInviteEmail({ ownerName: req.user.user_name, signupUrl }),
         }).catch(err => console.error('Therapist invite email failed:', err.message));
+
+        console.log(`[INVITE] Email sent successfully to: ${email}`);
 
         const io = getIO();
         if (io) io.to(`user:${req.user.id}`).emit('therapists_updated');
@@ -296,9 +329,12 @@ router.get('/member/:memberId/calendars', async (req, res) => {
 
 function therapistInviteEmail({ ownerName, signupUrl }) {
     return `
-    <div style="font-family: 'Urbanist', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #f9fafb; border-radius: 12px;">
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap');
+    </style>
+    <div style="font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 24px; background: #f9fafb; border-radius: 12px;">
       <div style="text-align: center; margin-bottom: 28px;">
-        <img src="https://mellominds.co.in/Frame%202%201%20(1).svg" alt="MelloMinds" style="height: 40px;" />
+        <img src="https://res.cloudinary.com/dp7pklmjk/image/upload/v1780131492/mellominds/mellominds_logo.png" alt="MelloMinds" style="height: 40px;" />
       </div>
       <div style="background: #fff; border-radius: 10px; padding: 32px;">
         <h2 style="font-size: 22px; font-weight: 700; color: #082421; margin: 0 0 12px 0;">You've been invited!</h2>

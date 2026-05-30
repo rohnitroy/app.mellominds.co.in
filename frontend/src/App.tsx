@@ -461,7 +461,7 @@ const DashboardLayout: React.FC = () => {
   const renderSidebar = (): JSX.Element => (
     <div className={`sidebar${mobileSidebarOpen ? ' mobile-open' : ''}`}>
       <div className="logo">
-        <img src="Frame 2 1 (1).svg" alt="MelloMinds Logo" />
+        <img src="/Frame 2 1 (1).svg" alt="MelloMinds Logo" />
       </div>
 
       {/* Desktop nav */}
@@ -578,7 +578,7 @@ const DashboardLayout: React.FC = () => {
         </div>
       </div>
 
-      <img src="MelloFevicon 1.svg" alt="Mello Favicon" className="sidebar-favicon" />
+      <img src="/MelloFevicon 1.svg" alt="Mello Favicon" className="sidebar-favicon" />
     </div>
   );
 
@@ -1261,7 +1261,7 @@ const DashboardHome: React.FC = () => {
           )}
           <div className="date-selector-wrapper" ref={dateDropdownRef}>
             <div className="date-selector" onClick={() => setShowDateDropdown(!showDateDropdown)}>
-              <div className="date-icon"><img src="Graph.svg" alt="Graph" /></div>
+              <div className="date-icon"><img src="/Graph.svg" alt="Graph" /></div>
               <span>{getDateFilterLabel()}</span>
               <div className="dropdown-arrow">▼</div>
             </div>
@@ -1277,24 +1277,27 @@ const DashboardHome: React.FC = () => {
           </div>
           {user?.plan_name === 'enterprise' && user?.org_role !== 'member' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f5f5f5', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-              <label style={{ fontSize: '13px', fontWeight: 500, color: '#333', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={showEnterpriseAnalytics}
-                  onChange={(e) => {
-                    setShowEnterpriseAnalytics(e.target.checked);
+              <div style={{ fontSize: '13px', fontWeight: 500, color: '#333', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>{showEnterpriseAnalytics ? 'Enterprise Analytics' : 'My Analytics'}</span>
+                <button
+                  className={`analytics-toggle-switch ${showEnterpriseAnalytics ? 'toggle-on' : ''}`}
+                  onClick={() => {
+                    const newState = !showEnterpriseAnalytics;
+                    setShowEnterpriseAnalytics(newState);
                     const params = new URLSearchParams(location.search);
-                    if (e.target.checked) {
+                    if (newState) {
                       params.set('analytics', 'enterprise');
                     } else {
                       params.delete('analytics');
                     }
                     navigate(`/dashboard?${params.toString()}`, { replace: true });
                   }}
-                  style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                />
-                <span>{showEnterpriseAnalytics ? 'Enterprise Analytics' : 'My Analytics'}</span>
-              </label>
+                  role="switch"
+                  aria-checked={showEnterpriseAnalytics}
+                >
+                  <span className="analytics-toggle-thumb" />
+                </button>
+              </div>
             </div>
           )}
           {showCustomDatePicker && (

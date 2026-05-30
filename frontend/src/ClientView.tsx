@@ -41,6 +41,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const toast = useToast();
   const { user } = useAuth();
   const isEnterprise = user?.plan_name === 'enterprise';
+  const isOwner = user?.plan_name === 'enterprise' && user?.org_role !== 'member';
+  const canSeeContactInfo = !isEnterprise || isOwner;
   const [uploadingNoteFile, setUploadingNoteFile] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(initialTab || 'Overview');
   const [selectedDate, setSelectedDate] = useState<string>('all');
@@ -805,17 +807,19 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
             )}
           </div>
 
-          <div className={styles.infoSection}>
-            <h3>Contact Info:</h3>
-            <div className={styles.contactItem}>
-              <Call size="small" primaryColor="#000000" />
-              <span>{editData.phone || '-'}</span>
+          {canSeeContactInfo && (
+            <div className={styles.infoSection}>
+              <h3>Contact Info:</h3>
+              <div className={styles.contactItem}>
+                <Call size="small" primaryColor="#000000" />
+                <span>{editData.phone || '-'}</span>
+              </div>
+              <div className={styles.contactItem}>
+                <Message size="small" primaryColor="#000000" />
+                <span>{editData.email || '-'}</span>
+              </div>
             </div>
-            <div className={styles.contactItem}>
-              <Message size="small" primaryColor="#000000" />
-              <span>{editData.email || '-'}</span>
-            </div>
-          </div>
+          )}
 
           <div className={styles.infoSection}>
             <h3>Emergency Contact:</h3>
@@ -1212,14 +1216,18 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                 <label>Full Name</label>
                 <input className={styles.formInput} type="text" value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} />
               </div>
-              <div className={styles.formGroup}>
-                <label>Phone</label>
-                <input className={styles.formInput} type="text" value={editData.phone} onChange={(e) => setEditData({ ...editData, phone: e.target.value })} />
-              </div>
-              <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
-                <label>Email</label>
-                <input className={styles.formInput} type="email" value={editData.email} onChange={(e) => setEditData({ ...editData, email: e.target.value })} />
-              </div>
+              {canSeeContactInfo && (
+                <div className={styles.formGroup}>
+                  <label>Phone</label>
+                  <input className={styles.formInput} type="text" value={editData.phone} onChange={(e) => setEditData({ ...editData, phone: e.target.value })} />
+                </div>
+              )}
+              {canSeeContactInfo && (
+                <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
+                  <label>Email</label>
+                  <input className={styles.formInput} type="email" value={editData.email} onChange={(e) => setEditData({ ...editData, email: e.target.value })} />
+                </div>
+              )}
               <div className={styles.formGroup}>
                 <label>Age</label>
                 <input className={styles.formInput} type="text" value={editData.age} onChange={(e) => setEditData({ ...editData, age: e.target.value })} />

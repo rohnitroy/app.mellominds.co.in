@@ -7,6 +7,7 @@ import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import Loader from './components/Loader';
 import { useToast } from './context/ToastContext';
+import { useAuth } from './context/AuthContext';
 import { exportToCSV } from './utils/exportCSV';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSocket } from './context/SocketContext';
@@ -46,6 +47,10 @@ const AllClients: React.FC = () => {
   const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isEnterprise = user?.plan_name === 'enterprise';
+  const isOwner = user?.plan_name === 'enterprise' && user?.org_role !== 'member';
+  const canSeeContactInfo = !isEnterprise || isOwner;
   const { clientId, tab } = useParams<{ clientId?: string; tab?: string; listTab?: string }>();
   const listTabParam = useParams<{ listTab?: string }>().listTab;
   const [activeTab, setActiveTab] = useState<'all' | 'transferred'>(listTabParam === 'transferred' ? 'transferred' : 'all');
@@ -236,164 +241,184 @@ const AllClients: React.FC = () => {
     t.to_therapist_email?.toLowerCase().includes(transferSearch.toLowerCase())
   ), [transfers, transferSearch]);
 
-  const columns: ColumnDef<Client, any>[] = useMemo(() => [
-    {
-      accessorKey: 'name',
-      header: 'Client Name',
-      cell: ({ row }) => (
-        <div
-          className={styles.clientName}
-          style={{ cursor: 'pointer', color: '#2D7579', textDecoration: 'underline' }}
-          onClick={() => {
-            setSelectedClient(row.original);
-            navigate(`/clients/${row.original.id}/Overview`);
-          }}
-        >
-          {row.original.name}
-        </div>
-      ),
-    },
-    {
-      id: 'contact',
-      header: 'Contact Info',
-      enableSorting: false,
-      cell: ({ row }) => (
-        <div>
-          <div className={styles.phoneNumber}>{row.original.phone}</div>
-          <div className={styles.emailAddress}>{row.original.email}</div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'sessions',
-      header: 'No. of Sessions',
-      cell: ({ getValue }) => (
-        <span className={styles.sessionCount}>{getValue()}</span>
-      ),
-    },
-    {
-      accessorKey: 'lastSession',
-      header: 'Last Session Booked',
-      cell: ({ row }) => {
-        const date = row.original.lastSession;
-        const status = row.original.lastSessionStatus;
-        const rawDate = row.original.lastSessionRaw;
-        const isPendingNotes = status === 'scheduled' && rawDate && new Date(rawDate) < new Date();
-        const displayStatus = isPendingNotes ? 'pending_notes' : status;
-        const colorMap: Record<string, string> = {
-          cancelled:     '#c62828',
-          completed:     '#2e7d32',
-          noshow:        '#e65100',
-          pending_notes: '#f57f17',
-        };
-        const color = colorMap[displayStatus || ''];
-        return (
-          <span className={styles.sessionCount} style={color ? { color, fontWeight: 600 } : undefined}>
-            {date || '—'}
-          </span>
-        );
-      },
-    },
-    {
-      accessorKey: 'revenue',
-      header: 'Revenue',
-      cell: ({ getValue }) => (
-        <span className={styles.revenueAmount}>{getValue()}</span>
-      ),
-    },
-  ], []);
-
-  const transferColumns: ColumnDef<any, any>[] = useMemo(() => [
-    {
-      accessorKey: 'client_name',
-      header: 'Client Name',
-      cell: ({ row }) => (
-        <div>
-          <div className={styles.clientName}>{row.original.client_name}</div>
-        </div>
-      ),
-    },
-    {
-      id: 'contact',
-      header: 'Contact Info',
-      enableSorting: false,
-      cell: ({ row }) => (
-        <div>
-          <div className={styles.phoneNumber}>{row.original.client_phone || '—'}</div>
-          <div className={styles.emailAddress}>{row.original.client_email}</div>
-        </div>
-      ),
-    },
-    {
-      accessorKey: 'sessions',
-      header: 'No. of Sessions',
-      cell: ({ getValue }) => <span className={styles.sessionCount}>{getValue() || '0'}</span>,
-    },
-    {
-      accessorKey: 'last_session',
-      header: 'Last Session Booked',
-      cell: ({ getValue }) => {
-        const v = getValue();
-        return <span className={styles.sessionCount}>{v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>;
-      },
-    },
-    {
-      accessorKey: 'revenue',
-      header: 'Revenue',
-      cell: ({ getValue }) => <span className={styles.revenueAmount}>₹{parseFloat(getValue() || 0).toLocaleString('en-IN')}</span>,
-    },
-    {
-      accessorKey: 'to_therapist_email',
-      header: 'Transferred To',
-      cell: ({ getValue }) => <span className={styles.emailAddress}>{getValue()}</span>,
-    },
-    {
-      accessorKey: 'status',
-      header: 'Transfer Status',
-      cell: ({ getValue }) => {
-        const s = getValue() as string;
-        return (
-          <span style={{
-            padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-            background: s === 'approved' ? '#e8f5e9' : s === 'rejected' ? '#fdecea' : '#fff8e1',
-            color: s === 'approved' ? '#2e7d32' : s === 'rejected' ? '#c62828' : '#f57f17'
-          }}>
-            {s.charAt(0).toUpperCase() + s.slice(1)}
-          </span>
-        );
-      },
-    },
-    {
-      id: 'view',
-      header: 'View',
-      enableSorting: false,
-      cell: ({ row }) => {
-        const t = row.original;
-        if (t.status !== 'approved') return <span style={{ color: '#ccc', fontSize: '12px' }}>—</span>;
-        return (
-          <button
+  const columns: ColumnDef<Client, any>[] = useMemo(() => {
+    const baseColumns: ColumnDef<Client, any>[] = [
+      {
+        accessorKey: 'name',
+        header: 'Client Name',
+        cell: ({ row }) => (
+          <div
+            className={styles.clientName}
+            style={{ cursor: 'pointer', color: '#2D7579', textDecoration: 'underline' }}
             onClick={() => {
-              const clientObj: Client = {
-                id: t.client_id,
-                name: t.client_name,
-                email: t.client_email,
-                phone: t.client_phone || '',
-                sessions: t.sessions || '0',
-                revenue: `₹${t.revenue || 0}`,
-              };
-              setSelectedClientCutoff(new Date(t.transfer_date || t.updated_at));
-              setInitialTab('Overview');
-              setSelectedClient(clientObj);
-              navigate(`/clients/${t.client_id}/Overview`);
+              setSelectedClient(row.original);
+              navigate(`/clients/${row.original.id}/Overview`);
             }}
-            style={{ padding: '5px 14px', background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
           >
-            View
-          </button>
-        );
+            {row.original.name}
+          </div>
+        ),
       },
-    },
-  ], []);
+    ];
+
+    if (canSeeContactInfo) {
+      baseColumns.push({
+        id: 'contact',
+        header: 'Contact Info',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div>
+            <div className={styles.phoneNumber}>{row.original.phone}</div>
+            <div className={styles.emailAddress}>{row.original.email}</div>
+          </div>
+        ),
+      });
+    }
+
+    baseColumns.push(
+      {
+        accessorKey: 'sessions',
+        header: 'No. of Sessions',
+        cell: ({ getValue }) => (
+          <span className={styles.sessionCount}>{getValue()}</span>
+        ),
+      },
+      {
+        accessorKey: 'lastSession',
+        header: 'Last Session Booked',
+        cell: ({ row }) => {
+          const date = row.original.lastSession;
+          const status = row.original.lastSessionStatus;
+          const rawDate = row.original.lastSessionRaw;
+          const isPendingNotes = status === 'scheduled' && rawDate && new Date(rawDate) < new Date();
+          const displayStatus = isPendingNotes ? 'pending_notes' : status;
+          const colorMap: Record<string, string> = {
+            cancelled:     '#c62828',
+            completed:     '#2e7d32',
+            noshow:        '#e65100',
+            pending_notes: '#f57f17',
+          };
+          const color = colorMap[displayStatus || ''];
+          return (
+            <span className={styles.sessionCount} style={color ? { color, fontWeight: 600 } : undefined}>
+              {date || '—'}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: 'revenue',
+        header: 'Revenue',
+        cell: ({ getValue }) => (
+          <span className={styles.revenueAmount}>{getValue()}</span>
+        ),
+      }
+    );
+
+    return baseColumns;
+  }, [canSeeContactInfo, navigate, setSelectedClient]);
+
+  const transferColumns: ColumnDef<any, any>[] = useMemo(() => {
+    const baseCols: ColumnDef<any, any>[] = [
+      {
+        accessorKey: 'client_name',
+        header: 'Client Name',
+        cell: ({ row }) => (
+          <div>
+            <div className={styles.clientName}>{row.original.client_name}</div>
+          </div>
+        ),
+      },
+    ];
+
+    if (canSeeContactInfo) {
+      baseCols.push({
+        id: 'contact',
+        header: 'Contact Info',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div>
+            <div className={styles.phoneNumber}>{row.original.client_phone || '—'}</div>
+            <div className={styles.emailAddress}>{row.original.client_email}</div>
+          </div>
+        ),
+      });
+    }
+
+    baseCols.push(
+      {
+        accessorKey: 'sessions',
+        header: 'No. of Sessions',
+        cell: ({ getValue }) => <span className={styles.sessionCount}>{getValue() || '0'}</span>,
+      },
+      {
+        accessorKey: 'last_session',
+        header: 'Last Session Booked',
+        cell: ({ getValue }) => {
+          const v = getValue();
+          return <span className={styles.sessionCount}>{v ? new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</span>;
+        },
+      },
+      {
+        accessorKey: 'revenue',
+        header: 'Revenue',
+        cell: ({ getValue }) => <span className={styles.revenueAmount}>₹{parseFloat(getValue() || 0).toLocaleString('en-IN')}</span>,
+      },
+      {
+        accessorKey: 'to_therapist_email',
+        header: 'Transferred To',
+        cell: ({ getValue }) => <span className={styles.emailAddress}>{getValue()}</span>,
+      },
+      {
+        accessorKey: 'status',
+        header: 'Transfer Status',
+        cell: ({ getValue }) => {
+          const s = getValue() as string;
+          return (
+            <span style={{
+              padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+              background: s === 'approved' ? '#e8f5e9' : s === 'rejected' ? '#fdecea' : '#fff8e1',
+              color: s === 'approved' ? '#2e7d32' : s === 'rejected' ? '#c62828' : '#f57f17'
+            }}>
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </span>
+          );
+        },
+      },
+      {
+        id: 'view',
+        header: 'View',
+        enableSorting: false,
+        cell: ({ row }) => {
+          const t = row.original;
+          if (t.status !== 'approved') return <span style={{ color: '#ccc', fontSize: '12px' }}>—</span>;
+          return (
+            <button
+              onClick={() => {
+                const clientObj: Client = {
+                  id: t.client_id,
+                  name: t.client_name,
+                  email: t.client_email,
+                  phone: t.client_phone || '',
+                  sessions: t.sessions || '0',
+                  revenue: `₹${t.revenue || 0}`,
+                };
+                setSelectedClientCutoff(new Date(t.transfer_date || t.updated_at));
+                setInitialTab('Overview');
+                setSelectedClient(clientObj);
+                navigate(`/clients/${t.client_id}/Overview`);
+              }}
+              style={{ padding: '5px 14px', background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '12px', cursor: 'pointer' }}
+            >
+              View
+            </button>
+          );
+        },
+      }
+    );
+
+    return baseCols;
+  }, [canSeeContactInfo, navigate, setSelectedClientCutoff, setInitialTab, setSelectedClient]);
 
   if (selectedClient) {
     return (

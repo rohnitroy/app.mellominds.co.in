@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import './LoginPage.css'
 import { API_URL } from '../config/api'
 import CustomDropdown from './CustomDropdown'
+import LanguageMultiSelect from './LanguageMultiSelect'
 import { useToast } from '../context/ToastContext'
 
 const SignUpPage: React.FC = () => {
@@ -15,18 +16,39 @@ const SignUpPage: React.FC = () => {
     document.body.classList.add('scrollable')
     return () => document.body.classList.remove('scrollable')
   }, [])
+
+  // Read invite token and email from URL query params
+  const inviteToken = new URLSearchParams(window.location.search).get('invite') || ''
+  const inviteEmail = new URLSearchParams(window.location.search).get('email') || ''
+
   const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(inviteEmail)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
+  const [inviteError, setInviteError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Read invite token from URL query param
-  const inviteToken = new URLSearchParams(window.location.search).get('invite') || ''
-  
+  // Validate invite token on mount
+  React.useEffect(() => {
+    if (inviteToken && inviteEmail) {
+      const validateInvite = async () => {
+        try {
+          const response = await fetch(`${API_URL}/api/therapists/validate-invite?token=${encodeURIComponent(inviteToken)}&email=${encodeURIComponent(inviteEmail)}`)
+          const data = await response.json()
+          if (!data.valid) {
+            setInviteError(data.error || 'This invitation is no longer valid.')
+          }
+        } catch (err) {
+          console.error('Failed to validate invite:', err)
+        }
+      }
+      validateInvite()
+    }
+  }, [inviteToken, inviteEmail])
+
   const [phoneNumber, setPhoneNumber] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
   const [gender, setGender] = useState('')
@@ -38,6 +60,25 @@ const SignUpPage: React.FC = () => {
   const [city, setCity] = useState('')
   const [pincode, setPincode] = useState('')
   const [address, setAddress] = useState('')
+
+  const fetchLocationByPincode = async (pincodeValue: string) => {
+    if (!/^\d{6}$/.test(pincodeValue)) return;
+    try {
+      const response = await fetch(`${API_URL}/api/pincode/${pincodeValue}`);
+      if (!response.ok) throw new Error('API error');
+      const data = await response.json();
+      if (data.success) {
+        setCity(data.city || city);
+        setState(data.state || state);
+        toast.success('Location auto-filled from pincode');
+      } else {
+        toast.warning(data.error || 'Could not find location for this pincode');
+      }
+    } catch (error) {
+      console.error('Error fetching location:', error);
+      toast.warning('Could not auto-fill location. Please enter manually.');
+    }
+  };
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault()
@@ -145,12 +186,25 @@ const SignUpPage: React.FC = () => {
                 <strong>Create your account to get started</strong>
               </p>
 
+              {inviteError && (
+                <div style={{
+                  padding: '10px',
+                  marginBottom: '15px',
+                  backgroundColor: '#fee',
+                  border: '1px solid #fcc',
+                  borderRadius: '4px',
+                  color: '#c33'
+                }}>
+                  <strong>❌ Invitation Cancelled:</strong> The SignUp form is now Invalid
+                </div>
+              )}
+
               {error && (
-                <div style={{ 
-                  padding: '10px', 
-                  marginBottom: '15px', 
-                  backgroundColor: '#fee', 
-                  border: '1px solid #fcc', 
+                <div style={{
+                  padding: '10px',
+                  marginBottom: '15px',
+                  backgroundColor: '#fee',
+                  border: '1px solid #fcc',
                   borderRadius: '4px',
                   color: '#c33'
                 }}>
@@ -191,6 +245,8 @@ const SignUpPage: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       autoComplete="new-password"
+                      readOnly={!!inviteToken}
+                      style={inviteToken ? { backgroundColor: '#f5f5f5', cursor: 'not-allowed' } : {}}
                     />
                   </div>
                 </div>
@@ -357,45 +413,22 @@ const SignUpPage: React.FC = () => {
 
                 <div className="form-group">
                   <label htmlFor="specialization">Specialization</label>
-                  <CustomDropdown
-                    options={[
-                      { value: '', label: 'Select specialization' },
-                      { value: 'clinical', label: 'Clinical Psychology' },
-                      { value: 'counseling', label: 'Counseling' },
-                      { value: 'therapy', label: 'Therapy' }
-                    ]}
+                  <input
+                    type="text"
+                    id="specialization"
+                    className="date-input"
+                    placeholder="e.g., Clinical Psychologist, Counselling Therapist"
                     value={specialization}
-                    onChange={(value) => setSpecialization(value)}
-                    placeholder="Select specialization"
+                    onChange={(e) => setSpecialization(e.target.value)}
+                    maxLength={150}
                   />
                 </div>
 
                 <div className="form-group">
                   <label htmlFor="languages">Languages Spoken</label>
-                  <CustomDropdown
-                    options={[
-                      { value: '', label: 'Select languages' },
-                      { value: 'English', label: 'English' },
-                      { value: 'Hindi', label: 'Hindi' },
-                      { value: 'Bengali', label: 'Bengali' },
-                      { value: 'Telugu', label: 'Telugu' },
-                      { value: 'Marathi', label: 'Marathi' },
-                      { value: 'Tamil', label: 'Tamil' },
-                      { value: 'Gujarati', label: 'Gujarati' },
-                      { value: 'Kannada', label: 'Kannada' },
-                      { value: 'Malayalam', label: 'Malayalam' },
-                      { value: 'Punjabi', label: 'Punjabi' },
-                      { value: 'Odia', label: 'Odia' },
-                      { value: 'Urdu', label: 'Urdu' },
-                      { value: 'Spanish', label: 'Spanish' },
-                      { value: 'French', label: 'French' },
-                      { value: 'German', label: 'German' },
-                      { value: 'Chinese', label: 'Chinese' },
-                      { value: 'Arabic', label: 'Arabic' }
-                    ]}
+                  <LanguageMultiSelect
                     value={languages}
                     onChange={(value) => setLanguages(value)}
-                    placeholder="Select languages"
                   />
                 </div>
 
@@ -518,7 +551,14 @@ const SignUpPage: React.FC = () => {
                       className="date-input"
                       placeholder="enter pincode"
                       value={pincode}
-                      onChange={(e) => setPincode(e.target.value)}
+                      onChange={(e) => {
+                        const newPincode = e.target.value;
+                        setPincode(newPincode);
+                        if (newPincode.length === 6) {
+                          fetchLocationByPincode(newPincode);
+                        }
+                      }}
+                      maxLength={6}
                     />
                   </div>
                 </div>
@@ -536,7 +576,7 @@ const SignUpPage: React.FC = () => {
                 </div>
 
                 <button type="submit" className="login-button" disabled={loading}>
-                  {loading ? 'Creating Account...' : 'Select a plan →'}
+                  {loading ? 'Creating Account...' : 'Complete Registration'}
                 </button>
               </form>
             </>
