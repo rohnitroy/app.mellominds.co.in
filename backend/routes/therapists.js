@@ -85,7 +85,7 @@ router.get('/:id/profile', async (req, res) => {
         }
 
         const infoRes = await pool.query(
-            `SELECT u.id, u.user_name, u.email, u.specializations, u.profile_picture,
+            `SELECT u.id, u.user_name, u.email, u.specialization AS specializations, u.profile_picture,
                     COUNT(c.id) AS calendar_count,
                     COALESCE(
                         json_agg(json_build_object('id', c.id, 'title', c.title) ORDER BY c.created_at DESC)
@@ -132,10 +132,8 @@ router.get('/:id/profile', async (req, res) => {
             [therapistUserId]
         );
 
-        // Parse specializations if it's a JSON string
-        const specializations = info.specializations ? 
-            (typeof info.specializations === 'string' ? JSON.parse(info.specializations) : info.specializations) : 
-            null;
+        // Convert specialization string to array format
+        const specializations = info.specializations ? [info.specializations] : null;
 
         res.json({
             info: {
@@ -166,21 +164,21 @@ router.get('/', async (req, res) => {
         const result = await pool.query(
             `SELECT
                 ot.id, ot.therapist_user_id, ot.invite_email, ot.status, ot.created_at,
-                u.user_name, u.email, u.specializations, u.profile_picture, u.phone,
+                u.user_name, u.email, u.specialization AS specializations, u.profile_picture, u.phone,
                 COUNT(c.id) AS calendar_count
              FROM organization_therapists ot
              LEFT JOIN Users u ON ot.therapist_user_id = u.id
              LEFT JOIN Calendars c ON c.user_id = ot.therapist_user_id
              WHERE ot.owner_id = $1
              GROUP BY ot.id, ot.therapist_user_id, ot.invite_email, ot.status, ot.created_at,
-                      u.user_name, u.email, u.specializations, u.profile_picture, u.phone
+                      u.user_name, u.email, u.specialization, u.profile_picture, u.phone
              ORDER BY ot.created_at DESC`,
             [req.user.id]
         );
-        // Parse specializations from JSON string to array
+        // Convert specialization string to array format
         const therapists = result.rows.map(t => ({
             ...t,
-            specializations: t.specializations ? (typeof t.specializations === 'string' ? JSON.parse(t.specializations) : t.specializations) : null
+            specializations: t.specializations ? [t.specializations] : null
         }));
         res.json(therapists);
     } catch (err) {
