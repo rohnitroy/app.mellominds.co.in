@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import styles from './Appointments.module.css';
-import { Search } from 'react-iconly';
+import { Search, Send } from 'react-iconly';
 import API_BASE_URL from './config/api';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
@@ -12,6 +12,8 @@ import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
 import ConfirmModal from './components/ConfirmModal';
 import { useSocket } from './context/SocketContext';
+import { useToast } from './context/ToastContext';
+import { useAuth } from './context/AuthContext';
 
 const TAB_SLUGS: Record<string, string> = {
   'upcoming': 'Upcoming',
@@ -27,12 +29,18 @@ const TAB_TO_SLUG: Record<string, string> = Object.fromEntries(
 
 const Appointments: React.FC = () => {
   const navigate = useNavigate();
+  const toast = useToast();
+  const { user } = useAuth();
   const { tab: tabParam } = useParams<{ tab?: string }>();
   const resolvedTab = (tabParam && TAB_SLUGS[tabParam]) || 'Upcoming';
   const [activeTab, setActiveTab] = useState<string>(resolvedTab);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
+
+  const isEnterprise = user?.plan_name === 'enterprise';
+  const isOwner = user?.org_role !== 'member';
+  const canSeeContactInfo = !isEnterprise || isOwner;
 
   // Reschedule modal state
   const [rescheduleAppt, setRescheduleAppt] = useState<any | null>(null);
@@ -138,6 +146,34 @@ const Appointments: React.FC = () => {
     }
   };
 
+  const sendBulkReminders = async () => {
+    setActionLoading(-1);
+    try {
+      const remindableIds = selectedRows
+        .filter(app => app.status === 'scheduled' && new Date(app.end_time) >= new Date())
+        .map(app => app.id);
+
+      if (remindableIds.length === 0) {
+        toast.error('No upcoming sessions selected to send reminders.');
+        setActionLoading(null);
+        return;
+      }
+
+      for (const id of remindableIds) {
+        await fetch(`${API_BASE_URL}/api/bookings/${id}/reminder`, {
+          method: 'POST', credentials: 'include'
+        });
+      }
+
+      toast.success(`Reminders sent to ${remindableIds.length} session(s).`);
+    } catch (e) {
+      console.error('Failed to send bulk reminders:', e);
+      toast.error('Error sending reminders. Please try again.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleReschedule = async () => {
     if (!rescheduleAppt || !rescheduleSlot) return;
     setRescheduling(true);
@@ -215,61 +251,69 @@ const Appointments: React.FC = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, [activeMenuId]);
 
-  const columns: ColumnDef<any, any>[] = useMemo(() => [
-    {
-      accessorKey: 'start_time',
-      header: 'Session Timings',
-      cell: ({ getValue }) => formatDateTime(getValue()),
-    },
-    {
-      accessorKey: 'title',
-      header: 'Session Name',
-    },
-    {
-      accessorKey: 'client_name',
-      header: 'Client Name',
-      cell: ({ getValue, row }) => {
-        const clientName = getValue() || '—';
-        const clientEmail = row.original.client_email;
-        
-        if (clientName === '—' || !clientEmail) {
-          return clientName;
-        }
-        
-        return (
-          <span
-            style={{ 
-              cursor: 'pointer', 
-              color: '#2D7579', 
-              textDecoration: 'underline',
-              fontWeight: 500
-            }}
-            onClick={() => {
-              navigate('/clients', { 
-                state: { 
-                  clientEmail: clientEmail, 
-                  initialTab: 'Overview',
-                  returnTo: '/bookings'
-                } 
-              });
-            }}
-          >
-            {clientName}
-          </span>
-        );
+  const columns: ColumnDef<any, any>[] = useMemo(() => {
+    const baseColumns: ColumnDef<any, any>[] = [
+      {
+        accessorKey: 'start_time',
+        header: 'Session Timings',
+        cell: ({ getValue }) => formatDateTime(getValue()),
       },
-    },
-    {
-      id: 'contact',
-      header: 'Contact Info',
-      enableSorting: false,
-      cell: ({ row }) => (
-        <div>
-          <div className={styles.clientName}>{row.original.client_email || '—'}</div>
-          <div className={styles.clientPhone}>{row.original.client_phone || '—'}</div>
-        </div>
-      ),
-    },
+      {
+        accessorKey: 'title',
+        header: 'Session Name',
+      },
+      {
+        accessorKey: 'client_name',
+        header: 'Client Name',
+        cell: ({ getValue, row }) => {
+          const clientName = getValue() || '—';
+          const clientEmail = row.original.client_email;
+
+          if (clientName === '—' || !clientEmail) {
+            return clientName;
+          }
+
+          return (
+            <span
+              style={{
+                cursor: 'pointer',
+                color: '#2D7579',
+                textDecoration: 'underline',
+                fontWeight: 500
+              }}
+              onClick={() => {
+                navigate('/clients', {
+                  state: {
+                    clientEmail: clientEmail,
+                    initialTab: 'Overview',
+                    returnTo: '/bookings'
+                  }
+                });
+              }}
+            >
+              {clientName}
+            </span>
+          );
+        },
+      },
+    ];
+
+    if (canSeeContactInfo) {
+      baseColumns.push({
+        id: 'contact',
+        header: 'Contact Info',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div>
+            <div className={styles.clientName}>{row.original.client_email || '—'}</div>
+            <div className={styles.clientPhone}>{row.original.client_phone || '—'}</div>
+          </div>
+        ),
+      });
+    }
+
+    return [
+      ...baseColumns,
     {
       id: 'mode',
       header: 'Mode',
@@ -337,7 +381,8 @@ const Appointments: React.FC = () => {
         );
       },
     },
-  ], [activeMenuId, actionLoading]);
+    ];
+  }, [activeMenuId, actionLoading, canSeeContactInfo]);
 
   return (
     <div className={styles.appointmentsPage}>
@@ -365,18 +410,45 @@ const Appointments: React.FC = () => {
           <Search size="small" primaryColor="#6E6E6E" />
           <input type="text" placeholder="Search users by name, or phone no" />
         </div>
-        <button className={`${styles.exportBtn} ${styles.mobileHidden}`} onClick={() => {
-          const toExport = selectedRows.length > 0 ? selectedRows : filteredAppointments;
-          exportToCSV(toExport, 'bookings', {
-            start_time: 'Session Time', title: 'Session Name',
-            client_name: 'Client Name', client_email: 'Email',
-            client_phone: 'Phone', status: 'Status',
-            payment_status: 'Payment Status', payment_amount: 'Amount'
-          });
-        }}>
-          <img src="/Upload.svg" alt="" />
-          {selectedRows.length > 0 ? `Export ${selectedRows.length} Selected` : 'Export to CSV'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {selectedRows.length > 0 && activeTab === 'Upcoming' && (
+            <button
+              onClick={sendBulkReminders}
+              disabled={actionLoading === -1}
+              className={styles.mobileHidden}
+              style={{
+                backgroundColor: '#F9E141',
+                color: '#082421',
+                border: 'none',
+                padding: '10px 16px',
+                borderRadius: '8px',
+                fontFamily: 'Urbanist',
+                fontWeight: 600,
+                fontSize: '14px',
+                cursor: actionLoading === -1 ? 'not-allowed' : 'pointer',
+                opacity: actionLoading === -1 ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <Send size="small" set="bold" primaryColor="#082421" />
+              {actionLoading === -1 ? 'Sending...' : `Send Reminders (${selectedRows.length})`}
+            </button>
+          )}
+          <button className={`${styles.exportBtn} ${styles.mobileHidden}`} onClick={() => {
+            const toExport = selectedRows.length > 0 ? selectedRows : filteredAppointments;
+            exportToCSV(toExport, 'bookings', {
+              start_time: 'Session Time', title: 'Session Name',
+              client_name: 'Client Name', client_email: 'Email',
+              client_phone: 'Phone', status: 'Status',
+              payment_status: 'Payment Status', payment_amount: 'Amount'
+            });
+          }}>
+            <img src="/Upload.svg" alt="" />
+            {selectedRows.length > 0 ? `Export ${selectedRows.length} Selected` : 'Export to CSV'}
+          </button>
+        </div>
       </div>
 
       {loading ? (

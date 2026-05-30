@@ -108,7 +108,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [activitySubmitting, setActivitySubmitting] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingNote, setDeletingNote] = useState<number | null>(null);
-  const [activityForm, setActivityForm] = useState({ name: '', description: '', notify_client: false, reminder_count: 2, reminder_interval_days: 1 });
+  const [activityForm, setActivityForm] = useState({ name: '', description: '', notify_client: false });
   const [transferInfo, setTransferInfo] = useState<{ transferred: boolean; from_therapist_email?: string; created_at?: string } | null>(null);
   const [isTransferredClient, setIsTransferredClient] = useState(!!propCutoffDate);
   const [transferCutoffDate, setTransferCutoffDate] = useState<Date | null>(propCutoffDate || null);
@@ -234,13 +234,13 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       const res = await fetch(`${API_BASE_URL}/api/activities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: client.id, name: activityForm.name, description: activityForm.description, notify_client: activityForm.notify_client, reminder_count: activityForm.reminder_count, reminder_interval_days: activityForm.reminder_interval_days }),
+        body: JSON.stringify({ client_id: client.id, name: activityForm.name, description: activityForm.description, notify_client: activityForm.notify_client }),
         credentials: 'include'
       });
       if (res.ok) {
         toast.success('Activity added!');
         setShowAddActivitiesModal(false);
-        setActivityForm({ name: '', description: '', notify_client: false, reminder_count: 2, reminder_interval_days: 1 });
+        setActivityForm({ name: '', description: '', notify_client: false });
         fetchActivities();
       } else { toast.error('Failed to add activity.'); }
     } catch (e) { toast.error('Error adding activity.'); }
@@ -1098,29 +1098,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   ); })}
                 </div>
 
-                {!(isTransferredClient && transferCutoffDate) && (
-                  <div className={styles.addNotesSection}>
-                    {(() => {
-                      const hasPendingNotes = appointments.some(
-                        app =>
-                          app.status === 'completed' &&
-                          new Date(app.end_time) < new Date() &&
-                          !(app.notes?.length > 0)
-                      );
-                      return (
-                        <button
-                          className={styles.addNotesButton}
-                          onClick={() => { setSelectedAppointmentId(''); setShowAddNotesModal(true); }}
-                          disabled={!hasPendingNotes}
-                          title={!hasPendingNotes ? 'Notes can only be added after a session is completed and has no notes yet.' : undefined}
-                          style={!hasPendingNotes ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-                        >
-                          + Add Note
-                        </button>
-                      );
-                    })()}
-                  </div>
-                )}
               </>
             )}
 
@@ -1486,32 +1463,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   }} />
                 </div>
               </div>
-              {activityForm.notify_client && (
-                <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div>
-                    <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '6px' }}>
-                      Number of reminders
-                    </label>
-                    <input
-                      type="number" min={1} max={20}
-                      className={styles.formInput}
-                      value={activityForm.reminder_count}
-                      onChange={(e) => setActivityForm({ ...activityForm, reminder_count: Math.max(1, parseInt(e.target.value) || 1) })}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: '13px', color: '#555', display: 'block', marginBottom: '6px' }}>
-                      Remind every (days)
-                    </label>
-                    <input
-                      type="number" min={1} max={90}
-                      className={styles.formInput}
-                      value={activityForm.reminder_interval_days}
-                      onChange={(e) => setActivityForm({ ...activityForm, reminder_interval_days: Math.max(1, parseInt(e.target.value) || 1) })}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className={styles.formGroup}>

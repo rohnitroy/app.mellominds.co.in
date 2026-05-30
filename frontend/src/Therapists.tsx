@@ -75,9 +75,6 @@ const Therapists: React.FC = () => {
       const data = await res.json();
       if (res.ok) {
         toast.success(data.message || 'Invite sent!');
-        setInviteEmail('');
-        setShowInviteModal(false);
-        fetchTherapists();
       } else {
         toast.error(data.error || 'Failed to send invite.');
       }

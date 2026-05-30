@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import API_BASE_URL from '../config/api';
-import styles from './ManageReminders.module.css';
 import Loader from './Loader';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
+import { ChevronLeft } from 'react-iconly';
+import settingsStyles from '../MySettings.module.css';
 
 interface EmailPreferences {
     booking_confirmation: boolean;
@@ -22,19 +23,19 @@ interface EmailPreferences {
     use_own_email: boolean;
 }
 
-const EMAIL_LABELS: { key: keyof Omit<EmailPreferences, 'use_own_email'>; label: string; description: string }[] = [
-    { key: 'booking_confirmation', label: 'Booking Confirmation (Client)', description: 'Sent to client when a new session is booked' },
-    { key: 'booking_confirmation_therapist', label: 'Booking Confirmation (You)', description: 'Sent to you when a new session is booked with your integrated calendar' },
-    { key: 'cancellation', label: 'Cancellation', description: 'Sent to client and you when a session is cancelled' },
-    { key: 'reschedule', label: 'Reschedule', description: 'Sent to client and you when a session is rescheduled' },
-    { key: 'session_reminder', label: 'Session Reminder (24 hours)', description: 'Sent to client 24 hours before their session' },
-    { key: 'session_reminder_60min', label: 'Session Reminder (60 minutes)', description: 'Sent to client 60 minutes before their session' },
-    { key: 'session_reminder_30min', label: 'Session Reminder (30 minutes)', description: 'Sent to client 30 minutes before their session' },
-    { key: 'activity_notification', label: 'Activity Notification', description: 'Sent to client when you assign an activity or reminder' },
-    { key: 'booking_link', label: 'Booking Link', description: 'Sent to client when you share a booking link' },
-    { key: 'invoice', label: 'Invoice', description: 'Sent to client when you send a payment invoice' },
-    { key: 'transfer_request', label: 'Transfer Request', description: 'Sent to you when a client transfer request is initiated' },
-    { key: 'transfer_status', label: 'Transfer Status Update', description: 'Sent to you when a transfer request is accepted or declined' },
+const EMAIL_LABELS: { key: keyof Omit<EmailPreferences, 'use_own_email'>; label: string }[] = [
+    { key: 'booking_confirmation', label: 'Send booking confirmations to clients' },
+    { key: 'booking_confirmation_therapist', label: 'Receive new booking notifications' },
+    { key: 'cancellation', label: 'Send cancellation notifications' },
+    { key: 'reschedule', label: 'Send reschedule confirmations' },
+    { key: 'session_reminder', label: 'Send 24-hour session reminders' },
+    { key: 'session_reminder_60min', label: 'Send 1-hour session reminders' },
+    { key: 'session_reminder_30min', label: 'Send 30-minute session reminders' },
+    { key: 'activity_notification', label: 'Send activity suggestions to clients' },
+    { key: 'booking_link', label: 'Send booking links to clients' },
+    { key: 'invoice', label: 'Send invoices to clients' },
+    { key: 'transfer_request', label: 'Receive transfer requests from other therapists' },
+    { key: 'transfer_status', label: 'Receive transfer status updates' },
 ];
 
 interface GmailStatus {
@@ -54,7 +55,6 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
 
     const [prefs, setPrefs] = useState<EmailPreferences | null>(null);
     const [saving, setSaving] = useState<keyof EmailPreferences | null>(null);
-    const [error, setError] = useState<string | null>(null);
     const [gmailStatus, setGmailStatus] = useState<GmailStatus | null>(null);
     const [gmailLoading, setGmailLoading] = useState(false);
 
@@ -63,11 +63,10 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
             const r = await fetch(`${API_BASE_URL}/api/email-preferences`, { credentials: 'include' });
             const data = await r.json();
             setPrefs({ use_own_email: false, ...data });
-            setError(null);
         } catch {
-            setError('Failed to load preferences');
+            toast.error('Failed to load preferences');
         }
-    }, []);
+    }, [toast]);
 
     const fetchGmailStatus = useCallback(async () => {
         if (!isEnterprise) return;
@@ -78,7 +77,7 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
         } catch (err) {
             console.error('Failed to load Gmail status:', err);
         }
-    }, [isEnterprise]);
+    }, [isEnterprise, toast]);
 
     useEffect(() => {
         fetchPreferences();
@@ -145,104 +144,123 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
         }
     }, [toast]);
 
+    if (!prefs) {
+        return (
+            <div className={settingsStyles.settingsPage}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+                    <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                        <ChevronLeft size={24} primaryColor="#082421" />
+                    </button>
+                    <div>
+                        <h1 className={settingsStyles.settingsHeader}>Manage Reminders</h1>
+                        <p style={{ fontSize: '16px', fontWeight: '500', color: '#6E6E6E', margin: '8px 0 0 0' }}>Control which email notifications are sent</p>
+                    </div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '40px' }}><Loader /></div>
+            </div>
+        );
+    }
+
     return (
-        <div className={styles.page}>
-            <div className={styles.header}>
-                <button className={styles.backBtn} onClick={onBack}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 12H5M12 5l-7 7 7 7" />
-                    </svg>
+        <div className={settingsStyles.settingsPage}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+                <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <ChevronLeft size={24} primaryColor="#082421" />
                 </button>
                 <div>
-                    <h1>Manage Reminders</h1>
-                    <p>Control which email notifications are sent from your account</p>
+                    <h1 className={settingsStyles.settingsHeader}>Manage Reminders</h1>
+                    <p style={{ fontSize: '16px', fontWeight: '500', color: '#6E6E6E', margin: '8px 0 0 0' }}>Control which email notifications are sent</p>
                 </div>
             </div>
 
-
-            {/* Email sender section — enterprise only */}
+            {/* Gmail Section */}
             {isEnterprise && (
-                <div className={styles.senderCard}>
-                    <div className={styles.senderHeader}>
-                        <div>
-                            <span className={styles.senderTitle}>Email Sender</span>
-                            <span className={styles.senderDesc}>
-                                Choose whether emails are sent from MelloMinds or your own Gmail address
-                            </span>
-                        </div>
-                        <span className={styles.enterpriseBadge}>Enterprise</span>
-                    </div>
-
-                    <div className={styles.gmailRow}>
-                        <div className={styles.gmailInfo}>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className={styles.gmailIcon}>
-                                <path d="M20 4H4C2.9 4 2 4.9 2 6v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z" stroke="currentColor" strokeWidth="1.5"/>
-                                <path d="M2 6l10 7 10-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                            </svg>
+                <div style={{ marginBottom: '32px' }}>
+                    <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#082421' }}>Email Sender</h2>
+                    <div className={settingsStyles.settingCardColumn}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '14px', fontWeight: '600', color: '#333', marginBottom: '4px' }}>Gmail Integration</div>
+                                <div style={{ fontSize: '13px', color: '#888' }}>
+                                    {gmailStatus?.connected ? `Connected: ${gmailStatus.gmail_email}` : 'Choose whether emails are sent from MelloMinds or your own Gmail'}
+                                </div>
+                            </div>
                             {gmailStatus?.connected ? (
-                                <span className={styles.gmailEmail}>{gmailStatus.gmail_email}</span>
+                                <button
+                                    onClick={disconnectGmail}
+                                    disabled={gmailLoading}
+                                    style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #dc3545', background: '#fff', color: '#dc3545', fontFamily: 'Urbanist', fontWeight: '600', fontSize: '13px', cursor: gmailLoading ? 'not-allowed' : 'pointer', opacity: gmailLoading ? 0.6 : 1 }}
+                                >
+                                    {gmailLoading ? 'Disconnecting...' : 'Disconnect'}
+                                </button>
                             ) : (
-                                <span className={styles.gmailNotConnected}>No Gmail connected</span>
+                                <button
+                                    onClick={connectGmail}
+                                    style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: '#082421', color: '#fff', fontFamily: 'Urbanist', fontWeight: '600', fontSize: '13px', cursor: 'pointer' }}
+                                >
+                                    Connect Gmail
+                                </button>
                             )}
                         </div>
-                        {gmailStatus?.connected ? (
-                            <button
-                                className={styles.disconnectBtn}
-                                onClick={disconnectGmail}
-                                disabled={gmailLoading}
-                            >
-                                {gmailLoading ? 'Disconnecting...' : 'Disconnect'}
-                            </button>
-                        ) : (
-                            <button className={styles.connectBtn} onClick={connectGmail}>
-                                Connect Gmail
-                            </button>
-                        )}
                     </div>
 
-                    {gmailStatus?.connected && prefs && (
-                        <div className={styles.useOwnEmailRow}>
-                            <div className={styles.rowInfo}>
-                                <span className={styles.rowLabel}>Send from my Gmail</span>
-                                <span className={styles.rowDesc}>
-                                    When on, all emails to your clients go out from your Gmail address
-                                </span>
+                    {gmailStatus?.connected && (
+                        <div className={settingsStyles.settingCardColumn} style={{ marginTop: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <label style={{ fontFamily: 'Urbanist', fontWeight: '500', fontSize: '14px', color: '#555', cursor: 'pointer', flex: 1 }}>
+                                    Send from my Gmail account
+                                </label>
+                                <div style={{
+                                    width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer',
+                                    background: prefs.use_own_email ? '#2D7579' : '#ccc',
+                                    position: 'relative', transition: 'background 0.2s', flexShrink: 0, marginLeft: '16px'
+                                }}
+                                    onClick={() => toggle('use_own_email')}
+                                    role="switch"
+                                    aria-checked={prefs.use_own_email}
+                                >
+                                    <div style={{
+                                        position: 'absolute', top: '3px',
+                                        left: prefs.use_own_email ? '23px' : '3px',
+                                        width: '18px', height: '18px', borderRadius: '50%',
+                                        background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                    }} />
+                                </div>
                             </div>
-                            <button
-                                className={`${styles.toggle} ${prefs.use_own_email ? styles.on : styles.off}`}
-                                onClick={() => toggle('use_own_email')}
-                                disabled={saving === 'use_own_email'}
-                                aria-label={`${prefs.use_own_email ? 'Disable' : 'Enable'} send from Gmail`}
-                            >
-                                <span className={styles.thumb} />
-                            </button>
                         </div>
                     )}
                 </div>
             )}
 
-            {!prefs ? (
-                <Loader />
-            ) : (
-                <div className={styles.list}>
-                    {EMAIL_LABELS.map(({ key, label, description }) => (
-                        <div key={key} className={styles.row}>
-                            <div className={styles.rowInfo}>
-                                <span className={styles.rowLabel}>{label}</span>
-                                <span className={styles.rowDesc}>{description}</span>
-                            </div>
-                            <button
-                                className={`${styles.toggle} ${prefs[key] ? styles.on : styles.off}`}
+            {/* Notification Reminders */}
+            <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#082421' }}>Notification Reminders</h2>
+                {EMAIL_LABELS.map(({ key, label }) => (
+                    <div key={key} className={settingsStyles.settingCardColumn}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <label style={{ fontFamily: 'Urbanist', fontWeight: '500', fontSize: '14px', color: '#555', cursor: 'pointer', flex: 1 }}>
+                                {label}
+                            </label>
+                            <div style={{
+                                width: '44px', height: '24px', borderRadius: '12px', cursor: 'pointer',
+                                background: prefs[key] ? '#2D7579' : '#ccc',
+                                position: 'relative', transition: 'background 0.2s', flexShrink: 0, marginLeft: '16px'
+                            }}
                                 onClick={() => toggle(key)}
-                                disabled={saving === key}
-                                aria-label={`${prefs[key] ? 'Disable' : 'Enable'} ${label}`}
+                                role="switch"
+                                aria-checked={prefs[key]}
                             >
-                                <span className={styles.thumb} />
-                            </button>
+                                <div style={{
+                                    position: 'absolute', top: '3px',
+                                    left: prefs[key] ? '23px' : '3px',
+                                    width: '18px', height: '18px', borderRadius: '50%',
+                                    background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                }} />
+                            </div>
                         </div>
-                    ))}
-                </div>
-            )}
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };

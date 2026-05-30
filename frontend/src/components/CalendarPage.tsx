@@ -49,6 +49,40 @@ const CalendarPage: React.FC = () => {
   const [slugFormData, setSlugFormData] = useState({ id: 0, slug: '' });
   const [slugSaving, setSlugSaving] = useState(false);
 
+  // Therapist selector for enterprise owners
+  const [showTherapistSelector, setShowTherapistSelector] = useState(false);
+  const [therapists, setTherapists] = useState<any[]>([]);
+  const [therapistsLoading, setTherapistsLoading] = useState(false);
+
+  const isEnterpriseOwner = user?.plan_name === 'enterprise' && user?.org_role !== 'member';
+
+  const fetchTherapists = useCallback(async () => {
+    setTherapistsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/therapists`, { credentials: 'include' });
+      if (response.ok) {
+        const data = await response.json();
+        setTherapists(data.filter((t: any) => t.status === 'active'));
+      }
+    } catch {
+      toast.error('Failed to load therapists.');
+    } finally {
+      setTherapistsLoading(false);
+    }
+  }, [toast]);
+
+  const handleCreateForTherapist = (therapist: any) => {
+    navigate('/my-calendar/new', {
+      state: {
+        type: 'one_on_one',
+        managingUserId: therapist.therapist_user_id,
+        managingUserName: therapist.user_name,
+        returnTo: '/my-calendar'
+      }
+    });
+    setShowTherapistSelector(false);
+  };
+
 
   // Handle ?openModal=true — just navigate, no redundant setSearchParams
   useEffect(() => {
@@ -213,6 +247,35 @@ const CalendarPage: React.FC = () => {
           >
             Available Hours
           </button>
+          {isEnterpriseOwner && (
+            <button
+              className="mobile-hidden"
+              onClick={() => {
+                setShowTherapistSelector(true);
+                fetchTherapists();
+              }}
+              style={{
+                backgroundColor: '#F9E141',
+                color: '#082421',
+                border: 'none',
+                padding: '12px 20px',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                fontFamily: "'Urbanist', sans-serif",
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.backgroundColor = '#f0d920';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.backgroundColor = '#F9E141';
+              }}
+            >
+              + For Therapist
+            </button>
+          )}
           <button
             className="create-calendar-btn mobile-hidden"
             onClick={() => {
@@ -396,6 +459,54 @@ const CalendarPage: React.FC = () => {
         onClose={() => setShowProfileModal(false)}
         featureName="Calendar Setup"
       />
+
+      {showTherapistSelector && (
+        <div className="modal-overlay" onClick={() => setShowTherapistSelector(false)}>
+          <div className="modal-content" style={{ maxWidth: '500px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Select Therapist</h2>
+              <button className="close-btn" onClick={() => setShowTherapistSelector(false)}>×</button>
+            </div>
+            <div style={{ padding: '20px', maxHeight: '400px', overflowY: 'auto' }}>
+              {therapistsLoading ? (
+                <div style={{ textAlign: 'center', color: '#666' }}>Loading therapists...</div>
+              ) : therapists.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#666' }}>No active therapists found in your team.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {therapists.map(therapist => (
+                    <button
+                      key={therapist.id}
+                      onClick={() => handleCreateForTherapist(therapist)}
+                      style={{
+                        padding: '12px 16px',
+                        textAlign: 'left',
+                        border: '1px solid #e0e0e0',
+                        borderRadius: '8px',
+                        backgroundColor: '#fff',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        fontSize: '14px',
+                      }}
+                      onMouseEnter={e => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = '#f5f5f5';
+                        (e.currentTarget as HTMLElement).style.borderColor = '#082421';
+                      }}
+                      onMouseLeave={e => {
+                        (e.currentTarget as HTMLElement).style.backgroundColor = '#fff';
+                        (e.currentTarget as HTMLElement).style.borderColor = '#e0e0e0';
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, color: '#082421' }}>{therapist.user_name}</div>
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>{therapist.email}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

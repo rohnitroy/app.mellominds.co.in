@@ -73,9 +73,33 @@ const NotificationBell: React.FC<{
   showNotificationDropdown: boolean;
   setShowNotificationDropdown: (v: boolean) => void;
 }> = ({ showNotificationsPage, showNotificationDropdown, setShowNotificationDropdown }) => {
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, refresh } = useNotifications();
   const navigate = useNavigate();
+  const toast = useToast();
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const [actioningNotifId, setActioningNotifId] = React.useState<number | null>(null);
+
+  const handleTransferAction = async (transferId: number, action: 'approve' | 'reject', notifId: number) => {
+    setActioningNotifId(notifId);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/clients/transfers/${transferId}/${action}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(action === 'approve' ? 'Transfer approved!' : 'Transfer rejected.');
+        markAsRead(notifId);
+        refresh();
+      } else {
+        toast.error(data.error || 'Action failed');
+      }
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setActioningNotifId(null);
+    }
+  };
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -126,16 +150,34 @@ const NotificationBell: React.FC<{
             <div style={{ padding: '20px', textAlign: 'center', color: '#6E6E6E', fontSize: '13px' }}>No notifications yet</div>
           ) : (
             preview.map(n => (
-              <div key={n.id} className="notification-item" style={{ background: n.is_read ? 'white' : '#f0faf9' }}
-                onClick={() => { if (!n.is_read) markAsRead(n.id); }}>
-                <div className="notification-content">
-                  <div className="notification-item-title" style={{ color: n.is_read ? '#555' : '#000' }}>{n.title}</div>
-                  <div className="notification-item-desc">{n.description}</div>
+              <div key={n.id} className="notification-item" style={{ background: n.is_read ? 'white' : '#f0faf9', display: 'flex', flexDirection: 'column', gap: '8px' }}
+                onClick={() => { if (!n.is_read && n.type !== 'transfer_request') markAsRead(n.id); }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="notification-content" style={{ flex: 1 }}>
+                    <div className="notification-item-title" style={{ color: n.is_read ? '#555' : '#000' }}>{n.title}</div>
+                    <div className="notification-item-desc">{n.description}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '8px' }}>
+                    <span style={{ fontSize: '11px', color: '#6E6E6E', whiteSpace: 'nowrap' }}>{formatTime(n.created_at)}</span>
+                    {!n.is_read && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2D7579', display: 'inline-block' }}></span>}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0, marginLeft: '8px' }}>
-                  <span style={{ fontSize: '11px', color: '#6E6E6E', whiteSpace: 'nowrap' }}>{formatTime(n.created_at)}</span>
-                  {!n.is_read && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2D7579', display: 'inline-block' }}></span>}
-                </div>
+                {n.type === 'transfer_request' && !n.is_read && (
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); if (n.related_id) handleTransferAction(n.related_id, 'approve', n.id); }}
+                      disabled={actioningNotifId === n.id}
+                      style={{ padding: '6px 14px', borderRadius: '6px', border: 'none', background: '#082421', color: '#fff', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '12px', cursor: actioningNotifId === n.id ? 'not-allowed' : 'pointer', opacity: actioningNotifId === n.id ? 0.6 : 1, flex: 1 }}>
+                      {actioningNotifId === n.id ? '...' : 'Approve'}
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); if (n.related_id) handleTransferAction(n.related_id, 'reject', n.id); }}
+                      disabled={actioningNotifId === n.id}
+                      style={{ padding: '6px 14px', borderRadius: '6px', border: '1px solid #e53935', background: '#fff', color: '#e53935', fontFamily: 'Urbanist', fontWeight: 600, fontSize: '12px', cursor: actioningNotifId === n.id ? 'not-allowed' : 'pointer', opacity: actioningNotifId === n.id ? 0.6 : 1, flex: 1 }}>
+                      {actioningNotifId === n.id ? '...' : 'Reject'}
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}
