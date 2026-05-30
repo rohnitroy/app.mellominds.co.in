@@ -142,6 +142,26 @@ const TherapistProfileView: React.FC = () => {
     );
   }, [data, bookingSearch]);
 
+  // Paginate clients
+  const clientStartIdx = (clientPage - 1) * ITEMS_PER_PAGE;
+  const paginatedClients = useMemo(() => 
+    filteredClients.slice(clientStartIdx, clientStartIdx + ITEMS_PER_PAGE),
+    [filteredClients, clientStartIdx]
+  );
+  const totalClientPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE);
+
+  // Paginate bookings
+  const bookingStartIdx = (bookingPage - 1) * ITEMS_PER_PAGE;
+  const paginatedBookings = useMemo(() => 
+    filteredBookings.slice(bookingStartIdx, bookingStartIdx + ITEMS_PER_PAGE),
+    [filteredBookings, bookingStartIdx]
+  );
+  const totalBookingPages = Math.ceil(filteredBookings.length / ITEMS_PER_PAGE);
+
+  // Reset pagination when search changes
+  useEffect(() => { setClientPage(1); }, [clientSearch]);
+  useEffect(() => { setBookingPage(1); }, [bookingSearch]);
+
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric',
