@@ -72,6 +72,8 @@ const AllClients: React.FC = () => {
   const [addForm, setAddForm] = useState({ ...defaultForm });
   const [saving, setSaving] = useState(false);
   const [addClientCalendarId, setAddClientCalendarId] = useState<string>('');
+  const [therapistsForAddClient, setTherapistsForAddClient] = useState<any[]>([]);
+  const [selectedTherapistForClient, setSelectedTherapistForClient] = useState<string>('');
 
   // Bulk send booking link state
   const [showBulkSendModal, setShowBulkSendModal] = useState(false);
@@ -93,13 +95,22 @@ const AllClients: React.FC = () => {
     }
   };
 
+  const fetchTherapistsForAddClient = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/therapists`, { credentials: 'include' });
+      if (res.ok) {
+        const therapists = await res.json();
+        setTherapistsForAddClient(therapists);
+      }
+    } catch { /* silent */ }
+  };
+
   const fetchCalendars = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/calendars`, { credentials: 'include' });
       if (res.ok) setCalendars(await res.json());
     } catch { /* silent */ }
   };
-
   const handleBulkSend = async () => {
     if (!selectedCalendarId) { toast.warning('Please select a calendar.'); return; }
     setBulkSending(true);
@@ -455,7 +466,7 @@ const AllClients: React.FC = () => {
           <h1>All Clients</h1>
           <p>View Client Details, Sessions and more...</p>
         </div>
-        <button className={styles.addClientBtn} onClick={() => { fetchCalendars(); setShowAddModal(true); }}>+ Add Client</button>
+        <button className={styles.addClientBtn} onClick={() => { fetchCalendars(); if (isOwner) { fetchTherapistsForAddClient(); } setShowAddModal(true); }}>+ Add Client</button>
       </div>
 
       {/* Tabs */}
@@ -634,11 +645,36 @@ const AllClients: React.FC = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
               <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '22px', margin: 0 }}>Add New Client</h2>
-              <button onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); setAddClientCalendarId(''); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+              <button onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); setAddClientCalendarId(''); setSelectedTherapistForClient(''); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
             </div>
             <p style={{ fontFamily: 'Urbanist', fontSize: '14px', color: '#6E6E6E', margin: '0 0 24px 0' }}>Fill in the client's details below</p>
 
             <form onSubmit={handleAddClient}>
+              {isOwner && (
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={labelStyle}>Add Client For *</label>
+                  <select
+                    style={inputStyle}
+                    value={selectedTherapistForClient}
+                    onChange={e => setSelectedTherapistForClient(e.target.value)}
+                    required
+                  >
+                    <option value="">— Select a therapist —</option>
+                    <option value="owner">Myself</option>
+                    {therapistsForAddClient.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.user_name || t.invite_email} {t.status === 'pending' ? '(Pending)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {therapistsForAddClient.length === 0 && selectedTherapistForClient === 'owner' && (
+                    <p style={{ fontFamily: 'Urbanist', fontSize: '12px', color: '#6E6E6E', margin: '6px 0 0 0' }}>
+                      Client will be added for your account
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Basic Info */}
               <p style={{ fontFamily: 'Urbanist', fontWeight: 600, fontSize: '13px', color: '#2D7579', margin: '0 0 12px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Basic Info</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
@@ -721,7 +757,7 @@ const AllClients: React.FC = () => {
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button
                   type="button"
-                  onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); setAddClientCalendarId(''); }}
+                  onClick={() => { setShowAddModal(false); setAddForm({ ...defaultForm }); setAddClientCalendarId(''); setSelectedTherapistForClient(''); }}
                   disabled={saving}
                   style={{ padding: '10px 24px', borderRadius: '8px', border: '1px solid #e0e0e0', background: '#fff', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#333', cursor: 'pointer' }}
                 >
