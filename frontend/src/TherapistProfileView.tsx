@@ -5,6 +5,7 @@ import API_BASE_URL from './config/api';
 import { useToast } from './context/ToastContext';
 import { useSocket } from './context/SocketContext';
 import Loader from './components/Loader';
+import { exportToCSV } from './utils/exportCSV';
 interface TherapistInfo {
   id: number;
   therapist_user_id: number | null;
@@ -326,16 +327,48 @@ const TherapistProfileView: React.FC = () => {
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>Clients</h2>
-            <div className={styles.searchWrap}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input
-                className={styles.searchInput}
-                placeholder="Search clients..."
-                value={clientSearch}
-                onChange={e => setClientSearch(e.target.value)}
-              />
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button
+                onClick={() => {
+                  exportToCSV(filteredClients, 'therapist-clients', {
+                    name: 'Name',
+                    email: 'Email',
+                    phone: 'Phone',
+                    gender: 'Gender',
+                  });
+                }}
+                style={{
+                  padding: '8px 14px',
+                  background: '#082421',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontFamily: 'Urbanist',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export
+              </button>
+              <div className={styles.searchWrap}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input
+                  className={styles.searchInput}
+                  placeholder="Search clients..."
+                  value={clientSearch}
+                  onChange={e => setClientSearch(e.target.value)}
+                />
+              </div>
             </div>
           </div>
           <div className={styles.tableWrap}>
