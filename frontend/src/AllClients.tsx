@@ -105,9 +105,16 @@ const AllClients: React.FC = () => {
     } catch { /* silent */ }
   };
 
-  const fetchCalendars = async () => {
+  const fetchCalendars = async (therapistId?: string) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/calendars`, { credentials: 'include' });
+      let url = `${API_BASE_URL}/api/calendars`;
+      
+      // If owner selected a specific therapist (not themselves), fetch that therapist's calendars
+      if (therapistId && therapistId !== 'owner') {
+        url = `${API_BASE_URL}/api/therapists/member/${therapistId}/calendars`;
+      }
+      
+      const res = await fetch(url, { credentials: 'include' });
       if (res.ok) setCalendars(await res.json());
     } catch { /* silent */ }
   };
@@ -466,7 +473,7 @@ const AllClients: React.FC = () => {
           <h1>All Clients</h1>
           <p>View Client Details, Sessions and more...</p>
         </div>
-        <button className={styles.addClientBtn} onClick={() => { fetchCalendars(); if (isOwner) { fetchTherapistsForAddClient(); } setShowAddModal(true); }}>+ Add Client</button>
+        <button className={styles.addClientBtn} onClick={() => { if (isOwner) { fetchTherapistsForAddClient(); setSelectedTherapistForClient(""); } fetchCalendars(selectedTherapistForClient); setShowAddModal(true); }}>+ Add Client</button>
       </div>
 
       {/* Tabs */}
@@ -656,7 +663,10 @@ const AllClients: React.FC = () => {
                   <select
                     style={inputStyle}
                     value={selectedTherapistForClient}
-                    onChange={e => setSelectedTherapistForClient(e.target.value)}
+                    onChange={e => {
+                      setSelectedTherapistForClient(e.target.value);
+                      fetchCalendars(e.target.value);
+                    }}
                     required
                   >
                     <option value="">— Select a therapist —</option>
