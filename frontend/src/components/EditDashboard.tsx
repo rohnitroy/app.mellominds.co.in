@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft } from 'react-iconly';
+import styles from './EditDashboard.module.css';
 import API_BASE_URL from '../config/api';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -101,60 +101,43 @@ const EditDashboard: React.FC<EditDashboardProps> = ({ onBack }) => {
 
   return (
     <div style={{ flex: 1, background: '#f8f9fa', padding: '24px', overflowY: 'auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            <ArrowLeft size="medium" primaryColor="#000000" />
+      <div className={styles.header}>
+        <div className={styles.headerContent}>
+          <button onClick={onBack} className={styles.backBtn}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 5l-7 7 7 7" />
+            </svg>
           </button>
           <div>
-            <h1 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '22px', color: '#000', margin: '0 0 8px 0' }}>Edit Dashboard</h1>
-            <p style={{ fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', color: '#6E6E6E', margin: 0 }}>Show or hide analytics modules on your dashboard.</p>
+            <h1 className={styles.title}>Edit Dashboard</h1>
+            <p className={styles.subtitle}>Show or hide analytics modules on your dashboard.</p>
           </div>
         </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          style={{ background: '#082421', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 24px', fontFamily: 'Urbanist', fontWeight: 500, fontSize: '14px', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+          className={styles.saveBtn}
         >
           {saving ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
 
-      {/* Widget list */}
-      <div style={{ background: '#fff', borderRadius: '16px', padding: '8px 24px' }}>
+      <div className={styles.content}>
         {ALL_WIDGETS.map(({ key, desc }, i) => (
-          <div
-            key={key}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '18px 0',
-              borderBottom: i < ALL_WIDGETS.length - 1 ? '1px solid #f0f0f0' : 'none',
-            }}
-          >
-            <div>
-              <div style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '16px', color: '#111', marginBottom: '3px' }}>{key}</div>
-              <div style={{ fontFamily: 'Urbanist', fontWeight: 400, fontSize: '13px', color: '#6E6E6E' }}>{desc}</div>
+          <div key={key} className={styles.widgetItem}>
+            <div className={styles.widgetInfo}>
+              <div className={styles.widgetKey}>{key}</div>
+              <div className={styles.widgetDesc}>{desc}</div>
             </div>
             <button
               onClick={() => handleToggle(key)}
-              style={{
-                position: 'relative', width: '48px', height: '26px', borderRadius: '13px',
-                background: widgets[key] ? '#082421' : '#d1d5db',
-                border: 'none', cursor: 'pointer', padding: 0,
-                transition: 'background 0.2s', flexShrink: 0,
-              }}
+              className={styles.toggleSwitch}
+              data-checked={widgets[key]}
               role="switch"
               aria-checked={widgets[key]}
               aria-label={key}
             >
-              <span style={{
-                position: 'absolute', top: '4px',
-                left: widgets[key] ? '26px' : '4px',
-                width: '18px', height: '18px', borderRadius: '50%',
-                background: '#fff', transition: 'left 0.2s',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-              }} />
+              <span className={styles.toggleThumb} />
             </button>
           </div>
         ))}

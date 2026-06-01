@@ -5,6 +5,44 @@
   overflow-y: auto;
 }
 
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  color: #082421;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.backBtn:hover {
+  background: #f3f4f6;
+}
+
+.pageTitle {
+  margin: 0 0 4px;
+  font-size: 30px;
+  font-weight: 700;
+  color: #082421;
+}
+
+.pageSubtitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
 .settingsHeader {
   margin-bottom: 32px;
 }

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../context/ToastContext';
-import { ChevronLeft } from 'react-iconly';
 import API_BASE_URL from '../config/api';
 import settingsStyles from '../MySettings.module.css';
 
@@ -148,13 +147,15 @@ const EmailPreferences: React.FC<EmailPreferencesProps> = ({ onBack }) => {
   if (loading) {
     return (
       <div className={settingsStyles.settingsPage}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-            <ChevronLeft size={24} primaryColor="#082421" />
+        <div className={settingsStyles.pageHeader}>
+          <button onClick={onBack} className={settingsStyles.backBtn}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 5l-7 7 7 7" />
+            </svg>
           </button>
           <div>
-            <h1 className={settingsStyles.settingsHeader}>Email Preferences</h1>
-            <p style={{ fontSize: '16px', fontWeight: '500', color: '#6E6E6E', margin: '8px 0 0 0' }}>Manage which emails you and your clients receive</p>
+            <h1 className={settingsStyles.pageTitle}>Email Preferences</h1>
+            <p className={settingsStyles.pageSubtitle}>Manage which emails you and your clients receive</p>
           </div>
         </div>
         <div style={{ textAlign: 'center', padding: '40px', color: '#6E6E6E' }}>Loading...</div>
@@ -164,13 +165,15 @@ const EmailPreferences: React.FC<EmailPreferencesProps> = ({ onBack }) => {
 
   return (
     <div className={settingsStyles.settingsPage}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-          <ChevronLeft size={24} primaryColor="#082421" />
+      <div className={settingsStyles.pageHeader}>
+        <button onClick={onBack} className={settingsStyles.backBtn}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 5l-7 7 7 7" />
+          </svg>
         </button>
         <div>
-          <h1 className={settingsStyles.settingsHeader}>Email Preferences</h1>
-          <p style={{ fontSize: '16px', fontWeight: '500', color: '#6E6E6E', margin: '8px 0 0 0' }}>Manage which emails you and your clients receive</p>
+          <h1 className={settingsStyles.pageTitle}>Email Preferences</h1>
+          <p className={settingsStyles.pageSubtitle}>Manage which emails you and your clients receive</p>
         </div>
       </div>
 

@@ -7,14 +7,14 @@
 
 .profileHeader {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
+  justify-content: space-between;
 }
 
-.headerLeft {
+.headerContent {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
 }
 
@@ -22,10 +22,21 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0;
+  padding: 6px;
+  color: #082421;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
 }
 
-.profileHeader h1 {
+.backBtn:hover {
+  background: #f3f4f6;
+}
+
+.profileHeader > div h1 {
   font-family: 'Urbanist', sans-serif;
   font-weight: 700;
   font-size: 30px;
@@ -33,7 +44,7 @@
   margin: 0 0 4px 0;
 }
 
-.profileHeader p {
+.profileHeader > div p {
   font-family: 'Urbanist', sans-serif;
   font-weight: 500;
   font-size: 16px;

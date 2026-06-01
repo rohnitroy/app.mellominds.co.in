@@ -78,7 +78,7 @@ router.put('/me', ensureAuthenticated, async (req, res) => {
     const { user_name, phone, dob, gender, language_spoken, country, state, city, pincode, clinic_address, specialization } = req.body;
 
     const result = await pool.query(
-      `UPDATE Users 
+      `UPDATE Users
        SET user_name = COALESCE($1, user_name),
            phone = COALESCE($2, phone),
            dob = COALESCE($3, dob),
@@ -90,12 +90,13 @@ router.put('/me', ensureAuthenticated, async (req, res) => {
            pincode = COALESCE($9, pincode),
            clinic_address = COALESCE($10, clinic_address),
            specialization = COALESCE($11, specialization),
+           is_therapist = CASE WHEN $11 IS NOT NULL THEN true ELSE is_therapist END,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $12
-       RETURNING id, email, user_name, phone, plan_name, org_role, org_owner_id, 
-                 dob, gender, language_spoken, country, state, city, pincode, 
-                 clinic_address, profile_picture, profile_slug, specialization, 
-                 created_at, updated_at`,
+       RETURNING id, email, user_name, phone, plan_name, org_role, org_owner_id,
+                 dob, gender, language_spoken, country, state, city, pincode,
+                 clinic_address, profile_picture, profile_slug, specialization,
+                 is_therapist, created_at, updated_at`,
       [user_name, phone, dob, gender, language_spoken, country, state, city, pincode, clinic_address, specialization, userId]
     );
 

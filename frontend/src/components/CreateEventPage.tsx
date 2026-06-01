@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import styles from './CreateEventPage.module.css';
 import { useAuth } from '../context/AuthContext';
 import AddLocationModal from './AddLocationModal';
@@ -15,18 +15,20 @@ const CreateEventPage: React.FC = () => {
     const { user } = useAuth();
     const toast = useToast();
     const { socket } = useSocket();
-    
+    const [searchParams, setSearchParams] = useSearchParams();
+
     // Check if we're in edit mode
     const isEditMode = location.state?.isEditing || false;
     const existingCalendar = location.state?.calendar;
     // If set, the owner is managing a member's calendar
     const managingUserId = location.state?.managingUserId || null;
     const managingUserName = location.state?.managingUserName || null;
-    
+
     // Retrieve type passed from previous screen if available
     const initialType = existingCalendar?.type || location.state?.type || 'one_on_one';
 
-    const [activeTab, setActiveTab] = useState('basic');
+    // URL-based tab management
+    const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'basic');
     // In edit mode, slug is already set so allow editing immediately
     const [isSlugEdited, setIsSlugEdited] = useState(isEditMode);
     const [showAddLocationModal, setShowAddLocationModal] = useState(false);
@@ -51,7 +53,21 @@ const CreateEventPage: React.FC = () => {
                 .then(data => setManagedUserGoogleConnected(data.connected))
                 .catch(() => setManagedUserGoogleConnected(false));
         }
-    }, []);    const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
+    }, []);
+
+    // URL-based tab management
+    useEffect(() => {
+        setActiveTab(searchParams.get('tab') || 'basic');
+    }, [searchParams]);
+
+    // Handle tab change and update URL
+    const handleTabChange = (tabId: string) => {
+        setActiveTab(tabId);
+        setSearchParams({ tab: tabId }, { replace: true });
+    };
+
+
+    const descriptionRef = React.useRef<HTMLTextAreaElement>(null);
 
     const applyFormat = (format: 'bold' | 'italic' | 'bullet' | 'link') => {
         const el = descriptionRef.current;
@@ -426,7 +442,7 @@ const CreateEventPage: React.FC = () => {
 
         if (!eventData.name.trim()) {
             toast.error('Event Name is required.');
-            setActiveTab('basic');
+            handleTabChange('basic');
             return;
         }
 
@@ -495,7 +511,7 @@ const CreateEventPage: React.FC = () => {
                 const errorData = await response.json();
                 if (response.status === 409) {
                     toast.error('This URL is already used by one of your calendars. Please choose a different one.');
-                    setActiveTab('basic');
+                    handleTabChange('basic');
                     setIsSlugEdited(true);
                 } else {
                     toast.error(`Failed to save calendar: ${errorData.error}`);
@@ -1383,7 +1399,7 @@ const CreateEventPage: React.FC = () => {
                         <div
                             key={item.id}
                             className={`${styles.navItem} ${activeTab === item.id ? styles.activeNav : ''}`}
-                            onClick={() => setActiveTab(item.id)}
+                            onClick={() => handleTabChange(item.id)}
                         >
                             <span>{navIcons[item.id]}</span>
                             {item.label}

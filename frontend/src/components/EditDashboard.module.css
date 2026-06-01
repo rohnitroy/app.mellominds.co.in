@@ -1,0 +1,134 @@
+.header {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 32px;
+  justify-content: space-between;
+}
+
+.headerContent {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  color: #000000;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.backBtn:hover {
+  background: #f3f4f6;
+}
+
+.title {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: #000;
+  margin: 0 0 8px 0;
+}
+
+.subtitle {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  color: #6E6E6E;
+  margin: 0;
+}
+
+.saveBtn {
+  background: #082421;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.saveBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.content {
+  background: #fff;
+  border-radius: 16px;
+  padding: 8px 24px;
+}
+
+.widgetItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.widgetItem:last-child {
+  border-bottom: none;
+}
+
+.widgetInfo {
+  flex: 1;
+}
+
+.widgetKey {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: #111;
+  margin-bottom: 3px;
+}
+
+.widgetDesc {
+  font-family: 'Urbanist', sans-serif;
+  font-weight: 400;
+  font-size: 13px;
+  color: #6E6E6E;
+}
+
+.toggleSwitch {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  background: #d1d5db;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggleSwitch[data-checked="true"] {
+  background: #082421;
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggleSwitch[data-checked="true"] .toggleThumb {
+  left: 26px;
+}

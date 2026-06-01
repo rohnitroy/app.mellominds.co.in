@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './MyProfile.module.css';
-import { ArrowLeft } from 'react-iconly';
 import DateInput from './components/DateInput';
 import CustomDropdown from './components/CustomDropdown';
 import LanguageMultiSelect from './components/LanguageMultiSelect';
@@ -373,9 +372,11 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   return (
     <div className={styles.profilePage}>
       <div className={styles.profileHeader}>
-        <div className={styles.headerLeft}>
+        <div className={styles.headerContent}>
           <button className={styles.backBtn} onClick={onBack}>
-            <ArrowLeft size="medium" primaryColor="#000000" />
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 5l-7 7 7 7" />
+            </svg>
           </button>
           <div>
             <h1>My Profile</h1>

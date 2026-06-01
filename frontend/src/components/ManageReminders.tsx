@@ -4,7 +4,6 @@ import Loader from './Loader';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import { useToast } from '../context/ToastContext';
-import { ChevronLeft } from 'react-iconly';
 import settingsStyles from '../MySettings.module.css';
 
 interface EmailPreferences {
@@ -147,13 +146,15 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
     if (!prefs) {
         return (
             <div className={settingsStyles.settingsPage}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-                    <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                        <ChevronLeft size={24} primaryColor="#082421" />
+                <div className={settingsStyles.pageHeader}>
+                    <button onClick={onBack} className={settingsStyles.backBtn}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 12H5M12 5l-7 7 7 7" />
+                        </svg>
                     </button>
                     <div>
-                        <h1 className={settingsStyles.settingsHeader}>Manage Reminders</h1>
-                        <p style={{ fontSize: '16px', fontWeight: '500', color: '#6E6E6E', margin: '8px 0 0 0' }}>Control which email notifications are sent</p>
+                        <h1 className={settingsStyles.pageTitle}>Manage Reminders</h1>
+                        <p className={settingsStyles.pageSubtitle}>Control which email notifications are sent</p>
                     </div>
                 </div>
                 <div style={{ textAlign: 'center', padding: '40px' }}><Loader /></div>
@@ -163,13 +164,15 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
 
     return (
         <div className={settingsStyles.settingsPage}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-                <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                    <ChevronLeft size={24} primaryColor="#082421" />
+            <div className={settingsStyles.pageHeader}>
+                <button onClick={onBack} className={settingsStyles.backBtn}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 12H5M12 5l-7 7 7 7" />
+                    </svg>
                 </button>
                 <div>
-                    <h1 className={settingsStyles.settingsHeader}>Manage Reminders</h1>
-                    <p style={{ fontSize: '16px', fontWeight: '500', color: '#6E6E6E', margin: '8px 0 0 0' }}>Control which email notifications are sent</p>
+                    <h1 className={settingsStyles.pageTitle}>Manage Reminders</h1>
+                    <p className={settingsStyles.pageSubtitle}>Control which email notifications are sent</p>
                 </div>
             </div>
 
