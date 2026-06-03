@@ -528,14 +528,17 @@ router.post('/delete-account/confirm', async (req, res) => {
     `, [userId]);
 
     // 5. Destroy session
-    req.logout((err) => {
-      if (err) console.error('Logout error during account deletion:', err);
-      req.session.destroy((err) => {
-        if (err) console.error('Session destroy error during account deletion:', err);
+    req.logout((logoutErr) => {
+      if (logoutErr) {
+        console.error('Logout error during account deletion:', logoutErr);
+      }
+      req.session.destroy((destroyErr) => {
+        if (destroyErr) {
+          console.error('Session destroy error during account deletion:', destroyErr);
+        }
+        res.json({ message: 'Your account has been deleted successfully.' });
       });
     });
-
-    res.json({ message: 'Your account has been deleted successfully.' });
   } catch (error) {
     console.error('Delete account confirm error:', error);
     res.status(500).json({ error: 'Failed to delete account' });
