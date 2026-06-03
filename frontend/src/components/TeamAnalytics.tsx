@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '../context/ToastContext';
 import API_BASE_URL from '../config/api';
-import styles from './EnterpriseAnalytics.module.css';
+import styles from './TeamAnalytics.module.css';
 import { ChevronLeft } from 'react-iconly';
 
 interface EnterpriseAnalyticsProps {

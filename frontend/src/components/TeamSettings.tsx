@@ -3,7 +3,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import API_BASE_URL from '../config/api';
-import styles from './EnterpriseSettings.module.css';
+import styles from './TeamSettings.module.css';
 import { ChevronLeft } from 'react-iconly';
 
 interface EnterpriseSettingsProps {
