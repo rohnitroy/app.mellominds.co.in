@@ -620,7 +620,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
         </div>
       )}
 
-      {/* Danger Zone — only for free tier users */}
+      {/* Delete Your Account — only for free tier users */}
       {planName !== 'team' && (
         <div
           style={{
@@ -632,7 +632,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
           }}
         >
           <h2 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: '#c62828' }}>
-            Danger Zone
+            Delete Your Account
           </h2>
           <p
             style={{
