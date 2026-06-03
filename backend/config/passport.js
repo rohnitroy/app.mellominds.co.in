@@ -90,10 +90,15 @@ passport.use(
           }
         }
 
-        // Block deleted accounts
+        // Reactivate deleted accounts
         if (user.account_status === 'deleted') {
-          console.warn(`[DEBUG] Google OAuth: User ${user.id} account is deleted`);
-          return done(null, false);
+          console.log(`[DEBUG] Google OAuth: Reactivating deleted user ${user.id}`);
+          result = await pool.query(
+            'UPDATE users SET account_status = $1, auth_provider = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+            ['active', 'google', user.id]
+          );
+          user = result.rows[0];
+          console.log(`[DEBUG] User ${user.id} reactivated via Google OAuth`);
         }
 
         console.log('[DEBUG] Google OAuth Strategy: returning user', user.id);
