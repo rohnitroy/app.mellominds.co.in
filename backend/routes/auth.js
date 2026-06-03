@@ -106,8 +106,8 @@ router.post('/register', async (req, res) => {
         newUserId = existing.id;
         resultUser = result.rows[0];
 
-        // Log them in
-        req.login(existing, (err) => {
+        // Log them in with updated user data
+        req.login(resultUser, (err) => {
           if (err) {
             console.error('Reactivation login error:', err);
             return res.status(500).json({ error: 'Login failed' });
