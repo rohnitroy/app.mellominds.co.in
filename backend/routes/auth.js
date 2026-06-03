@@ -613,11 +613,30 @@ const formatUserResponse = (user) => {
 };
 
 // Get current user (check if logged in)
-router.get('/me', (req, res) => {
-  if (req.isAuthenticated()) {
-    res.json({ user: formatUserResponse(req.user) });
-  } else {
-    res.status(401).json({ error: 'Not authenticated' });
+router.get('/me', async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const user = formatUserResponse(req.user);
+
+    // For team plan users, include seat usage
+    if (req.user.plan_name === 'team') {
+      const seatsResult = await pool.query(
+        `SELECT COUNT(*) as used_members FROM organization_therapists
+         WHERE owner_id = $1 AND status != 'removed'`,
+        [req.user.id]
+      );
+      const usedMembers = parseInt(seatsResult.rows[0]?.used_members || 0);
+      const usedSeats = 1 + usedMembers; // 1 for owner + members
+      user.used_seats = usedSeats;
+    }
+
+    res.json({ user });
+  } catch (err) {
+    console.error('Get user error:', err);
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
 

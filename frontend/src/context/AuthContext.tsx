@@ -23,6 +23,8 @@ interface User {
     org_role?: 'owner' | 'member' | null;
     org_owner_id?: number | null;
     profileComplete?: boolean;
+    used_seats?: number;
+    purchased_seats?: number;
 }
 
 interface AuthContextType {

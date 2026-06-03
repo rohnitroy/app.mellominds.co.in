@@ -626,7 +626,9 @@ const DashboardLayout: React.FC = () => {
 
   const renderHeader = (): JSX.Element => {
     const isEnterprise = user?.plan_name === 'team';
-    const planLabel = isEnterprise ? 'Team Plan' : 'Free (Early Access)';
+    const planLabel = isEnterprise
+      ? `Team Plan ${user?.used_seats && user?.purchased_seats ? `(${user.used_seats}/${user.purchased_seats})` : ''}`
+      : 'Free (Early Access)';
 
     return (
     <div className="header">
