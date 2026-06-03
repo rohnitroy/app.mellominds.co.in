@@ -450,7 +450,7 @@ const DashboardLayout: React.FC = () => {
   const navItems: NavItem[] = [
     { name: 'Dashboard', icon: 'Category1.svg', path: '/dashboard' },
     { name: 'All Clients', icon: '3 User.svg', path: '/clients' },
-    ...(user?.plan_name === 'enterprise' && user?.org_role !== 'member'
+    ...(user?.plan_name === 'team' && user?.org_role !== 'member'
       ? [{ name: 'Therapists', icon: '', path: '/therapists' }]
       : []),
     { name: 'Bookings', icon: 'Calendar1.svg', path: '/bookings' },
@@ -625,8 +625,8 @@ const DashboardLayout: React.FC = () => {
   );
 
   const renderHeader = (): JSX.Element => {
-    const isEnterprise = user?.plan_name === 'enterprise';
-    const planLabel = isEnterprise ? 'Enterprise Plan' : 'Free (Early Access)';
+    const isEnterprise = user?.plan_name === 'team';
+    const planLabel = isEnterprise ? 'Team Plan' : 'Free (Early Access)';
 
     return (
     <div className="header">
@@ -1020,7 +1020,7 @@ const DashboardHome: React.FC = () => {
   const [cancelConfirmId, setCancelConfirmId] = useState<number | null>(null);
 
   // Dashboard widget prefs (enterprise only)
-  const isEnterprise = user?.plan_name === 'enterprise';
+  const isEnterprise = user?.plan_name === 'team';
   const ALL_WIDGETS = ['Revenue', 'Refund', 'Sessions', 'Cancelled', 'No Show', 'Pending Notes', 'Pending Payment', 'No of Clients'];
   const defaultWidgets = Object.fromEntries(ALL_WIDGETS.map(k => [k, true]));
   const [widgetPrefs, setWidgetPrefs] = useState<Record<string, boolean>>(defaultWidgets);
@@ -1053,7 +1053,7 @@ const DashboardHome: React.FC = () => {
       setLoading(true);
       try {
         // Build stats URL with date filter
-        const isEnterpriseOwner = user?.plan_name === 'enterprise' && user?.org_role !== 'member';
+        const isEnterpriseOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
         let statsUrl = `${API_BASE_URL}/${showEnterpriseAnalytics && isEnterpriseOwner ? 'auth/enterprise-analytics' : 'api/bookings/stats'}`;
         const freeCutoff = isFreeTier ? getFreeTierMinDate() : null;
 
@@ -1317,7 +1317,7 @@ const DashboardHome: React.FC = () => {
               </div>
             )}
           </div>
-          {user?.plan_name === 'enterprise' && user?.org_role !== 'member' && (
+          {user?.plan_name === 'team' && user?.org_role !== 'member' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f5f5f5', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
               <div style={{ fontSize: '13px', fontWeight: 500, color: '#333', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>{showEnterpriseAnalytics ? 'Enterprise Analytics' : 'My Analytics'}</span>
