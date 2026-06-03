@@ -452,14 +452,17 @@ router.post('/delete-account/confirm', async (req, res) => {
 
     // Verify OTP
     const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+    console.log('[OTP] Verifying OTP for user', userId);
     const otpResult = await pool.query(
       'SELECT id FROM users WHERE id = $1 AND delete_otp = $2 AND delete_otp_expires > NOW()',
       [userId, otpHash]
     );
 
     if (otpResult.rows.length === 0) {
+      console.log('[OTP] Invalid or expired OTP');
       return res.status(400).json({ error: 'Invalid or expired verification code.' });
     }
+    console.log('[OTP] OTP verified successfully');
 
     // --- Pre-deletion cleanup ---
 
@@ -489,15 +492,29 @@ router.post('/delete-account/confirm', async (req, res) => {
     }
 
     // 3. Explicitly delete cascade-eligible child data
-    await pool.query('DELETE FROM organization_details WHERE user_id = $1', [userId]);
-    await pool.query('DELETE FROM organization_therapists WHERE owner_id = $1', [userId]);
-    await pool.query('DELETE FROM UserIntegrations WHERE user_id = $1', [userId]);
-    await pool.query('DELETE FROM Availability WHERE user_id = $1', [userId]);
-    await pool.query('DELETE FROM Notifications WHERE user_id = $1', [userId]);
-    await pool.query('DELETE FROM Clients WHERE therapist_id = $1', [userId]);
-    await pool.query('DELETE FROM Calendars WHERE user_id = $1', [userId]);
+    try {
+      console.log('[DELETE] Deleting organization_details...');
+      await pool.query('DELETE FROM organization_details WHERE user_id = $1', [userId]);
+      console.log('[DELETE] Deleting organization_therapists...');
+      await pool.query('DELETE FROM organization_therapists WHERE owner_id = $1', [userId]);
+      console.log('[DELETE] Deleting UserIntegrations...');
+      await pool.query('DELETE FROM UserIntegrations WHERE user_id = $1', [userId]);
+      console.log('[DELETE] Deleting Availability...');
+      await pool.query('DELETE FROM Availability WHERE user_id = $1', [userId]);
+      console.log('[DELETE] Deleting Notifications...');
+      await pool.query('DELETE FROM Notifications WHERE user_id = $1', [userId]);
+      console.log('[DELETE] Deleting Clients...');
+      await pool.query('DELETE FROM Clients WHERE therapist_id = $1', [userId]);
+      console.log('[DELETE] Deleting Calendars...');
+      await pool.query('DELETE FROM Calendars WHERE user_id = $1', [userId]);
+      console.log('[DELETE] All deletes completed successfully');
+    } catch (deleteErr) {
+      console.error('[DELETE] Error during cascading deletes:', deleteErr.message);
+      throw deleteErr;
+    }
 
     // 4. Soft-delete: clear sensitive fields, preserve identity data, mark as deleted
+    console.log('[SOFT-DELETE] Updating user to deleted status...');
     await pool.query(`
       UPDATE users SET
         password_hash           = NULL,
@@ -526,6 +543,7 @@ router.post('/delete-account/confirm', async (req, res) => {
         updated_at              = NOW()
       WHERE id = $1
     `, [userId]);
+    console.log('[SOFT-DELETE] User marked as deleted successfully');
 
     // 5. Destroy session
     req.logout((logoutErr) => {
