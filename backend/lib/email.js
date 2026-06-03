@@ -566,6 +566,30 @@ export function passwordResetEmail({ resetUrl }) {
     };
 }
 
+export function deleteAccountOTPEmail({ otp, userName }) {
+    return {
+        subject: 'Confirm Account Deletion — MelloMinds',
+        html: `
+        <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:560px;margin:0 auto;background:#f9f9f9;padding:32px;">
+            <div style="background:#082421;border-radius:12px 12px 0 0;padding:24px 32px;">
+                <h1 style="color:#fff;margin:0;font-size:22px;">Account Deletion Request</h1>
+            </div>
+            <div style="background:#fff;border-radius:0 0 12px 12px;padding:32px;border:1px solid #e0e0e0;">
+                <p style="color:#333;font-size:15px;">Hi <strong>${userName}</strong>,</p>
+                <p style="color:#333;font-size:15px;">We received a request to permanently delete your MelloMinds account.</p>
+                <p style="color:#333;font-size:15px;">Use the code below to confirm. It expires in <strong>10 minutes</strong>.</p>
+                <div style="background:#fdecea;border:2px solid #c62828;border-radius:12px;padding:24px;text-align:center;margin:28px 0;">
+                    <p style="margin:0 0 8px;color:#c62828;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">Your Deletion Code</p>
+                    <p style="margin:0;color:#c62828;font-size:40px;font-weight:800;letter-spacing:8px;">${otp}</p>
+                </div>
+                <p style="color:#888;font-size:13px;">If you did not request this, your account is safe — simply ignore this email.</p>
+                <p style="color:#c62828;font-size:13px;font-weight:600;">Warning: Account deletion is permanent. Your data cannot be recovered.</p>
+                <p style="color:#888;font-size:13px;margin-top:24px;">— The MelloMinds Team</p>
+            </div>
+        </div>`
+    };
+}
+
 export function sessionReminder30MinEmail({ clientName, therapistName, sessionTitle, startTime, meetLink, locationText }) {
     const dateStr = new Date(startTime).toLocaleString('en-IN', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',

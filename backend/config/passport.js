@@ -90,6 +90,12 @@ passport.use(
           }
         }
 
+        // Block deleted accounts
+        if (user.account_status === 'deleted') {
+          console.warn(`[DEBUG] Google OAuth: User ${user.id} account is deleted`);
+          return done(null, false);
+        }
+
         console.log('[DEBUG] Google OAuth Strategy: returning user', user.id);
         return done(null, user);
       } catch (error) {
@@ -115,9 +121,14 @@ passport.deserializeUser(async (id, done) => {
     }
 
     const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-    
+
     if (result.rows.length === 0) {
       console.warn(`[DEBUG] Deserialize: User ID ${id} not found in database`);
+      return done(null, false);
+    }
+
+    if (result.rows[0].account_status === 'deleted') {
+      console.warn(`[DEBUG] Deserialize: User ID ${id} account is deleted`);
       return done(null, false);
     }
 

@@ -5,6 +5,7 @@ import CustomDropdown from './components/CustomDropdown';
 import LanguageMultiSelect from './components/LanguageMultiSelect';
 import CountrySelect from './components/CountrySelect';
 import StateSelect from './components/StateSelect';
+import DeleteAccountModal from './components/DeleteAccountModal';
 import { useToast } from './context/ToastContext';
 import { useAuth } from './context/AuthContext';
 import API_BASE_URL from './config/api';
@@ -57,6 +58,8 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
     country: 'India',
   });
   const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [planName, setPlanName] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -76,6 +79,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
 
             const enterpriseOwner = data.user.plan_name === 'team' && data.user.org_role !== 'member';
             setIsTeamOwner(enterpriseOwner);
+            setPlanName(data.user.plan_name || null);
             
             setFormData({
               fullName: data.user.user_name || '',
@@ -615,6 +619,51 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
           </div>
         </div>
       )}
+
+      {/* Danger Zone — only for free tier users */}
+      {planName !== 'team' && (
+        <div
+          style={{
+            marginTop: '32px',
+            padding: '24px 32px',
+            border: '1.5px solid #fdecea',
+            borderRadius: '12px',
+            background: '#fffafa',
+          }}
+        >
+          <h2 style={{ margin: '0 0 4px', fontSize: '16px', fontWeight: 700, color: '#c62828' }}>
+            Danger Zone
+          </h2>
+          <p
+            style={{
+              margin: '0 0 20px',
+              fontSize: '13px',
+              color: '#888',
+              lineHeight: 1.6,
+            }}
+          >
+            Once you delete your account, all your data will be permanently removed. This cannot be undone.
+          </p>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            style={{
+              padding: '10px 22px',
+              borderRadius: '8px',
+              border: '1.5px solid #c62828',
+              background: '#fff',
+              color: '#c62828',
+              fontFamily: 'Urbanist',
+              fontWeight: 600,
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            Delete Account
+          </button>
+        </div>
+      )}
+
+      <DeleteAccountModal isOpen={showDeleteModal} onCancel={() => setShowDeleteModal(false)} />
     </div>
   );
 };

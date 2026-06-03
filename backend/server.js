@@ -902,6 +902,9 @@ async function ensureUsersSchema() {
           email_preferences JSONB DEFAULT '{}'::jsonb,
           dashboard_preferences JSONB DEFAULT '{}'::jsonb,
           purchased_seats INTEGER DEFAULT 0,
+          delete_otp TEXT,
+          delete_otp_expires TIMESTAMPTZ,
+          account_status VARCHAR(20) DEFAULT 'active',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -937,6 +940,9 @@ async function ensureUsersSchema() {
         ADD COLUMN IF NOT EXISTS email_preferences JSONB DEFAULT '{}'::jsonb,
         ADD COLUMN IF NOT EXISTS dashboard_preferences JSONB DEFAULT '{}'::jsonb,
         ADD COLUMN IF NOT EXISTS purchased_seats INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS delete_otp TEXT,
+        ADD COLUMN IF NOT EXISTS delete_otp_expires TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS account_status VARCHAR(20) DEFAULT 'active',
         ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       `);

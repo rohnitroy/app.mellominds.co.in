@@ -9,7 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { getIO } from '../lib/socket.js';
-import { sendEmail, passwordResetEmail, newUserAlertEmail } from '../lib/email.js';
+import { sendEmail, passwordResetEmail, deleteAccountOTPEmail, newUserAlertEmail } from '../lib/email.js';
 import { sanitizeStr, isValidEmail } from '../middleware/sanitize.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -61,9 +61,6 @@ router.post('/register', async (req, res) => {
 
     // Check if user already exists
     const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (existingUser.rows.length > 0) {
-      return res.status(409).json({ error: 'Email already registered' });
-    }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -74,22 +71,72 @@ router.post('/register', async (req, res) => {
     // Convert languages to array if it's a string
     const languagesArray = languages ? (Array.isArray(languages) ? languages : languages.split(',').map(l => l.trim())) : [];
 
+    let newUserId, resultUser;
+
+    if (existingUser.rows.length > 0) {
+      const existing = existingUser.rows[0];
+
+      // Allow re-registration if account was deleted
+      if (existing.account_status === 'deleted') {
+        // Reactivate: restore the account with new credentials
+        const result = await pool.query(`
+          UPDATE users SET
+            user_name       = $1,
+            password_hash   = $2,
+            phone           = $3,
+            dob             = $4,
+            gender          = $5,
+            specialization  = $6,
+            language_spoken = $7,
+            country         = $8,
+            state           = $9,
+            city            = $10,
+            pincode         = $11,
+            clinic_address  = $12,
+            auth_provider   = 'email',
+            account_status  = 'active',
+            plan_name       = NULL,
+            updated_at      = NOW()
+          WHERE id = $13
+          RETURNING id, user_name, email
+        `, [sanitizedName, hashedPassword, phoneNumber || null, dateOfBirth || null,
+            formattedGender, specialization || null, languagesArray, country || null,
+            state || null, city || null, pincode || null, address || null, existing.id]);
+
+        newUserId = existing.id;
+        resultUser = result.rows[0];
+
+        // Log them in
+        req.login(existing, (err) => {
+          if (err) {
+            console.error('Reactivation login error:', err);
+            return res.status(500).json({ error: 'Login failed' });
+          }
+          res.status(201).json({ message: 'Account reactivated successfully', user: formatUserResponse(resultUser) });
+        });
+        return;
+      }
+
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+
     // Insert user into database
     const result = await pool.query(
-      `INSERT INTO users (user_name, email, password_hash, phone, dob, gender, specialization, language_spoken, country, state, city, pincode, clinic_address, auth_provider) 
+      `INSERT INTO users (user_name, email, password_hash, phone, dob, gender, specialization, language_spoken, country, state, city, pincode, clinic_address, auth_provider)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, user_name, email`,
-      [fullName, email, hashedPassword, phoneNumber || null, dateOfBirth || null, formattedGender, specialization || null, languagesArray, country || null, state || null, city || null, pincode || null, address || null, 'email']
+      [sanitizedName, email, hashedPassword, phoneNumber || null, dateOfBirth || null, formattedGender, specialization || null, languagesArray, country || null, state || null, city || null, pincode || null, address || null, 'email']
     );
 
     // Fire-and-forget: notify team of new user signup
-    const alertEmail = newUserAlertEmail({ userName: fullName, email, authProvider: 'email' });
+    const alertEmail = newUserAlertEmail({ userName: sanitizedName, email, authProvider: 'email' });
     try {
       await sendEmail({ to: 'sarafaastha13@gmail.com', cc: 'adosolve@gmail.com,mellomindsventure@gmail.com', ...alertEmail });
     } catch (err) {
       console.error('New user alert email failed:', err.message);
     }
 
-    const newUserId = result.rows[0].id;
+    newUserId = result.rows[0].id;
+    resultUser = result.rows[0];
 
     // Handle invite token — grant enterprise member role if valid
     const inviteToken = req.body.inviteToken;
@@ -117,7 +164,7 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    res.status(201).json({ message: 'Registration successful', user: formatUserResponse(result.rows[0]) });
+    res.status(201).json({ message: 'Registration successful', user: formatUserResponse(resultUser) });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed', details: error.message });
@@ -153,6 +200,13 @@ router.post('/login', async (req, res) => {
 
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    // Block deleted accounts
+    if (user.account_status === 'deleted') {
+      return res.status(403).json({
+        error: 'This account has been deleted. You can register again with this email address.'
+      });
     }
 
     // Login user (create session)
@@ -338,6 +392,156 @@ router.post('/reset-password', async (req, res) => {
     res.status(500).json({ error: 'Failed to reset password' });
   }
 });
+
+// POST /auth/delete-account/request - Send OTP to email for account deletion
+router.post('/delete-account/request', async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const userId = req.user.id;
+
+    // Block team plan users (both owners and members)
+    if (req.user.plan_name === 'team') {
+      return res.status(403).json({
+        error: 'Team plan accounts cannot be deleted directly. Please downgrade your plan first or contact support.'
+      });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Store hashed OTP
+    await pool.query(
+      'UPDATE users SET delete_otp = $1, delete_otp_expires = $2 WHERE id = $3',
+      [otpHash, expires, userId]
+    );
+
+    // Send OTP email
+    const emailContent = deleteAccountOTPEmail({ otp, userName: req.user.user_name || 'there' });
+    await sendEmail({ to: req.user.email, ...emailContent });
+
+    res.json({ message: 'A 6-digit verification code has been sent to your email.' });
+  } catch (error) {
+    console.error('Delete account request error:', error);
+    res.status(500).json({ error: 'Failed to send verification code' });
+  }
+});
+
+// POST /auth/delete-account/confirm - Verify OTP and delete account
+router.post('/delete-account/confirm', async (req, res) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const { otp } = req.body;
+    const userId = req.user.id;
+
+    if (!otp || typeof otp !== 'string' || !/^\d{6}$/.test(otp)) {
+      return res.status(400).json({ error: 'A valid 6-digit code is required.' });
+    }
+
+    // Block team plan users
+    if (req.user.plan_name === 'team') {
+      return res.status(403).json({ error: 'Team plan accounts cannot be deleted.' });
+    }
+
+    // Verify OTP
+    const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+    const otpResult = await pool.query(
+      'SELECT id FROM users WHERE id = $1 AND delete_otp = $2 AND delete_otp_expires > NOW()',
+      [userId, otpHash]
+    );
+
+    if (otpResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid or expired verification code.' });
+    }
+
+    // --- Pre-deletion cleanup ---
+
+    // 1. If this user is a team owner: strip plan from all their members
+    if (req.user.org_role === 'owner' || req.user.plan_name === 'team') {
+      const membersRes = await pool.query(
+        `SELECT therapist_user_id FROM organization_therapists
+         WHERE owner_id = $1 AND status = 'active' AND therapist_user_id IS NOT NULL`,
+        [userId]
+      );
+      for (const member of membersRes.rows) {
+        await pool.query(
+          `UPDATE users SET plan_name = 'free', org_role = NULL, org_owner_id = NULL WHERE id = $1`,
+          [member.therapist_user_id]
+        );
+      }
+    }
+
+    // 2. Delete Cloudinary profile picture if it exists
+    if (req.user.profile_picture && req.user.profile_picture.includes('cloudinary.com')) {
+      try {
+        const publicId = req.user.profile_picture.split('/').slice(-2).join('/').split('.')[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (cloudErr) {
+        console.error('Cloudinary cleanup error (non-fatal):', cloudErr.message);
+      }
+    }
+
+    // 3. Explicitly delete cascade-eligible child data
+    await pool.query('DELETE FROM organization_details WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM organization_therapists WHERE owner_id = $1', [userId]);
+    await pool.query('DELETE FROM UserIntegrations WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM Availability WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM Notifications WHERE user_id = $1', [userId]);
+    await pool.query('DELETE FROM Clients WHERE therapist_id = $1', [userId]);
+    await pool.query('DELETE FROM Calendars WHERE user_id = $1', [userId]);
+
+    // 4. Soft-delete: clear sensitive fields, preserve identity data, mark as deleted
+    await pool.query(`
+      UPDATE users SET
+        password_hash           = NULL,
+        google_id               = NULL,
+        auth_provider           = NULL,
+        profile_picture         = NULL,
+        profile_slug            = NULL,
+        about_me                = NULL,
+        gender                  = NULL,
+        language_spoken         = NULL,
+        clinic_address          = NULL,
+        org_role                = NULL,
+        org_owner_id            = NULL,
+        plan_name               = NULL,
+        plan                    = NULL,
+        email_preferences       = '{}'::jsonb,
+        dashboard_preferences   = '{}'::jsonb,
+        purchased_seats         = 0,
+        reset_token             = NULL,
+        reset_token_expires     = NULL,
+        delete_otp              = NULL,
+        delete_otp_expires      = NULL,
+        profile_slug_updated_at = NULL,
+        specializations         = NULL,
+        account_status          = 'deleted',
+        updated_at              = NOW()
+      WHERE id = $1
+    `, [userId]);
+
+    // 5. Destroy session
+    req.logout((err) => {
+      if (err) console.error('Logout error during account deletion:', err);
+      req.session.destroy((err) => {
+        if (err) console.error('Session destroy error during account deletion:', err);
+      });
+    });
+
+    res.json({ message: 'Your account has been deleted successfully.' });
+  } catch (error) {
+    console.error('Delete account confirm error:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
 // Logout
 router.post('/logout', (req, res) => {
   req.logout((err) => {
