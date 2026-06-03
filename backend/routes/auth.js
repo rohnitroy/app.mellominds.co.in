@@ -262,7 +262,10 @@ router.post('/complete-profile', async (req, res) => {
     const io = getIO();
     if (io) io.to(`user:${userId}`).emit('profile_updated');
 
-    res.json({ message: 'Profile updated successfully', user: result.rows[0] });
+    const updatedUser = result.rows[0];
+    const profileComplete = isProfileComplete(updatedUser);
+
+    res.json({ message: 'Profile updated successfully', user: { ...updatedUser, profileComplete } });
 
   } catch (error) {
     console.error('Profile update error:', error);
