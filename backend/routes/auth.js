@@ -450,7 +450,7 @@ router.put('/dashboard-prefs', async (req, res) => {
     res.status(500).json({ error: 'Failed to save dashboard preferences' });
   }
 });
-router.get('/enterprise-settings', async (req, res) => {
+router.get('/team-settings', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
   if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
     return res.status(403).json({ error: 'Only enterprise owners can access these settings' });
@@ -473,7 +473,7 @@ router.get('/enterprise-settings', async (req, res) => {
 });
 
 // PUT /auth/enterprise-settings — save enterprise control center settings
-router.put('/enterprise-settings', async (req, res) => {
+router.put('/team-settings', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
   if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
     return res.status(403).json({ error: 'Only enterprise owners can update these settings' });
@@ -496,14 +496,14 @@ router.put('/enterprise-settings', async (req, res) => {
     const io = getIO();
     if (io) {
       // Notify owner
-      io.to(`user:${req.user.id}`).emit('enterprise_settings_updated');
+      io.to(`user:${req.user.id}`).emit('team_settings_updated');
       // Optionally notify all team members
       const membersRes = await pool.query(
         'SELECT therapist_user_id FROM organization_therapists WHERE owner_id = $1 AND status = $2',
         [req.user.id, 'active']
       );
       for (const member of membersRes.rows) {
-        io.to(`user:${member.therapist_user_id}`).emit('enterprise_settings_updated');
+        io.to(`user:${member.therapist_user_id}`).emit('team_settings_updated');
       }
     }
 
@@ -515,7 +515,7 @@ router.put('/enterprise-settings', async (req, res) => {
 });
 
 // GET /auth/enterprise-analytics — aggregated analytics for all therapists under the owner
-router.get('/enterprise-analytics', async (req, res) => {
+router.get('/team-analytics', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
   if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
     return res.status(403).json({ error: 'Only enterprise owners can access analytics' });

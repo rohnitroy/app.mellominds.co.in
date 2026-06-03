@@ -52,7 +52,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
     try {
       setLoading(true);
       const [settingsRes, orgRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/auth/enterprise-settings`, { credentials: 'include' }),
+        fetch(`${API_BASE_URL}/auth/team-settings`, { credentials: 'include' }),
         fetch(`${API_BASE_URL}/auth/organization`, { credentials: 'include' }),
       ]);
 
@@ -90,10 +90,10 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
 
   useEffect(() => {
     if (!socket) return;
-    socket.on('enterprise_settings_updated', fetchSettings);
+    socket.on('team_settings_updated', fetchSettings);
     socket.on('profile_updated', fetchSettings);
     return () => {
-      socket.off('enterprise_settings_updated', fetchSettings);
+      socket.off('team_settings_updated', fetchSettings);
       socket.off('profile_updated', fetchSettings);
     };
   }, [socket, fetchSettings]);
@@ -142,7 +142,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
     }
     try {
       setSaving(true);
-      const res = await fetch(`${API_BASE_URL}/auth/enterprise-settings`, {
+      const res = await fetch(`${API_BASE_URL}/auth/team-settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -35,8 +35,8 @@ import { NotificationProvider, useNotifications } from './context/NotificationCo
 import { SocketProvider } from './context/SocketContext';
 import ToastContainer from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
-import EnterpriseSettings from './components/EnterpriseSettings';
-import EnterpriseAnalytics from './components/EnterpriseAnalytics';
+import TeamSettings from './components/TeamSettings';
+import TeamAnalytics from './components/TeamAnalytics';
 import API_BASE_URL from './config/api';
 import { Category, TwoUsers, Calendar, Discovery, Wallet, Setting, Paper, AddUser } from 'react-iconly';
 import DataTable from './components/DataTable';
@@ -844,7 +844,7 @@ const DashboardHome: React.FC = () => {
   const { setShowSendLinkModal } = useOutletContext<{ setShowSendLinkModal: any }>();
   const isFreeTier = !user?.plan_name || user.plan_name === 'free';
   const [dateFilter, setDateFilter] = useState<string>('all_time');
-  const [showEnterpriseAnalytics, setShowEnterpriseAnalytics] = useState<boolean>(false);
+  const [showTeamAnalytics, setShowTeamAnalytics] = useState<boolean>(false);
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
   const [showCustomDatePicker, setShowCustomDatePicker] = useState<boolean>(false);
   const [customStartDate, setCustomStartDate] = useState<string>('');
@@ -880,7 +880,7 @@ const DashboardHome: React.FC = () => {
     const params = new URLSearchParams(location.search);
     const analyticsMode = params.get('analytics');
     if (analyticsMode === 'enterprise') {
-      setShowEnterpriseAnalytics(true);
+      setShowTeamAnalytics(true);
     }
   }, [location.search]);
 
@@ -1054,7 +1054,7 @@ const DashboardHome: React.FC = () => {
       try {
         // Build stats URL with date filter
         const isEnterpriseOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
-        let statsUrl = `${API_BASE_URL}/${showEnterpriseAnalytics && isEnterpriseOwner ? 'auth/enterprise-analytics' : 'api/bookings/stats'}`;
+        let statsUrl = `${API_BASE_URL}/${showTeamAnalytics && isEnterpriseOwner ? 'auth/enterprise-analytics' : 'api/bookings/stats'}`;
         const freeCutoff = isFreeTier ? getFreeTierMinDate() : null;
 
         if (dateFilter !== 'all_time' && dateFilter !== 'custom') {
@@ -1094,7 +1094,7 @@ const DashboardHome: React.FC = () => {
         }
 
         // Fetch Upcoming Bookings only
-        const bookingsUrl = showEnterpriseAnalytics
+        const bookingsUrl = showTeamAnalytics
           ? `${API_BASE_URL}/api/bookings?upcoming=true&enterprise=true`
           : `${API_BASE_URL}/api/bookings?upcoming=true`;
         const bookingsRes = await fetch(bookingsUrl, { credentials: 'include' });
@@ -1112,7 +1112,7 @@ const DashboardHome: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, [dateFilter, customStartDate, customEndDate, showEnterpriseAnalytics]);
+  }, [dateFilter, customStartDate, customEndDate, showTeamAnalytics]);
 
   const refreshBookings = async () => {
     const res = await fetch(`${API_BASE_URL}/api/bookings?upcoming=true`, { credentials: 'include' });
@@ -1320,12 +1320,12 @@ const DashboardHome: React.FC = () => {
           {user?.plan_name === 'team' && user?.org_role !== 'member' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f5f5f5', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
               <div style={{ fontSize: '13px', fontWeight: 500, color: '#333', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>{showEnterpriseAnalytics ? 'Enterprise Analytics' : 'My Analytics'}</span>
+                <span>{showTeamAnalytics ? 'Enterprise Analytics' : 'My Analytics'}</span>
                 <button
-                  className={`analytics-toggle-switch ${showEnterpriseAnalytics ? 'toggle-on' : ''}`}
+                  className={`analytics-toggle-switch ${showTeamAnalytics ? 'toggle-on' : ''}`}
                   onClick={() => {
-                    const newState = !showEnterpriseAnalytics;
-                    setShowEnterpriseAnalytics(newState);
+                    const newState = !showTeamAnalytics;
+                    setShowTeamAnalytics(newState);
                     const params = new URLSearchParams(location.search);
                     if (newState) {
                       params.set('analytics', 'enterprise');
@@ -1335,7 +1335,7 @@ const DashboardHome: React.FC = () => {
                     navigate(`/dashboard?${params.toString()}`, { replace: true });
                   }}
                   role="switch"
-                  aria-checked={showEnterpriseAnalytics}
+                  aria-checked={showTeamAnalytics}
                 >
                   <span className="analytics-toggle-thumb" />
                 </button>
@@ -1654,8 +1654,8 @@ const AppContent: React.FC = () => {
               <Route path="settings/reminders" element={<ManageReminders onBack={() => window.history.back()} />} />
               <Route path="settings/edit-dashboard" element={<EditDashboard onBack={() => window.history.back()} />} />
               <Route path="settings/profile-link" element={<ProfileLink onBack={() => window.history.back()} />} />
-              <Route path="settings/enterprise-settings" element={<MemberGuard><EnterpriseSettings onBack={() => window.history.back()} /></MemberGuard>} />
-              <Route path="settings/enterprise-analytics" element={<MemberGuard><EnterpriseAnalytics onBack={() => window.history.back()} /></MemberGuard>} />
+              <Route path="settings/team-settings" element={<MemberGuard><TeamSettings onBack={() => window.history.back()} /></MemberGuard>} />
+              <Route path="settings/team-analytics" element={<MemberGuard><TeamAnalytics onBack={() => window.history.back()} /></MemberGuard>} />
               <Route path="notifications" element={<NotificationsPage onBack={() => {}} />} />
             </Route>
           </Route>

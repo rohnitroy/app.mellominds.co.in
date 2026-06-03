@@ -87,7 +87,7 @@ const MySettings: React.FC = () => {
     // Fetch enterprise settings for owners
     if (isEnterpriseOwner) {
       setEnterpriseSettingsLoading(true);
-      fetch(`${API_BASE_URL}/auth/enterprise-settings`, { credentials: 'include' })
+      fetch(`${API_BASE_URL}/auth/team-settings`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.settings) setEnterpriseSettings(s => ({ ...s, ...d.settings })); })
         .catch(() => {})
@@ -107,9 +107,9 @@ const MySettings: React.FC = () => {
         .then(d => { setRazorpayConnected(d.connected); })
         .catch(() => {});
     });
-    socket.on('enterprise_settings_updated', () => {
+    socket.on('team_settings_updated', () => {
       if (isEnterpriseOwner) {
-        fetch(`${API_BASE_URL}/auth/enterprise-settings`, { credentials: 'include' })
+        fetch(`${API_BASE_URL}/auth/team-settings`, { credentials: 'include' })
           .then(r => r.ok ? r.json() : null)
           .then(d => { if (d?.settings) setEnterpriseSettings(s => ({ ...s, ...d.settings })); })
           .catch(() => {});
@@ -117,7 +117,7 @@ const MySettings: React.FC = () => {
     });
     return () => {
       socket.off('integrations_updated');
-      socket.off('enterprise_settings_updated');
+      socket.off('team_settings_updated');
     };
   }, [socket, isEnterpriseOwner]);
 
@@ -218,7 +218,7 @@ const MySettings: React.FC = () => {
     setEnterpriseSettings(updated);
     setEnterpriseSettingsSaving(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/enterprise-settings`, {
+      const res = await fetch(`${API_BASE_URL}/auth/team-settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

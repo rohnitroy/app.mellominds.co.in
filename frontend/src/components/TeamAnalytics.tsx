@@ -41,7 +41,7 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/auth/enterprise-analytics`, {
+      const res = await fetch(`${API_BASE_URL}/auth/team-analytics`, {
         credentials: 'include',
       });
 
