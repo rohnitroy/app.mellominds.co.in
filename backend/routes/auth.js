@@ -529,7 +529,6 @@ router.post('/delete-account/confirm', async (req, res) => {
         org_role                = NULL,
         org_owner_id            = NULL,
         plan_name               = NULL,
-        plan                    = NULL,
         email_preferences       = '{}'::jsonb,
         dashboard_preferences   = '{}'::jsonb,
         purchased_seats         = 0,
