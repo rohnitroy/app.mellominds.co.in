@@ -31,7 +31,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   const { socket } = useSocket();
   const { checkAuth } = useAuth();
   const [profilePicture, setProfilePicture] = useState<string>('');
-  const [isEnterpriseOwner, setIsEnterpriseOwner] = useState(false);
+  const [isTeamOwner, setIsTeamOwner] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     phoneNumber: '',
@@ -75,7 +75,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
             setProfilePicture(profilePicUrl);
 
             const enterpriseOwner = data.user.plan_name === 'team' && data.user.org_role !== 'member';
-            setIsEnterpriseOwner(enterpriseOwner);
+            setIsTeamOwner(enterpriseOwner);
             
             setFormData({
               fullName: data.user.user_name || '',
@@ -307,7 +307,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
 
       if (response.ok) {
         // Save org details if enterprise owner
-        if (isEnterpriseOwner) {
+        if (isTeamOwner) {
           const orgRes = await fetch(`${API_BASE_URL}/auth/organization`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -329,7 +329,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
       console.error('Error saving profile:', error);
       toast.error('Error saving profile changes.');
     }
-  }, [formData, isEnterpriseOwner, orgData, toast, checkAuth]);
+  }, [formData, isTeamOwner, orgData, toast, checkAuth]);
 
   const handleImageChange = useCallback(async () => {
     const input = document.createElement('input');
@@ -527,7 +527,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
         </div>
       </div>
 
-      {isEnterpriseOwner && (
+      {isTeamOwner && (
         <div className={styles.profileContent} style={{ marginTop: '24px' }}>
           <div className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>Organization Details</h2>

@@ -49,12 +49,12 @@ const CalendarPage: React.FC = () => {
   const [slugFormData, setSlugFormData] = useState({ id: 0, slug: '' });
   const [slugSaving, setSlugSaving] = useState(false);
 
-  // Therapist selector for enterprise owners
+  // Therapist selector for team owners
   const [showTherapistSelector, setShowTherapistSelector] = useState(false);
   const [therapists, setTherapists] = useState<any[]>([]);
   const [therapistsLoading, setTherapistsLoading] = useState(false);
 
-  const isEnterpriseOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
+  const isTeamOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
 
   const fetchTherapists = useCallback(async () => {
     setTherapistsLoading(true);
@@ -247,7 +247,7 @@ const CalendarPage: React.FC = () => {
           >
             Available Hours
           </button>
-          {isEnterpriseOwner && (
+          {isTeamOwner && (
             <button
               className="mobile-hidden"
               onClick={() => {

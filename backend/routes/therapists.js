@@ -12,8 +12,8 @@ const ensureAuthenticated = (req, res, next) => {
     res.status(401).json({ error: 'Not authenticated' });
 };
 
-// Enterprise owner = plan_name 'enterprise' AND org_role is NULL or 'owner'
-// (members have plan_name 'enterprise' too but org_role = 'member')
+// Team owner = plan_name 'team' AND org_role is NULL or 'owner'
+// (members have plan_name 'team' too but org_role = 'member')
 const ensureEnterpriseOwner = (req, res, next) => {
     if (req.user?.plan_name === 'team' && req.user?.org_role !== 'member') return next();
     res.status(403).json({ error: 'This feature is available to Enterprise plan owners only.' });
@@ -374,7 +374,7 @@ function therapistInviteEmail({ ownerName, signupUrl }) {
           <strong>${ownerName}</strong> has invited you to join their therapy team on <strong>MelloMinds</strong>.
         </p>
         <p style="font-size: 14px; color: #666; margin: 0 0 28px 0;">
-          Create your account to get started — you'll have access to all enterprise features.
+          Create your account to get started — you'll have access to all team features.
         </p>
         <a href="${signupUrl}" style="display: inline-block; background: #082421; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 15px;">
           Accept Invite &amp; Sign Up

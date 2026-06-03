@@ -117,7 +117,7 @@ router.put('/me', ensureAuthenticated, async (req, res) => {
  */
 router.get('/', ensureAuthenticated, async (req, res) => {
   try {
-    // Only allow enterprise owners to list users
+    // Only allow team owners to list users
     if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
       return res.status(403).json({ error: 'Unauthorized - Enterprise owner access required' });
     }

@@ -343,7 +343,7 @@ router.post('/transfers/:transferId/owner-approve', async (req, res) => {
     const dbClient = await pool.connect();
     try {
         if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
-            return res.status(403).json({ error: 'Only enterprise owners can use this endpoint.' });
+            return res.status(403).json({ error: 'Only team owners can use this endpoint.' });
         }
 
         const ownerId = req.user.id;

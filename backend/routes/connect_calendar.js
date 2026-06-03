@@ -119,7 +119,7 @@ router.get('/status', async (req, res) => {
     try {
         let targetUserId = req.user.id;
 
-        // Enterprise owner can check a member's connection status
+        // Team owner can check a member's connection status
         const { for_user_id } = req.query;
         if (for_user_id) {
             const ownerCheck = await pool.query(

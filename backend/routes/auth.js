@@ -453,7 +453,7 @@ router.put('/dashboard-prefs', async (req, res) => {
 router.get('/team-settings', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
   if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
-    return res.status(403).json({ error: 'Only enterprise owners can access these settings' });
+    return res.status(403).json({ error: 'Only team owners can access these settings' });
   }
   try {
     const result = await pool.query(
@@ -476,7 +476,7 @@ router.get('/team-settings', async (req, res) => {
 router.put('/team-settings', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
   if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
-    return res.status(403).json({ error: 'Only enterprise owners can update these settings' });
+    return res.status(403).json({ error: 'Only team owners can update these settings' });
   }
   try {
     const allowed = ['allow_client_transfers', 'require_transfer_approval'];
@@ -518,7 +518,7 @@ router.put('/team-settings', async (req, res) => {
 router.get('/team-analytics', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
   if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
-    return res.status(403).json({ error: 'Only enterprise owners can access analytics' });
+    return res.status(403).json({ error: 'Only team owners can access analytics' });
   }
   try {
     const { startDate, endDate } = req.query;
@@ -602,7 +602,7 @@ router.get('/team-analytics', async (req, res) => {
 router.get('/organization', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
   if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
-    return res.status(403).json({ error: 'Only enterprise owners can access organization details' });
+    return res.status(403).json({ error: 'Only team owners can access organization details' });
   }
   try {
     const result = await pool.query(
@@ -620,7 +620,7 @@ router.get('/organization', async (req, res) => {
 router.put('/organization', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
   if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
-    return res.status(403).json({ error: 'Only enterprise owners can update organization details' });
+    return res.status(403).json({ error: 'Only team owners can update organization details' });
   }
   try {
     const { company_name, company_email, gst, street, city, pincode, state, country } = req.body;
@@ -788,7 +788,7 @@ router.post('/purchase-seats', async (req, res) => {
     // Enforce max 20 seats per owner account
     if (newTotal > 20) {
       return res.status(400).json({
-        error: `Cannot exceed maximum 20 seats per account. Current: ${currentSeats}, Requested: ${numberOfSeats}, Total would be: ${newTotal}. Please contact sales for enterprise plans.`
+        error: `Cannot exceed maximum 20 seats per account. Current: ${currentSeats}, Requested: ${numberOfSeats}, Total would be: ${newTotal}. Please contact sales for team plans.`
       });
     }
 

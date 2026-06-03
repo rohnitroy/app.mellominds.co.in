@@ -912,10 +912,10 @@ router.get('/', async (req, res) => {
             [userId]
         );
         const user = userRes.rows[0];
-        const isEnterpriseOwner = user && user.plan_name === 'team' && user.org_role !== 'member';
+        const isTeamOwner = user && user.plan_name === 'team' && user.org_role !== 'member';
 
         // If enterprise mode and user is not owner, deny
-        if (enterprise === 'true' && !isEnterpriseOwner) {
+        if (enterprise === 'true' && !isTeamOwner) {
             return res.status(403).json({ error: 'Not authorized for enterprise analytics' });
         }
 
@@ -944,7 +944,7 @@ router.get('/', async (req, res) => {
         let params = [];
 
         if (enterprise === 'true') {
-            // Enterprise owner - get all team members' bookings
+            // Team owner - get all team members' bookings
             query += `
                 WHERE a.therapist_id IN (
                     SELECT therapist_user_id FROM organization_therapists WHERE owner_id = $1 AND status = 'active' AND therapist_user_id IS NOT NULL

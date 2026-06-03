@@ -1053,8 +1053,8 @@ const DashboardHome: React.FC = () => {
       setLoading(true);
       try {
         // Build stats URL with date filter
-        const isEnterpriseOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
-        let statsUrl = `${API_BASE_URL}/${showTeamAnalytics && isEnterpriseOwner ? 'auth/enterprise-analytics' : 'api/bookings/stats'}`;
+        const isTeamOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
+        let statsUrl = `${API_BASE_URL}/${showTeamAnalytics && isTeamOwner ? 'auth/enterprise-analytics' : 'api/bookings/stats'}`;
         const freeCutoff = isFreeTier ? getFreeTierMinDate() : null;
 
         if (dateFilter !== 'all_time' && dateFilter !== 'custom') {

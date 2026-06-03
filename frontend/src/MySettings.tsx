@@ -16,7 +16,7 @@ const MySettings: React.FC = () => {
   const toast = useToast();
   const isEnterprise = user?.plan_name === 'team';
   const isMember = user?.org_role === 'member';
-  const isEnterpriseOwner = isEnterprise && !isMember;
+  const isTeamOwner = isEnterprise && !isMember;
 
   const [googleConnected, setGoogleConnected] = useState(false);
   const [cashfreeConnected, setCashfreeConnected] = useState(false);
@@ -85,7 +85,7 @@ const MySettings: React.FC = () => {
     ]).finally(() => setIntegrationsLoading(false));
 
     // Fetch enterprise settings for owners
-    if (isEnterpriseOwner) {
+    if (isTeamOwner) {
       setEnterpriseSettingsLoading(true);
       fetch(`${API_BASE_URL}/auth/team-settings`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
@@ -108,7 +108,7 @@ const MySettings: React.FC = () => {
         .catch(() => {});
     });
     socket.on('team_settings_updated', () => {
-      if (isEnterpriseOwner) {
+      if (isTeamOwner) {
         fetch(`${API_BASE_URL}/auth/team-settings`, { credentials: 'include' })
           .then(r => r.ok ? r.json() : null)
           .then(d => { if (d?.settings) setEnterpriseSettings(s => ({ ...s, ...d.settings })); })
@@ -119,7 +119,7 @@ const MySettings: React.FC = () => {
       socket.off('integrations_updated');
       socket.off('team_settings_updated');
     };
-  }, [socket, isEnterpriseOwner]);
+  }, [socket, isTeamOwner]);
 
   const handleCashfreeConnect = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -397,7 +397,7 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          {isEnterpriseOwner && (
+          {isTeamOwner && (
             <div className={styles.settingCardColumn}>
               {/* Controls Header */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: controlsExpanded ? '4px' : '0' }}>
