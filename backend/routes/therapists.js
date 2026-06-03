@@ -200,7 +200,7 @@ router.post('/invite', async (req, res) => {
     }
 
     try {
-        // Check available seats
+        // Check available seats (owner counts as 1 seat)
         const seatsResult = await pool.query(
             'SELECT purchased_seats FROM users WHERE id = $1',
             [req.user.id]
@@ -214,12 +214,16 @@ router.post('/invite', async (req, res) => {
         );
         const usedSeats = parseInt(membersResult.rows[0]?.used_seats || 0);
 
-        if (usedSeats >= purchasedSeats) {
+        // Owner takes 1 seat, so available for members = purchasedSeats - 1
+        const availableSeats = purchasedSeats - 1;
+
+        if (usedSeats >= availableSeats) {
             return res.status(403).json({
-                error: `You have reached your seat limit (${purchasedSeats}). For more seats, contact our team at support@mellominds.co.in.`,
+                error: `You have reached your seat limit (${purchasedSeats}). Owner takes 1 seat, leaving ${availableSeats} for team members. For more seats, contact our team at support@mellominds.co.in.`,
                 code: 'SEATS_EXCEEDED',
                 purchasedSeats,
-                usedSeats
+                usedSeats,
+                availableSeats
             });
         }
 
