@@ -10,6 +10,7 @@ interface User {
     phone?: string;
     date_of_birth?: string;
     gender?: string;
+    specialization?: string;
     specializations?: string[];
     language_spoken?: string[];
     country?: string;
