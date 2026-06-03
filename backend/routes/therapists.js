@@ -216,7 +216,7 @@ router.post('/invite', async (req, res) => {
 
         if (usedSeats >= purchasedSeats) {
             return res.status(403).json({
-                error: `You have reached your seat limit (${purchasedSeats}). Please purchase more seats to add team members.`,
+                error: `You have reached your seat limit (${purchasedSeats}). For more seats, contact our team at support@mellominds.co.in.`,
                 code: 'SEATS_EXCEEDED',
                 purchasedSeats,
                 usedSeats
