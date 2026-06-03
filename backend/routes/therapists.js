@@ -15,7 +15,7 @@ const ensureAuthenticated = (req, res, next) => {
 // Enterprise owner = plan_name 'enterprise' AND org_role is NULL or 'owner'
 // (members have plan_name 'enterprise' too but org_role = 'member')
 const ensureEnterpriseOwner = (req, res, next) => {
-    if (req.user?.plan_name === 'enterprise' && req.user?.org_role !== 'member') return next();
+    if (req.user?.plan_name === 'team' && req.user?.org_role !== 'member') return next();
     res.status(403).json({ error: 'This feature is available to Enterprise plan owners only.' });
 };
 
@@ -200,6 +200,29 @@ router.post('/invite', async (req, res) => {
     }
 
     try {
+        // Check available seats
+        const seatsResult = await pool.query(
+            'SELECT purchased_seats FROM users WHERE id = $1',
+            [req.user.id]
+        );
+        const purchasedSeats = seatsResult.rows[0]?.purchased_seats || 0;
+
+        const membersResult = await pool.query(
+            `SELECT COUNT(*) as used_seats FROM organization_therapists
+             WHERE owner_id = $1 AND status != 'removed'`,
+            [req.user.id]
+        );
+        const usedSeats = parseInt(membersResult.rows[0]?.used_seats || 0);
+
+        if (usedSeats >= purchasedSeats) {
+            return res.status(403).json({
+                error: `You have reached your seat limit (${purchasedSeats}). Please purchase more seats to add team members.`,
+                code: 'SEATS_EXCEEDED',
+                purchasedSeats,
+                usedSeats
+            });
+        }
+
         // Block if email already exists in the system
         const existingUser = await pool.query(
             'SELECT id FROM users WHERE LOWER(email) = $1', [email]

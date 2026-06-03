@@ -901,6 +901,7 @@ async function ensureUsersSchema() {
           specializations TEXT[],
           email_preferences JSONB DEFAULT '{}'::jsonb,
           dashboard_preferences JSONB DEFAULT '{}'::jsonb,
+          purchased_seats INTEGER DEFAULT 0,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -935,6 +936,7 @@ async function ensureUsersSchema() {
         ADD COLUMN IF NOT EXISTS specializations TEXT[],
         ADD COLUMN IF NOT EXISTS email_preferences JSONB DEFAULT '{}'::jsonb,
         ADD COLUMN IF NOT EXISTS dashboard_preferences JSONB DEFAULT '{}'::jsonb,
+        ADD COLUMN IF NOT EXISTS purchased_seats INTEGER DEFAULT 0,
         ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       `);

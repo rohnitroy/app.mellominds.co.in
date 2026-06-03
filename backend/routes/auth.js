@@ -104,7 +104,7 @@ router.post('/register', async (req, res) => {
         if (inviteRes.rows.length > 0) {
           const { id: inviteId, owner_id } = inviteRes.rows[0];
           await pool.query(
-            `UPDATE users SET plan_name = 'enterprise', org_role = 'member', org_owner_id = $1 WHERE id = $2`,
+            `UPDATE users SET plan_name = 'team', org_role = 'member', org_owner_id = $1 WHERE id = $2`,
             [owner_id, newUserId]
           );
           await pool.query(
@@ -392,7 +392,7 @@ router.get('/me', (req, res) => {
 // GET /auth/dashboard-prefs — fetch dashboard widget preferences
 router.get('/dashboard-prefs', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-  if (req.user.plan_name !== 'enterprise') {
+  if (req.user.plan_name !== 'team') {
     return res.status(403).json({ error: 'Dashboard customization is available for Enterprise plan users.' });
   }
   try {
@@ -416,7 +416,7 @@ router.get('/dashboard-prefs', async (req, res) => {
 // PUT /auth/dashboard-prefs — save dashboard widget preferences
 router.put('/dashboard-prefs', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-  if (req.user.plan_name !== 'enterprise') {
+  if (req.user.plan_name !== 'team') {
     return res.status(403).json({ error: 'Dashboard customization is available for Enterprise plan users.' });
   }
   try {
@@ -444,7 +444,7 @@ router.put('/dashboard-prefs', async (req, res) => {
 });
 router.get('/enterprise-settings', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+  if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
     return res.status(403).json({ error: 'Only enterprise owners can access these settings' });
   }
   try {
@@ -467,7 +467,7 @@ router.get('/enterprise-settings', async (req, res) => {
 // PUT /auth/enterprise-settings — save enterprise control center settings
 router.put('/enterprise-settings', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+  if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
     return res.status(403).json({ error: 'Only enterprise owners can update these settings' });
   }
   try {
@@ -509,7 +509,7 @@ router.put('/enterprise-settings', async (req, res) => {
 // GET /auth/enterprise-analytics — aggregated analytics for all therapists under the owner
 router.get('/enterprise-analytics', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+  if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
     return res.status(403).json({ error: 'Only enterprise owners can access analytics' });
   }
   try {
@@ -593,7 +593,7 @@ router.get('/enterprise-analytics', async (req, res) => {
 });
 router.get('/organization', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+  if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
     return res.status(403).json({ error: 'Only enterprise owners can access organization details' });
   }
   try {
@@ -611,7 +611,7 @@ router.get('/organization', async (req, res) => {
 // PUT /auth/organization — upsert org details for the current enterprise owner
 router.put('/organization', async (req, res) => {
   if (!req.isAuthenticated()) return res.status(401).json({ error: 'Not authenticated' });
-  if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+  if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
     return res.status(403).json({ error: 'Only enterprise owners can update organization details' });
   }
   try {
@@ -708,6 +708,103 @@ router.post('/upload-profile-picture', upload.single('profilePicture'), async (r
   } catch (error) {
     console.error('Profile picture upload error:', error);
     res.status(500).json({ error: 'Failed to upload profile picture', details: error.message });
+  }
+});
+
+// GET /auth/seats-info — get team member seats info
+router.get('/seats-info', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    if (req.user.plan_name !== 'team') {
+      return res.status(403).json({ error: 'This feature is available for Team plan users only' });
+    }
+
+    // Get user's purchased seats
+    const userResult = await pool.query(
+      'SELECT purchased_seats FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    const purchasedSeats = userResult.rows[0]?.purchased_seats || 0;
+
+    // Count used seats (team members invited/active)
+    const membersResult = await pool.query(
+      `SELECT COUNT(*) as used_seats FROM organization_therapists
+       WHERE owner_user_id = $1 AND status != 'removed'`,
+      [req.user.id]
+    );
+    const usedSeats = parseInt(membersResult.rows[0]?.used_seats || 0);
+
+    res.json({
+      purchasedSeats,
+      usedSeats,
+      availableSeats: purchasedSeats - usedSeats,
+      maxSeatsPerOwner: 20,
+      canAddMore: purchasedSeats > usedSeats,
+      reachedMax: purchasedSeats >= 20
+    });
+
+  } catch (err) {
+    console.error('Get seats info error:', err);
+    res.status(500).json({ error: 'Failed to fetch seats information' });
+  }
+});
+
+// POST /auth/purchase-seats — purchase additional team member seats
+router.post('/purchase-seats', async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    if (req.user.plan_name !== 'team') {
+      return res.status(403).json({ error: 'This feature is available for Team plan users only' });
+    }
+
+    const { numberOfSeats } = req.body;
+
+    if (!numberOfSeats || typeof numberOfSeats !== 'number' || numberOfSeats <= 0) {
+      return res.status(400).json({ error: 'Invalid number of seats' });
+    }
+
+    // Get current seats
+    const userResult = await pool.query(
+      'SELECT purchased_seats FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    const currentSeats = userResult.rows[0]?.purchased_seats || 0;
+    const newTotal = currentSeats + numberOfSeats;
+
+    // Enforce max 20 seats per owner account
+    if (newTotal > 20) {
+      return res.status(400).json({
+        error: `Cannot exceed maximum 20 seats per account. Current: ${currentSeats}, Requested: ${numberOfSeats}, Total would be: ${newTotal}. Please contact sales for enterprise plans.`
+      });
+    }
+
+    // Update purchased seats
+    const result = await pool.query(
+      'UPDATE users SET purchased_seats = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING purchased_seats',
+      [newTotal, req.user.id]
+    );
+
+    // Emit real-time update
+    const io = getIO();
+    if (io) io.to(`user:${req.user.id}`).emit('seats_purchased', { purchasedSeats: newTotal });
+
+    res.json({
+      message: `Successfully purchased ${numberOfSeats} seat(s)`,
+      previousSeats: currentSeats,
+      newTotal,
+      pricePerSeat: 1499,
+      totalAmount: numberOfSeats * 1499
+    });
+
+  } catch (err) {
+    console.error('Purchase seats error:', err);
+    res.status(500).json({ error: 'Failed to purchase seats' });
   }
 });
 

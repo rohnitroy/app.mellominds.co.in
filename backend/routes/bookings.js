@@ -912,7 +912,7 @@ router.get('/', async (req, res) => {
             [userId]
         );
         const user = userRes.rows[0];
-        const isEnterpriseOwner = user && user.plan_name === 'enterprise' && user.org_role !== 'member';
+        const isEnterpriseOwner = user && user.plan_name === 'team' && user.org_role !== 'member';
 
         // If enterprise mode and user is not owner, deny
         if (enterprise === 'true' && !isEnterpriseOwner) {
@@ -1614,7 +1614,7 @@ router.post('/:id/send-invoice', async (req, res) => {
         }
 
         // Fetch org details — use owner's org if enterprise member, or own org if owner
-        const orgOwnerId = b.org_owner_id || (req.user.plan_name === 'enterprise' ? userId : null);
+        const orgOwnerId = b.org_owner_id || (req.user.plan_name === 'team' ? userId : null);
         let org = null;
         if (orgOwnerId) {
             const orgRes = await pool.query(

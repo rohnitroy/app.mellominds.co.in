@@ -278,7 +278,7 @@ router.post('/transfers/:transferId/reject', async (req, res) => {
         // Allow owner to reject on behalf of a member when require_transfer_approval is on
         let queryCondition = 'ct.to_therapist_id = $2';
         let queryParam = toTherapistId;
-        if (req.user.org_role !== 'member' && req.user.plan_name === 'enterprise') {
+        if (req.user.org_role !== 'member' && req.user.plan_name === 'team') {
             // Owner can reject any pending transfer within their org
             queryCondition = `ct.to_therapist_id IN (
                 SELECT therapist_user_id FROM organization_therapists WHERE owner_id = $2 AND status = 'active'
@@ -342,7 +342,7 @@ router.post('/transfers/:transferId/reject', async (req, res) => {
 router.post('/transfers/:transferId/owner-approve', async (req, res) => {
     const dbClient = await pool.connect();
     try {
-        if (req.user.plan_name !== 'enterprise' || req.user.org_role === 'member') {
+        if (req.user.plan_name !== 'team' || req.user.org_role === 'member') {
             return res.status(403).json({ error: 'Only enterprise owners can use this endpoint.' });
         }
 

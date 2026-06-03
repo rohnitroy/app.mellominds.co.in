@@ -20,7 +20,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 // POST /api/notes/upload-attachment - Upload a session note file (Enterprise only)
 router.post('/upload-attachment', upload.single('file'), async (req, res) => {
     try {
-        if (req.user.plan_name !== 'enterprise') {
+        if (req.user.plan_name !== 'team') {
             return res.status(403).json({ error: 'This feature is available for Enterprise plan users only.' });
         }
 

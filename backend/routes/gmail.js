@@ -20,7 +20,7 @@ function makeOAuthClient() {
 
 // GET /api/gmail/start
 router.get('/start', isAuthenticated, (req, res) => {
-    if (req.user.plan_name !== 'enterprise') {
+    if (req.user.plan_name !== 'team') {
         return res.status(403).json({ error: 'Gmail sending is an Enterprise feature.' });
     }
     const oauth2Client = makeOAuthClient();

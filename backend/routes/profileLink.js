@@ -76,7 +76,7 @@ router.put('/', isAuthenticated, async (req, res) => {
         );
         const user = userRes.rows[0];
 
-        if (user.plan_name !== 'enterprise') {
+        if (user.plan_name !== 'team') {
             return res.status(403).json({ error: 'Custom profile links are an Enterprise feature.' });
         }
 
