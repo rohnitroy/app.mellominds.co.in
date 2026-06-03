@@ -117,7 +117,7 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    res.status(201).json({ message: 'Registration successful', user: result.rows[0] });
+    res.status(201).json({ message: 'Registration successful', user: formatUserResponse(result.rows[0]) });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed', details: error.message });
@@ -161,9 +161,7 @@ router.post('/login', async (req, res) => {
         return res.status(500).json({ error: 'Login failed' });
       }
 
-      // Remove password from response
-      const { password, ...userWithoutPassword } = user;
-      res.json({ message: 'Login successful', user: userWithoutPassword });
+      res.json({ message: 'Login successful', user: formatUserResponse(user) });
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -262,10 +260,7 @@ router.post('/complete-profile', async (req, res) => {
     const io = getIO();
     if (io) io.to(`user:${userId}`).emit('profile_updated');
 
-    const updatedUser = result.rows[0];
-    const profileComplete = isProfileComplete(updatedUser);
-
-    res.json({ message: 'Profile updated successfully', user: { ...updatedUser, profileComplete } });
+    res.json({ message: 'Profile updated successfully', user: formatUserResponse(result.rows[0]) });
 
   } catch (error) {
     console.error('Profile update error:', error);
@@ -357,7 +352,7 @@ router.post('/logout', (req, res) => {
 // Session check endpoint - helps debug session issues
 router.get('/session-check', (req, res) => {
   if (req.user) {
-    res.json({ authenticated: true, user: req.user });
+    res.json({ authenticated: true, user: formatUserResponse(req.user) });
   } else {
     res.json({ authenticated: false, message: 'Not authenticated' });
   }
@@ -370,23 +365,33 @@ const isProfileComplete = (user) => {
   return requiredFields.every(field => {
     const value = user[field];
     if (!value) return false;
-    
+
     // Handle arrays (language_spoken)
     if (Array.isArray(value)) {
       return value.length > 0 && value.some(v => v && v.toString().trim() !== '');
     }
-    
+
     // Handle strings and other types
     return value.toString().trim() !== '';
   });
 };
 
+// Helper: format user response with profileComplete and without sensitive fields
+const formatUserResponse = (user) => {
+  if (!user) return null;
+  const { password, password_hash, reset_token, reset_token_expires, dob, ...userWithoutSensitive } = user;
+  const profileComplete = isProfileComplete(user);
+  return {
+    ...userWithoutSensitive,
+    date_of_birth: dob,
+    profileComplete
+  };
+};
+
 // Get current user (check if logged in)
 router.get('/me', (req, res) => {
   if (req.isAuthenticated()) {
-    const { password, reset_token, reset_token_expires, dob, ...userWithoutSensitive } = req.user;
-    const profileComplete = isProfileComplete(req.user);
-    res.json({ user: { ...userWithoutSensitive, date_of_birth: dob, profileComplete } });
+    res.json({ user: formatUserResponse(req.user) });
   } else {
     res.status(401).json({ error: 'Not authenticated' });
   }

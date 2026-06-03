@@ -6,6 +6,7 @@ import LanguageMultiSelect from './components/LanguageMultiSelect';
 import CountrySelect from './components/CountrySelect';
 import StateSelect from './components/StateSelect';
 import { useToast } from './context/ToastContext';
+import { useAuth } from './context/AuthContext';
 import API_BASE_URL from './config/api';
 import Loader from './components/Loader';
 import { useSocket } from './context/SocketContext';
@@ -28,6 +29,7 @@ interface OrgData {
 const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
   const toast = useToast();
   const { socket } = useSocket();
+  const { checkAuth } = useAuth();
   const [profilePicture, setProfilePicture] = useState<string>('');
   const [isEnterpriseOwner, setIsEnterpriseOwner] = useState(false);
   const [formData, setFormData] = useState({
@@ -318,6 +320,8 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
           }
         }
         toast.success('Profile changes saved successfully!');
+        // Refresh user auth state to update profileComplete flag
+        await checkAuth();
       } else {
         toast.error('Failed to save profile changes.');
       }
@@ -325,7 +329,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
       console.error('Error saving profile:', error);
       toast.error('Error saving profile changes.');
     }
-  }, [formData, isEnterpriseOwner, orgData, toast]);
+  }, [formData, isEnterpriseOwner, orgData, toast, checkAuth]);
 
   const handleImageChange = useCallback(async () => {
     const input = document.createElement('input');
