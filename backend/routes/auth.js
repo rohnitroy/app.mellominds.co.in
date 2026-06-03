@@ -619,10 +619,17 @@ router.get('/me', async (req, res) => {
   }
 
   try {
-    const user = formatUserResponse(req.user);
+    // Fetch fresh user data from database (session obj may not have purchased_seats)
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id]);
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const freshUser = result.rows[0];
+    const user = formatUserResponse(freshUser);
 
     // For team plan users, include seat usage
-    if (req.user.plan_name === 'team') {
+    if (freshUser.plan_name === 'team') {
       const seatsResult = await pool.query(
         `SELECT COUNT(*) as used_members FROM organization_therapists
          WHERE owner_id = $1 AND status != 'removed'`,
