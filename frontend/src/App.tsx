@@ -970,7 +970,7 @@ const DashboardHome: React.FC = () => {
       user.phone,
       user.date_of_birth,
       user.gender,
-      user.specializations,
+      user.specialization,
       user.language_spoken,
       user.country,
       user.state,
