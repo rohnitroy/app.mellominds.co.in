@@ -57,7 +57,7 @@ const PaymentsInvoice: React.FC = () => {
 
   // Fetch org details for enterprise users
   useEffect(() => {
-    if (user?.plan_name === 'enterprise') {
+    if (user?.plan_name === 'team') {
       fetch(`${API_BASE_URL}/auth/organization`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.organization) setOrgDetails(d.organization); })

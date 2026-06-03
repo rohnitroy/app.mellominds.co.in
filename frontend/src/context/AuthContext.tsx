@@ -17,7 +17,7 @@ interface User {
     city?: string;
     pincode?: string;
     clinic_address?: string;
-    plan_name?: 'free' | 'enterprise';
+    plan_name?: 'free' | 'team';
     profile_slug?: string | null;
     org_role?: 'owner' | 'member' | null;
     org_owner_id?: number | null;

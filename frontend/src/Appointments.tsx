@@ -38,7 +38,7 @@ const Appointments: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<any[]>([]);
 
-  const isEnterprise = user?.plan_name === 'enterprise';
+  const isEnterprise = user?.plan_name === 'team';
   const isOwner = user?.org_role !== 'member';
   const canSeeContactInfo = !isEnterprise || isOwner;
 

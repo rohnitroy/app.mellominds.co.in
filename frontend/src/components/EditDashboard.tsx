@@ -25,7 +25,7 @@ const EditDashboard: React.FC<EditDashboardProps> = ({ onBack }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
-  const isEnterprise = user?.plan_name === 'enterprise';
+  const isEnterprise = user?.plan_name === 'team';
 
   const [widgets, setWidgets] = useState<Record<string, boolean>>(
     Object.fromEntries(ALL_WIDGETS.map(w => [w.key, true]))

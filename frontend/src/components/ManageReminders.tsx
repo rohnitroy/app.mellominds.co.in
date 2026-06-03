@@ -50,7 +50,7 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
     const { user } = useAuth();
     const { socket } = useSocket();
     const toast = useToast();
-    const isEnterprise = user?.plan_name === 'enterprise';
+    const isEnterprise = user?.plan_name === 'team';
 
     const [prefs, setPrefs] = useState<EmailPreferences | null>(null);
     const [saving, setSaving] = useState<keyof EmailPreferences | null>(null);

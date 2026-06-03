@@ -40,8 +40,8 @@ interface ClientViewProps {
 const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, propCutoffDate, onTabChange }) => {
   const toast = useToast();
   const { user } = useAuth();
-  const isEnterprise = user?.plan_name === 'enterprise';
-  const isOwner = user?.plan_name === 'enterprise' && user?.org_role !== 'member';
+  const isEnterprise = user?.plan_name === 'team';
+  const isOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
   const canSeeContactInfo = !isEnterprise || isOwner;
   const [uploadingNoteFile, setUploadingNoteFile] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(initialTab || 'Overview');

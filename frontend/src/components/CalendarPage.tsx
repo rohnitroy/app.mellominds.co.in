@@ -54,7 +54,7 @@ const CalendarPage: React.FC = () => {
   const [therapists, setTherapists] = useState<any[]>([]);
   const [therapistsLoading, setTherapistsLoading] = useState(false);
 
-  const isEnterpriseOwner = user?.plan_name === 'enterprise' && user?.org_role !== 'member';
+  const isEnterpriseOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
 
   const fetchTherapists = useCallback(async () => {
     setTherapistsLoading(true);

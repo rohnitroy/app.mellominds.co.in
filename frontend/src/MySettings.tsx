@@ -14,7 +14,7 @@ const MySettings: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
-  const isEnterprise = user?.plan_name === 'enterprise';
+  const isEnterprise = user?.plan_name === 'team';
   const isMember = user?.org_role === 'member';
   const isEnterpriseOwner = isEnterprise && !isMember;
 

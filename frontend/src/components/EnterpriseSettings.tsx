@@ -30,7 +30,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
-  const isEnterprise = user?.plan_name === 'enterprise';
+  const isEnterprise = user?.plan_name === 'team';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [orgDetails, setOrgDetails] = useState<OrgDetails>({

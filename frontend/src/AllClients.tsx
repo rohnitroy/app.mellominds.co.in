@@ -48,8 +48,8 @@ const AllClients: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isEnterprise = user?.plan_name === 'enterprise';
-  const isOwner = user?.plan_name === 'enterprise' && user?.org_role !== 'member';
+  const isEnterprise = user?.plan_name === 'team';
+  const isOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
   const canSeeContactInfo = !isEnterprise || isOwner;
   const { clientId, tab } = useParams<{ clientId?: string; tab?: string; listTab?: string }>();
   const listTabParam = useParams<{ listTab?: string }>().listTab;

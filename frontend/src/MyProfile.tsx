@@ -72,7 +72,7 @@ const MyProfile: React.FC<MyProfileProps> = ({ onBack }) => {
             }
             setProfilePicture(profilePicUrl);
 
-            const enterpriseOwner = data.user.plan_name === 'enterprise' && data.user.org_role !== 'member';
+            const enterpriseOwner = data.user.plan_name === 'team' && data.user.org_role !== 'member';
             setIsEnterpriseOwner(enterpriseOwner);
             
             setFormData({
