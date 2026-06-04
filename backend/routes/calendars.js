@@ -113,6 +113,49 @@ router.get('/', async (req, res) => {
     }
 });
 
+// GET /api/calendars/:id
+// Fetch single calendar by ID. Owner can fetch therapist's calendar if they manage them.
+router.get('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log(`[DEBUG] GET /api/calendars/:id called with id=${id}`);
+        const result = await pool.query(
+            'SELECT * FROM Calendars WHERE id = $1',
+            [id]
+        );
+        console.log(`[DEBUG] Query result: ${result.rows.length} rows found`);
+
+        if (result.rows.length === 0) {
+            console.log(`[DEBUG] Calendar ${id} not found in database`);
+            return res.status(404).json({ error: 'Calendar not found' });
+        }
+
+        const calendar = result.rows[0];
+        const calendarOwnerId = calendar.user_id;
+
+        // Check if requester is the calendar owner
+        if (calendarOwnerId === req.user.id) {
+            return res.json(calendar);
+        }
+
+        // Check if requester is the organization owner of the calendar owner
+        const ownerCheck = await pool.query(
+            `SELECT id FROM organization_therapists
+             WHERE owner_id = $1 AND therapist_user_id = $2 AND status = 'active'`,
+            [req.user.id, calendarOwnerId]
+        );
+
+        if (ownerCheck.rows.length > 0) {
+            return res.json(calendar);
+        }
+
+        res.status(403).json({ error: 'Not authorized to view this calendar' });
+    } catch (error) {
+        console.error('Error fetching calendar:', error);
+        res.status(500).json({ error: 'Failed to fetch calendar' });
+    }
+});
+
 // POST /api/calendars
 router.post('/', async (req, res) => {
     try {

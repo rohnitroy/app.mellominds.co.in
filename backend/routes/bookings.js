@@ -480,12 +480,12 @@ router.post('/manage/:token/cancel', async (req, res) => {
             // No refund — keep as Paid, just mark cancelled
             refundAmount = 0;
             refundPercentage = 0;
-            newPaymentStatus = `CASE WHEN payment_status = 'Paid' THEN 'Paid' WHEN payment_status = 'Pending' THEN 'Cancelled' ELSE payment_status END`;
+            newPaymentStatus = appt.payment_status === 'Paid' ? 'Paid' : 'Cancelled';
         } else if (refundType === 'partial') {
             refundPercentage = parseFloat(policy?.refundPercentage || 50);
             refundAmount = (appt.payment_amount * refundPercentage) / 100;
-            newPaymentStatus = `CASE WHEN payment_status = 'Paid' THEN 'Partial Refund' WHEN payment_status = 'Pending' THEN 'Cancelled' ELSE payment_status END`;
-            
+            newPaymentStatus = appt.payment_status === 'Paid' ? 'Partial Refund' : 'Cancelled';
+
             // Log refund in RefundTracking table
             await dbClient.query(
                 `INSERT INTO RefundTracking (appointment_id, original_amount, refund_amount, refund_percentage, refund_reason, refund_status)
@@ -496,8 +496,8 @@ router.post('/manage/:token/cancel', async (req, res) => {
             // Full refund (default)
             refundAmount = appt.payment_amount;
             refundPercentage = 100;
-            newPaymentStatus = `CASE WHEN payment_status = 'Paid' THEN 'Refunded' WHEN payment_status = 'Pending' THEN 'Cancelled' ELSE payment_status END`;
-            
+            newPaymentStatus = appt.payment_status === 'Paid' ? 'Refunded' : 'Cancelled';
+
             // Log refund in RefundTracking table
             await dbClient.query(
                 `INSERT INTO RefundTracking (appointment_id, original_amount, refund_amount, refund_percentage, refund_reason, refund_status)
@@ -510,12 +510,12 @@ router.post('/manage/:token/cancel', async (req, res) => {
         await dbClient.query(
             `UPDATE Appointments SET
                 status = 'cancelled',
-                payment_status = ${newPaymentStatus},
-                refund_amount = $1,
+                payment_status = $1,
+                refund_amount = $2,
                 refund_reason = 'Client cancellation',
                 updated_at = NOW()
-             WHERE id = $2`,
-            [refundAmount, appt.id]
+             WHERE id = $3`,
+            [newPaymentStatus, refundAmount, appt.id]
         );
 
         // Delete Google Calendar event to free the slot (non-fatal)
@@ -638,6 +638,11 @@ router.post('/manage/:token/reschedule', async (req, res) => {
         const durationMinutes = durationMatch ? parseInt(durationMatch[0]) : 60;
         const newStart = new Date(new_start_time);
         const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
+
+        // Prevent rescheduling to past dates
+        if (newStart < new Date()) {
+            return res.status(400).json({ error: 'Cannot reschedule to a past date or time.' });
+        }
 
         // Calculate reschedule fee if applicable
         let rescheduleFeeToPay = 0;
@@ -812,8 +817,8 @@ router.get('/stats', ensureAuthenticated, async (req, res) => {
         const totalClients = parseInt(clientsRes.rows[0].count);
 
         res.json({
-            revenue: `₹${revenue}`,
-            refund: `₹${refund}`,
+            revenue: revenue,
+            refund: refund,
             sessions: totalSessions,
             cancelled: cancelledSessions,
             noShow: noShowSessions,
@@ -1275,6 +1280,11 @@ router.patch('/:id/reschedule', async (req, res) => {
         const durationMinutes = durationMatch ? parseInt(durationMatch[0]) : 60;
         const newStart = new Date(new_start_time);
         const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
+
+        // Prevent rescheduling to past dates
+        if (newStart < new Date()) {
+            return res.status(400).json({ error: 'Cannot reschedule to a past date or time.' });
+        }
 
         // Update Google Calendar event if connected
         if (appt.google_event_id) {

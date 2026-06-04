@@ -8,6 +8,7 @@ import cloudinary from '../config/cloudinary.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import rateLimit from 'express-rate-limit';
 import { getIO } from '../lib/socket.js';
 import { sendEmail, passwordResetEmail, deleteAccountOTPEmail, newUserAlertEmail } from '../lib/email.js';
 import { sanitizeStr, isValidEmail } from '../middleware/sanitize.js';
@@ -16,6 +17,39 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+
+// Rate limiters for auth endpoints
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts
+  message: { error: 'Too many login attempts. Please try again later.' },
+  standardHeaders: false,
+  legacyHeaders: false,
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 registrations per hour per IP
+  message: { error: 'Too many registrations. Please try again later.' },
+  standardHeaders: false,
+  legacyHeaders: false,
+});
+
+const passwordResetLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // 3 attempts per hour
+  message: { error: 'Too many password reset requests. Please try again later.' },
+  standardHeaders: false,
+  legacyHeaders: false,
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 OTP attempts
+  message: { error: 'Too many OTP attempts. Please try again later.' },
+  standardHeaders: false,
+  legacyHeaders: false,
+});
 
 // Configure multer for memory storage (Cloudinary upload)
 const storage = multer.memoryStorage();
@@ -37,7 +71,7 @@ const upload = multer({
 });
 
 // Registration endpoint
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { fullName, email, password, phoneNumber, dateOfBirth, gender, specialization, languages, country, state, city, pincode, address } = req.body;
 
@@ -48,6 +82,7 @@ router.post('/register', async (req, res) => {
     if (!isValidEmail(email)) {
       return res.status(400).json({ error: 'Invalid email address.' });
     }
+    email = email.toLowerCase();
     if (password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     }
@@ -60,7 +95,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const existingUser = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [email]);
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -172,7 +207,7 @@ router.post('/register', async (req, res) => {
 });
 
 // Traditional email/password login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -181,8 +216,10 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    email = email.toLowerCase();
+
     // Find user by email
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [email]);
 
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -323,13 +360,14 @@ router.post('/complete-profile', async (req, res) => {
 });
 
 // POST /auth/forgot-password - Send a secure reset link
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', passwordResetLimiter, async (req, res) => {
   try {
-    const { email } = req.body;
+    let { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
     if (!isValidEmail(email)) return res.status(400).json({ error: 'Invalid email address.' });
 
-    const result = await pool.query('SELECT id, auth_provider FROM users WHERE email = $1', [email]);
+    email = email.toLowerCase();
+    const result = await pool.query('SELECT id, auth_provider FROM users WHERE LOWER(email) = $1', [email]);
 
     // Always return the same message to prevent email enumeration
     const genericMsg = { message: 'If this email is registered, a reset link has been sent.' };
@@ -394,7 +432,7 @@ router.post('/reset-password', async (req, res) => {
 });
 
 // POST /auth/delete-account/request - Send OTP to email for account deletion
-router.post('/delete-account/request', async (req, res) => {
+router.post('/delete-account/request', otpLimiter, async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
@@ -432,7 +470,7 @@ router.post('/delete-account/request', async (req, res) => {
 });
 
 // POST /auth/delete-account/confirm - Verify OTP and delete account
-router.post('/delete-account/confirm', async (req, res) => {
+router.post('/delete-account/confirm', otpLimiter, async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
@@ -835,8 +873,8 @@ router.get('/team-analytics', async (req, res) => {
     const a = analyticsRes.rows[0];
     console.log('Enterprise Analytics Result:', { revenue: a.revenue, refund: a.refund, sessions: totalSessions, cancelled: cancelledSessions, noshow: a.noshow, pending_payment: a.pending_payment });
     res.json({
-      revenue: `₹${parseFloat(a.revenue || 0)}`,
-      refund: `₹${parseFloat(a.refund || 0)}`,
+      revenue: parseFloat(a.revenue || 0),
+      refund: parseFloat(a.refund || 0),
       sessions: totalSessions,
       cancelled: cancelledSessions,
       noShow: parseInt(a.noshow || 0),
@@ -990,7 +1028,7 @@ router.get('/seats-info', async (req, res) => {
     // Count used seats (team members invited/active)
     const membersResult = await pool.query(
       `SELECT COUNT(*) as used_seats FROM organization_therapists
-       WHERE owner_user_id = $1 AND status != 'removed'`,
+       WHERE owner_id = $1 AND status != 'removed'`,
       [req.user.id]
     );
     const usedSeats = parseInt(membersResult.rows[0]?.used_seats || 0);

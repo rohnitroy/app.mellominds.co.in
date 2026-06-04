@@ -37,24 +37,14 @@ router.get('/profile/:identifier', async (req, res) => {
         console.log(`🔍 Searching for therapist profile: "${identifier}" (numeric: ${isNumeric})`);
 
         // First, check which columns exist in the Users table
-        const columnsResult = await pool.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'users'
-        `);
-        
-        const existingColumns = columnsResult.rows.map(r => r.column_name);
-        
-        // Build dynamic SELECT clause based on available columns
-        const selectColumns = ['id', 'user_name', 'profile_picture', 'specialization', 'language_spoken', 'city', 'state', 'country'];
-        if (existingColumns.includes('about_me')) selectColumns.push('about_me');
-        if (existingColumns.includes('profile_slug')) selectColumns.push('profile_slug');
-        
+        // Use explicit column list for safety (no dynamic SQL)
+        const selectClause = 'id, user_name, profile_picture, specialization, language_spoken, city, state, country, about_me, profile_slug';
+
         // Try numeric ID first, then fall back to profile_slug
         const userResult = await pool.query(
             isNumeric
-                ? `SELECT ${selectColumns.join(', ')} FROM Users WHERE id = $1`
-                : `SELECT ${selectColumns.join(', ')} FROM Users WHERE (profile_slug = $1 OR LOWER(user_name) = LOWER($1))`,
+                ? `SELECT ${selectClause} FROM Users WHERE id = $1`
+                : `SELECT ${selectClause} FROM Users WHERE (profile_slug = $1 OR LOWER(user_name) = LOWER($1))`,
             [identifier]
         );
 
@@ -67,24 +57,11 @@ router.get('/profile/:identifier', async (req, res) => {
 
         const user = userResult.rows[0];
 
-        // Check which columns exist in Calendars table
-        const calColumnsResult = await pool.query(`
-            SELECT column_name 
-            FROM information_schema.columns 
-            WHERE table_name = 'calendars'
-        `);
-        
-        const existingCalColumns = calColumnsResult.rows.map(r => r.column_name);
-        
-        // Build dynamic SELECT clause based on available columns
-        const calSelectColumns = ['id', 'title', 'slug', 'description', 'duration'];
-        if (existingCalColumns.includes('type')) calSelectColumns.push('type');
-        if (existingCalColumns.includes('locations')) calSelectColumns.push('locations');
-        if (existingCalColumns.includes('prices')) calSelectColumns.push('prices');
-        if (existingCalColumns.includes('payment_enabled')) calSelectColumns.push('payment_enabled');
-        
+        // Use explicit column list for safety (no dynamic SQL)
+        const calSelectClause = 'id, title, slug, description, duration, type, locations, prices, payment_enabled';
+
         const calendarsResult = await pool.query(
-            `SELECT ${calSelectColumns.join(', ')}
+            `SELECT ${calSelectClause}
              FROM Calendars
              WHERE user_id = $1 AND is_active = true
              ORDER BY created_at ASC`,

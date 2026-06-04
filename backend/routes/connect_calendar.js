@@ -122,15 +122,19 @@ router.get('/status', async (req, res) => {
         // Team owner can check a member's connection status
         const { for_user_id } = req.query;
         if (for_user_id) {
+            const forUserId = parseInt(for_user_id, 10);
+            if (isNaN(forUserId)) {
+                return res.status(400).json({ error: 'Invalid user ID.' });
+            }
             const ownerCheck = await pool.query(
                 `SELECT id FROM organization_therapists
                  WHERE owner_id = $1 AND therapist_user_id = $2 AND status = 'active'`,
-                [req.user.id, for_user_id]
+                [req.user.id, forUserId]
             );
             if (ownerCheck.rows.length === 0) {
                 return res.status(403).json({ error: 'Not authorized.' });
             }
-            targetUserId = for_user_id;
+            targetUserId = forUserId;
         }
 
         const result = await pool.query(

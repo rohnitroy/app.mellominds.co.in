@@ -32,7 +32,7 @@ passport.use(
         
         // Extract user info from Google profile
         const googleId = profile.id;
-        const email = profile.emails[0]?.value;
+        let email = profile.emails[0]?.value;
         const userName = profile.displayName;
         const profilePicture = profile.photos[0]?.value || null;
 
@@ -40,6 +40,8 @@ passport.use(
           console.error('[DEBUG] Google OAuth: No email found in profile');
           return done(new Error('No email found in Google profile'), null);
         }
+
+        email = email.toLowerCase();
 
         console.log(`[DEBUG] Google OAuth: email=${email}, userName=${userName}, picture=${profilePicture ? 'yes' : 'no'}`);
 
@@ -62,13 +64,13 @@ passport.use(
           console.log(`[DEBUG] Updated existing Google user: id=${user.id}, new_name=${user.user_name}`);
         } else {
           // Check if email already exists (user might have registered with email/password)
-          result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+          result = await pool.query('SELECT * FROM users WHERE LOWER(email) = $1', [email]);
 
           if (result.rows.length > 0) {
             // Email exists, link Google account to existing user
             console.log(`[DEBUG] Linking Google to existing email user`);
             result = await pool.query(
-              'UPDATE users SET google_id = $1, auth_provider = $2, profile_picture = $3, user_name = $4 WHERE email = $5 RETURNING *',
+              'UPDATE users SET google_id = $1, auth_provider = $2, profile_picture = $3, user_name = $4 WHERE LOWER(email) = $5 RETURNING *',
               [googleId, 'google', profilePicture, userName, email]
             );
             user = result.rows[0];

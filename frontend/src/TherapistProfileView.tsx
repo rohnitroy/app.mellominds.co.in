@@ -14,7 +14,7 @@ interface TherapistInfo {
   specialization: string | null;
   profile_picture: string | null;
   calendar_count: number;
-  calendars: { id: number; title: string }[];
+  calendars: { id: number; title: string; slug: string }[];
   status: 'pending' | 'active';
   created_at: string;
 }
@@ -62,22 +62,83 @@ const TherapistProfileView: React.FC = () => {
   const [clientSearch, setClientSearch] = useState('');
   const [bookingSearch, setBookingSearch] = useState('');
   const [calendarChecking, setCalendarChecking] = useState(false);
+  const [editingCalendarId, setEditingCalendarId] = useState<number | null>(null);
   const [clientPage, setClientPage] = useState(1);
   const [bookingPage, setBookingPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
 
+  const handleEditCalendar = async (calendarId: number, therapistUserId: number | null, therapistName: string | null) => {
+    setEditingCalendarId(calendarId);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      const res = await fetch(`${API_BASE_URL}/api/calendars/${calendarId}`, {
+        credentials: 'include',
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(`Failed to load calendar: ${errData.error || 'Unknown error'}`);
+        return;
+      }
+
+      const fullCal = await res.json();
+
+      navigate('/my-calendar/edit', {
+        state: {
+          isEditing: true,
+          calendar: fullCal,
+          managingUserId: therapistUserId,
+          managingUserName: therapistName,
+          returnTo: `/therapists/${id}`,
+        },
+      });
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        toast.error('Request timeout. Please try again.');
+      } else {
+        toast.error('Failed to fetch calendar. Please try again.');
+      }
+      console.error('Error fetching calendar:', err);
+    } finally {
+      setEditingCalendarId(null);
+    }
+  };
+
   const handleCreateCalendar = async (therapistUserId: number, therapistName: string | null) => {
+    if (!therapistUserId) {
+      toast.error('Therapist account not fully set up yet.');
+      return;
+    }
+
     setCalendarChecking(true);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       const res = await fetch(
         `${API_BASE_URL}/api/connect-calendar/status?for_user_id=${therapistUserId}`,
-        { credentials: 'include' }
+        { credentials: 'include', signal: controller.signal }
       );
+
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(`Failed to verify connection: ${errData.error || 'Unknown error'}`);
+        return;
+      }
+
       const data = await res.json();
       if (!data.connected) {
         toast.error(`${therapistName || 'This therapist'} hasn't connected their Google Calendar yet. Ask them to connect it from their Settings first.`);
         return;
       }
+
       navigate('/my-calendar/new', {
         state: {
           managingUserId: therapistUserId,
@@ -85,8 +146,13 @@ const TherapistProfileView: React.FC = () => {
           returnTo: `/therapists/${id}`,
         },
       });
-    } catch {
-      toast.error('Could not verify Google Calendar connection. Please try again.');
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        toast.error('Request timeout. Please try again.');
+      } else {
+        toast.error('Could not verify Google Calendar connection. Please try again.');
+      }
+      console.error('Error checking calendar connection:', err);
     } finally {
       setCalendarChecking(false);
     }
@@ -98,7 +164,9 @@ const TherapistProfileView: React.FC = () => {
         credentials: 'include',
       });
       if (res.ok) {
-        setData(await res.json());
+        const profileData = await res.json();
+        console.log('[DEBUG] Therapist profile data:', profileData);
+        setData(profileData);
       } else {
         toast.error('Failed to load therapist profile.');
         navigate('/therapists');
@@ -256,6 +324,28 @@ const TherapistProfileView: React.FC = () => {
               ))}
             </div>
           )}
+          {info.therapist_user_id && (
+            <div style={{ marginTop: '16px' }}>
+              <a
+                href={`/book/${info.therapist_user_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-block',
+                  padding: '8px 16px',
+                  backgroundColor: '#2d7579',
+                  color: '#fff',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  fontFamily: 'Urbanist'
+                }}
+              >
+                View Public Profile
+              </a>
+            </div>
+          )}
         </div>
       </div>
 
@@ -264,16 +354,6 @@ const TherapistProfileView: React.FC = () => {
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
             <h2 className={styles.sectionTitle}>Calendars ({info.calendar_count})</h2>
-            <button
-              className={styles.createCalendarBtn}
-              disabled={calendarChecking}
-              onClick={() => handleCreateCalendar(info.therapist_user_id!, info.user_name)}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              {calendarChecking ? 'Checking...' : 'Create Calendar'}
-            </button>
           </div>
           {info.calendars && info.calendars.length > 0 ? (
             <div className={styles.calendarsGrid}>
@@ -283,24 +363,8 @@ const TherapistProfileView: React.FC = () => {
                     <h3 className={styles.calendarCardTitle}>{cal.title}</h3>
                     <button
                       className={styles.editCalendarBtn}
-                      onClick={() => {
-                        // Fetch full calendar data then navigate to edit
-                        fetch(`${API_BASE_URL}/api/calendars/public/${info.therapist_user_id}${cal.slug || ''}`, { credentials: 'include' })
-                          .then(r => r.ok ? r.json() : null)
-                          .then(fullCal => {
-                            if (fullCal) {
-                              navigate('/my-calendar/edit', {
-                                state: {
-                                  isEditing: true,
-                                  calendar: fullCal,
-                                  managingUserId: info.therapist_user_id,
-                                  managingUserName: info.user_name,
-                                  returnTo: `/therapists/${id}`,
-                                },
-                              });
-                            }
-                          });
-                      }}
+                      onClick={() => handleEditCalendar(cal.id, info.therapist_user_id, info.user_name)}
+                      disabled={editingCalendarId === cal.id}
                       title="Edit calendar"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -309,6 +373,53 @@ const TherapistProfileView: React.FC = () => {
                       </svg>
                     </button>
                   </div>
+                  {info.therapist_user_id && cal.slug && (
+                    <div style={{ padding: '12px', borderTop: '1px solid #f0f0f0' }}>
+                      <div style={{ fontSize: '11px', color: '#999', marginBottom: '6px', fontWeight: 500 }}>Calendar Link</div>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {(() => {
+                          const cleanSlug = cal.slug.startsWith('/') ? cal.slug.slice(1) : cal.slug;
+                          const calLink = `${window.location.origin}/book/${info.therapist_user_id}/${cleanSlug}`;
+                          return (
+                            <>
+                              <input
+                                type="text"
+                                readOnly
+                                value={calLink}
+                                style={{
+                                  flex: 1,
+                                  fontSize: '12px',
+                                  padding: '8px',
+                                  border: '1px solid #e0e0e0',
+                                  borderRadius: '4px',
+                                  fontFamily: 'monospace',
+                                  backgroundColor: '#f9f9f9'
+                                }}
+                              />
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(calLink);
+                                  toast.success('Link copied!');
+                                }}
+                                style={{
+                                  padding: '8px 12px',
+                                  backgroundColor: '#f5f5f5',
+                                  border: '1px solid #e0e0e0',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: 500,
+                                  color: '#333'
+                                }}
+                              >
+                                Copy
+                              </button>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

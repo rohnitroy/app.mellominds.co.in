@@ -88,7 +88,7 @@ router.get('/:id/profile', async (req, res) => {
             `SELECT u.id, u.user_name, u.email, u.specialization AS specializations, u.profile_picture,
                     COUNT(c.id) AS calendar_count,
                     COALESCE(
-                        json_agg(json_build_object('id', c.id, 'title', c.title) ORDER BY c.created_at DESC)
+                        json_agg(json_build_object('id', c.id, 'title', c.title, 'slug', c.slug) ORDER BY c.created_at DESC)
                         FILTER (WHERE c.id IS NOT NULL), '[]'
                     ) AS calendars
              FROM Users u
@@ -137,7 +137,9 @@ router.get('/:id/profile', async (req, res) => {
 
         res.json({
             info: {
-                ...info, id: Number(id),
+                ...info, 
+                id: Number(id),
+                therapist_user_id: therapistUserId,
                 specializations: specializations,
                 status: member.status, created_at: member.created_at,
                 calendar_count: parseInt(info.calendar_count || 0),

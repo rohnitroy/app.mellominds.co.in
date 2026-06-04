@@ -23,6 +23,22 @@ const CreateEventPage: React.FC = () => {
     // If set, the owner is managing a member's calendar
     const managingUserId = location.state?.managingUserId || null;
     const managingUserName = location.state?.managingUserName || null;
+    let returnTo = location.state?.returnTo || null;
+
+    // Fallback: check sessionStorage for returnTo in case state was lost
+    if (!returnTo && managingUserId) {
+      const sessionReturnTo = sessionStorage.getItem(`returnTo_${managingUserId}`);
+      if (sessionReturnTo) {
+        returnTo = sessionReturnTo;
+      }
+    }
+
+    // Store returnTo in sessionStorage as backup if managing a user
+    if (managingUserId && returnTo) {
+      sessionStorage.setItem(`returnTo_${managingUserId}`, returnTo);
+    }
+
+    console.log('[DEBUG] CreateEventPage state:', { isEditMode, managingUserId, returnTo, managingUserName });
 
     // Retrieve type passed from previous screen if available
     const initialType = existingCalendar?.type || location.state?.type || 'one_on_one';
@@ -502,9 +518,12 @@ const CreateEventPage: React.FC = () => {
             if (response.ok) {
                 toast.success(isEditMode ? 'Calendar updated successfully!' : 'Calendar created successfully!');
                 // If managing a member, go back to their profile; otherwise go to My Calendars
-                if (managingUserId && location.state?.returnTo) {
-                    navigate(location.state.returnTo);
+                console.log('[DEBUG] Save success. managingUserId=', managingUserId, 'returnTo=', returnTo);
+                if (managingUserId && returnTo) {
+                    console.log('[DEBUG] Navigating to returnTo:', returnTo);
+                    navigate(returnTo);
                 } else {
+                    console.log('[DEBUG] Navigating to /my-calendar');
                     navigate('/my-calendar');
                 }
             } else {

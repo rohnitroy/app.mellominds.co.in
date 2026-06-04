@@ -13,10 +13,10 @@ interface Analytics {
   refund: number;
   sessions: number;
   cancelled: number;
-  noshow: number;
-  pending_notes: number;
-  pending_payment: number;
-  clients: number;
+  noShow: number;
+  pendingNotes: number;
+  pendingPayment: number;
+  noOfClients: number;
 }
 
 const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => {
@@ -27,10 +27,10 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
     refund: 0,
     sessions: 0,
     cancelled: 0,
-    noshow: 0,
-    pending_notes: 0,
-    pending_payment: 0,
-    clients: 0,
+    noShow: 0,
+    pendingNotes: 0,
+    pendingPayment: 0,
+    noOfClients: 0,
   });
 
   useEffect(() => {
@@ -47,9 +47,13 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
 
       if (res.ok) {
         const data = await res.json();
-        setAnalytics(data);
+        if (data && typeof data.revenue === 'number' && typeof data.sessions === 'number') {
+          setAnalytics(data);
+        } else {
+          toast.error('Invalid analytics data format');
+        }
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         toast.error(err.error || 'Failed to load analytics');
       }
     } catch (error) {
@@ -80,7 +84,7 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
           <button onClick={onBack} className={styles.backBtn}>
             <ChevronLeft size={24} primaryColor="#082421" />
           </button>
-          <h1>Enterprise Analytics</h1>
+          <h1>Team Analytics</h1>
         </div>
         <div style={{ textAlign: 'center', padding: '40px', color: '#6E6E6E' }}>Loading analytics...</div>
       </div>
@@ -93,7 +97,7 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
         <button onClick={onBack} className={styles.backBtn}>
           <ChevronLeft size={24} primaryColor="#082421" />
         </button>
-        <h1>Enterprise Analytics</h1>
+        <h1>Team Analytics</h1>
       </div>
 
       <div className={styles.content}>
@@ -106,10 +110,10 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
             <StatCard label="Total Refunds" value={`₹${analytics.refund.toLocaleString()}`} color="#e53935" />
             <StatCard label="Total Sessions" value={analytics.sessions} color="#082421" />
             <StatCard label="Cancelled Sessions" value={analytics.cancelled} color="#ff9800" />
-            <StatCard label="No-Show Sessions" value={analytics.noshow} color="#f44336" />
-            <StatCard label="Total Clients" value={analytics.clients} color="#4caf50" />
-            <StatCard label="Pending Payments" value={analytics.pending_payment} color="#ff9800" />
-            <StatCard label="Pending Notes" value={analytics.pending_notes} color="#2196f3" />
+            <StatCard label="No-Show Sessions" value={analytics.noShow} color="#f44336" />
+            <StatCard label="Total Clients" value={analytics.noOfClients} color="#4caf50" />
+            <StatCard label="Pending Payments" value={analytics.pendingPayment} color="#ff9800" />
+            <StatCard label="Pending Notes" value={analytics.pendingNotes} color="#2196f3" />
           </div>
         </div>
 
@@ -133,7 +137,7 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
                 <h3>Session Statistics</h3>
                 <p>
                   {analytics.sessions} total sessions completed with {analytics.cancelled} cancellations and{' '}
-                  {analytics.noshow} no-shows
+                  {analytics.noShow} no-shows
                 </p>
               </div>
             </div>
@@ -142,26 +146,26 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
               <span className={styles.insightIcon}>👥</span>
               <div>
                 <h3>Client Base</h3>
-                <p>Your team is managing {analytics.clients} active clients</p>
+                <p>Your team is managing {analytics.noOfClients} active clients</p>
               </div>
             </div>
 
-            {analytics.pending_payment > 0 && (
+            {analytics.pendingPayment > 0 && (
               <div className={styles.insightItem}>
                 <span className={styles.insightIcon}>⚠️</span>
                 <div>
                   <h3>Pending Payments</h3>
-                  <p>{analytics.pending_payment} sessions have pending payments awaiting collection</p>
+                  <p>{analytics.pendingPayment} sessions have pending payments awaiting collection</p>
                 </div>
               </div>
             )}
 
-            {analytics.pending_notes > 0 && (
+            {analytics.pendingNotes > 0 && (
               <div className={styles.insightItem}>
                 <span className={styles.insightIcon}>📝</span>
                 <div>
                   <h3>Pending Notes</h3>
-                  <p>{analytics.pending_notes} completed sessions are awaiting session notes</p>
+                  <p>{analytics.pendingNotes} completed sessions are awaiting session notes</p>
                 </div>
               </div>
             )}
@@ -169,7 +173,7 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
         </div>
 
         <div className={styles.section}>
-          <h2>About Enterprise Analytics</h2>
+          <h2>About Team Analytics</h2>
           <p className={styles.sectionDesc}>
             This dashboard provides aggregated insights across your entire team. All metrics include data from the
             organization owner and all active team members. Data is updated in real-time as sessions are completed and

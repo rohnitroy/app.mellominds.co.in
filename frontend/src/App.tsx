@@ -881,10 +881,10 @@ const DashboardHome: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const analyticsMode = params.get('analytics');
-    if (analyticsMode === 'enterprise') {
+    if (analyticsMode === 'enterprise' && user?.plan_name === 'team' && user?.org_role !== 'member') {
       setShowTeamAnalytics(true);
     }
-  }, [location.search]);
+  }, [location.search, user]);
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -1056,7 +1056,7 @@ const DashboardHome: React.FC = () => {
       try {
         // Build stats URL with date filter
         const isTeamOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
-        let statsUrl = `${API_BASE_URL}/${showTeamAnalytics && isTeamOwner ? 'auth/enterprise-analytics' : 'api/bookings/stats'}`;
+        let statsUrl = `${API_BASE_URL}/${showTeamAnalytics && isTeamOwner ? 'auth/team-analytics' : 'api/bookings/stats'}`;
         const freeCutoff = isFreeTier ? getFreeTierMinDate() : null;
 
         if (dateFilter !== 'all_time' && dateFilter !== 'custom') {
@@ -1092,6 +1092,8 @@ const DashboardHome: React.FC = () => {
           const data = await statsRes.json();
           setStats(data);
         } else {
+          const errData = await statsRes.json().catch(() => ({}));
+          toast.error(`Failed to load analytics: ${errData.error || 'Unknown error'}`);
           console.error('Failed to fetch stats:', statsRes.statusText);
         }
 
@@ -1104,6 +1106,8 @@ const DashboardHome: React.FC = () => {
           const data = await bookingsRes.json();
           setRecentBookings(data);
         } else {
+          const errData = await bookingsRes.json().catch(() => ({}));
+          toast.error(`Failed to load bookings: ${errData.error || 'Unknown error'}`);
           console.error('Failed to fetch bookings:', bookingsRes.statusText);
         }
       } catch (error) {
@@ -1114,11 +1118,21 @@ const DashboardHome: React.FC = () => {
     };
 
     fetchDashboardData();
-  }, [dateFilter, customStartDate, customEndDate, showTeamAnalytics]);
+  }, [dateFilter, customStartDate, customEndDate, showTeamAnalytics, user]);
 
   const refreshBookings = async () => {
-    const res = await fetch(`${API_BASE_URL}/api/bookings?upcoming=true`, { credentials: 'include' });
-    if (res.ok) setRecentBookings(await res.json());
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings?upcoming=true`, { credentials: 'include' });
+      if (res.ok) {
+        setRecentBookings(await res.json());
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(`Failed to refresh bookings: ${errData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      toast.error('Network error while refreshing bookings');
+      console.error('refreshBookings error:', error);
+    }
   };
 
   const handleSendReminder = async (booking: any) => {
@@ -1176,8 +1190,8 @@ const DashboardHome: React.FC = () => {
   };
 
   const statsData: StatData[] = [
-    { label: 'Revenue', value: stats.revenue || '₹0' },
-    { label: 'Refund', value: stats.refund || '₹0' },
+    { label: 'Revenue', value: `₹${(stats.revenue ?? 0).toLocaleString()}` },
+    { label: 'Refund', value: `₹${(stats.refund ?? 0).toLocaleString()}` },
     { label: 'Sessions', value: (stats.sessions ?? 0).toString() },
     { label: 'Cancelled', value: (stats.cancelled ?? 0).toString() },
     { label: 'No Show', value: (stats.noShow ?? 0).toString() },
@@ -1222,61 +1236,70 @@ const DashboardHome: React.FC = () => {
     return recentBookings.filter(b => new Date(b.start_time) >= now && b.status !== 'cancelled');
   }, [recentBookings]);
 
-  const bookingColumns: ColumnDef<any, any>[] = useMemo(() => [
-    {
-      accessorKey: 'start_time',
-      header: 'Session Timings',
-      cell: ({ getValue }) => <span className="session-time">{formatDateTime(getValue())}</span>,
-    },
-    {
-      accessorKey: 'client_name',
-      header: 'Client Name',
-      cell: ({ getValue }) => <span className="client-name">{getValue() || 'Client'}</span>,
-    },
-    {
-      accessorKey: 'title',
-      header: 'Session Type',
-      cell: ({ getValue }) => <span className="session-type">{getValue()}</span>,
-    },
-    {
-      accessorKey: 'therapist_name',
-      header: 'Therapist Name',
-      cell: ({ getValue }) => <span className="therapist-name">{getValue() || 'N/A'}</span>,
-    },
-    {
-      id: 'mode',
-      header: 'Mode',
-      enableSorting: false,
-      cell: ({ row }) => (
-        <span className="session-mode">{row.original.meet_link ? 'Google Meet' : (row.original.location_type === 'in_person' ? 'In-person' : 'Google Meet')}</span>
-      ),
-    },
-    {
-      id: 'actions',
-      header: 'Actions',
-      enableSorting: false,
-      cell: ({ row }) => {
-        const { id, payment_status } = row.original;
-        const isMenuOpen = activeMenuId === id;
-        return (
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isMenuOpen) { setActiveMenuId(null); setMenuPos(null); return; }
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                setMenuPos({ top: rect.bottom + window.scrollY + 4, right: window.innerWidth - rect.right });
-                setActiveMenuId(id);
-              }}
-              style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', color: '#333', fontSize: '16px', lineHeight: 1 }}
-            >
-              ···
-            </button>
-          </div>
-        );
+  const bookingColumns: ColumnDef<any, any>[] = useMemo(() => {
+    const cols: ColumnDef<any, any>[] = [
+      {
+        accessorKey: 'start_time',
+        header: 'Session Timings',
+        cell: ({ getValue }) => <span className="session-time">{formatDateTime(getValue())}</span>,
       },
-    },
-  ], [activeMenuId]);
+      {
+        accessorKey: 'client_name',
+        header: 'Client Name',
+        cell: ({ getValue }) => <span className="client-name">{getValue() || 'Client'}</span>,
+      },
+      {
+        accessorKey: 'title',
+        header: 'Session Type',
+        cell: ({ getValue }) => <span className="session-type">{getValue()}</span>,
+      },
+    ];
+
+    if (showTeamAnalytics) {
+      cols.push({
+        accessorKey: 'therapist_name',
+        header: 'Therapist Name',
+        cell: ({ getValue }) => <span className="therapist-name">{getValue() || 'N/A'}</span>,
+      });
+    }
+
+    cols.push(
+      {
+        id: 'mode',
+        header: 'Mode',
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="session-mode">{row.original.meet_link ? 'Google Meet' : (row.original.location_type === 'in_person' ? 'In-person' : 'Google Meet')}</span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        enableSorting: false,
+        cell: ({ row }) => {
+          const { id, payment_status } = row.original;
+          const isMenuOpen = activeMenuId === id;
+          return (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isMenuOpen) { setActiveMenuId(null); setMenuPos(null); return; }
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setMenuPos({ top: rect.bottom + window.scrollY + 4, right: window.innerWidth - rect.right });
+                  setActiveMenuId(id);
+                }}
+                style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', color: '#333', fontSize: '16px', lineHeight: 1 }}
+              >
+                ···
+              </button>
+            </div>
+          );
+        },
+      }
+    );
+    return cols;
+  }, [activeMenuId, showTeamAnalytics]);
 
   return (
     <div className="dashboard-content">
@@ -1322,7 +1345,7 @@ const DashboardHome: React.FC = () => {
           {user?.plan_name === 'team' && user?.org_role !== 'member' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: '#f5f5f5', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
               <div style={{ fontSize: '13px', fontWeight: 500, color: '#333', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>{showTeamAnalytics ? 'Enterprise Analytics' : 'My Analytics'}</span>
+                <span>{showTeamAnalytics ? 'Team Analytics' : 'My Analytics'}</span>
                 <button
                   className={`analytics-toggle-switch ${showTeamAnalytics ? 'toggle-on' : ''}`}
                   onClick={() => {
