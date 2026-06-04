@@ -73,7 +73,7 @@ const upload = multer({
 // Registration endpoint
 router.post('/register', registerLimiter, async (req, res) => {
   try {
-    const { fullName, email, password, phoneNumber, dateOfBirth, gender, specialization, languages, country, state, city, pincode, address } = req.body;
+    let { fullName, email, password, phoneNumber, dateOfBirth, gender, specialization, languages, country, state, city, pincode, address } = req.body;
 
     // Validate and sanitize inputs
     if (!fullName || !email || !password) {
@@ -209,7 +209,7 @@ router.post('/register', registerLimiter, async (req, res) => {
 // Traditional email/password login
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
     // Validate input
     if (!email || !password) {
