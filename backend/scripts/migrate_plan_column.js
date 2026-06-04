@@ -6,7 +6,7 @@ async function migratePlanColumn() {
     await pool.query(`
       ALTER TABLE Users
       ADD COLUMN IF NOT EXISTS plan_name VARCHAR(50) NOT NULL DEFAULT 'free'
-        CHECK (plan_name IN ('free', 'enterprise'));
+        CHECK (plan_name IN ('free', 'individual', 'team', 'enterprise'));
     `);
     console.log('✅ plan_name column added to Users table (default: free)');
   } catch (err) {

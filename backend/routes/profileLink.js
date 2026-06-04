@@ -76,8 +76,8 @@ router.put('/', isAuthenticated, async (req, res) => {
         );
         const user = userRes.rows[0];
 
-        if (user.plan_name !== 'team') {
-            return res.status(403).json({ error: 'Custom profile links are an Enterprise feature.' });
+        if (user.plan_name !== 'team' && user.plan_name !== 'individual') {
+            return res.status(403).json({ error: 'Custom profile links are available in Individual and Team plans.' });
         }
 
         // Enforce 14-day cooldown (skip if first time setting)
