@@ -83,7 +83,6 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({ isOpen, onClose }) 
         { text: 'Online payments on booking page', included: true },
         { text: 'Automated refund management', included: true },
         { text: 'Manage & configure reminder schedules', included: true },
-        { text: 'WhatsApp reminders to clients', included: true },
         { text: 'Unlimited calendars & bookings', included: true },
         { text: 'Advanced analytics & reporting', included: true },
         { text: 'Add team members (up to 20 seats)', included: true },

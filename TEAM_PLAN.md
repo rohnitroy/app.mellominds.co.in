@@ -33,7 +33,6 @@ Team Plan is enterprise subscription for organizations at **₹1,499/seat/month*
 - ✅ Online payments on booking page
 - ✅ Automated refund management
 - ✅ Manage & configure reminder schedules
-- ✅ WhatsApp reminders to clients
 - ✅ Unlimited calendars & bookings
 - ✅ Advanced analytics & reporting
 - ✅ Add team members (up to 20 seats)
@@ -148,9 +147,8 @@ Team Plan is enterprise subscription for organizations at **₹1,499/seat/month*
 
 1. **No seat purchase mechanism** — users can't buy additional seats
 2. **No recurring billing** — Free manual upgrade only
-3. **WhatsApp reminders** — Feature listed but not implemented
-4. **Unlimited calendars** — Feature listed but not enforced in code
-5. **Advanced analytics** — Basic dashboard exists, advanced features missing
+3. **Unlimited calendars** — Feature listed but not enforced in code
+4. **Advanced analytics** — Basic dashboard exists, advanced features missing
 
 ## Related Files
 

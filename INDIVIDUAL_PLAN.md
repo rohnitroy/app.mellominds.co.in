@@ -37,7 +37,7 @@ Individual Plan is a mid-tier subscription between Free (₹0) and Team (₹1,49
 - ✅ Priority support
 
 #### Explicitly Excluded
-- ❌ WhatsApp reminders to clients
+- ❌ WhatsApp reminders to clients (removed from all plans)
 - ❌ Custom domain & white-label branding (Team only)
 - ❌ Unlimited calendars & bookings (Team only)
 - ❌ Advanced analytics & reporting (Team only)
