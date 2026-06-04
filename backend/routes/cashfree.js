@@ -39,6 +39,11 @@ async function cashfreeRequest(method, path, body, appId, secretKey, environment
 // ─── Therapist: Save / Update Cashfree credentials ───────────────────────────
 // POST /api/cashfree/connect
 router.post('/connect', ensureAuthenticated, async (req, res) => {
+    // Plan check: only Individual and Team plans can use payment gateways
+    if (req.user.plan_name === 'free') {
+        return res.status(403).json({ error: 'Payment gateway access requires Individual or Team plan.' });
+    }
+
     const { app_id, secret_key, environment = 'sandbox' } = req.body;
 
     if (!app_id || !secret_key) {

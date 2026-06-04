@@ -41,6 +41,13 @@ router.put('/', isAuthenticated, async (req, res) => {
     try {
         const updates = req.body;
 
+        // Plan check: only Individual and Team plans can configure reminders
+        const reminderKeys = ['session_reminder', 'session_reminder_60min', 'session_reminder_30min'];
+        const isUpdatingReminders = reminderKeys.some(key => key in updates);
+        if (isUpdatingReminders && req.user.plan_name === 'free') {
+            return res.status(403).json({ error: 'Reminder configuration requires Individual or Team plan.' });
+        }
+
         // Only allow known controllable keys
         const sanitized = {};
         for (const key of CONTROLLABLE_KEYS) {

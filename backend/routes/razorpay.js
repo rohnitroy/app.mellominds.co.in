@@ -35,6 +35,11 @@ async function razorpayRequest(method, path, body, keyId, keySecret) {
 // POST /api/razorpay/connect
 // Enforces one-PG-at-a-time: removes Cashfree if connected
 router.post('/connect', ensureAuthenticated, async (req, res) => {
+    // Plan check: only Individual and Team plans can use payment gateways
+    if (req.user.plan_name === 'free') {
+        return res.status(403).json({ error: 'Payment gateway access requires Individual or Team plan.' });
+    }
+
     const { key_id, key_secret } = req.body;
 
     if (!key_id || !key_secret) {

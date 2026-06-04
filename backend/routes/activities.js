@@ -34,6 +34,11 @@ router.post('/', async (req, res) => {
         }
 
         const shouldNotify = !!notify_client;
+
+        // Plan check: only Individual and Team plans can create reminders
+        if (shouldNotify && req.user.plan_name === 'free') {
+            return res.status(403).json({ error: 'Reminder scheduling requires Individual or Team plan.' });
+        }
         const count = shouldNotify ? Math.max(1, parseInt(reminder_count) || 1) : 0;
         const intervalDays = shouldNotify ? Math.max(1, parseInt(reminder_interval_days) || 1) : 1;
 

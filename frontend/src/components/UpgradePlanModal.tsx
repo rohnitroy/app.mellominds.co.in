@@ -58,7 +58,6 @@ const UpgradePlanModal: React.FC<UpgradePlanModalProps> = ({ isOpen, onClose }) 
         { text: 'Online payments on booking page', included: true },
         { text: 'Automated refund management', included: true },
         { text: 'Manage & configure reminder schedules', included: true },
-        { text: 'WhatsApp reminders to clients', included: true },
         { text: 'Dedicated account manager', included: true },
         { text: 'Priority support', included: true },
         { text: 'Custom domain & white-label branding', included: false },
