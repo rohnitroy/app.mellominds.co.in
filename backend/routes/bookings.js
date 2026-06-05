@@ -1852,4 +1852,38 @@ router.patch('/:id/mark-payment-received', ensureAuthenticated, async (req, res)
     }
 });
 
+// GET /api/bookings/refunds/history - Fetch refund history for therapist
+router.get('/refunds/history', async (req, res) => {
+    try {
+        const therapistId = req.user.id;
+
+        const result = await pool.query(
+            `SELECT
+                rt.id,
+                rt.appointment_id,
+                rt.original_amount,
+                rt.refund_amount,
+                rt.refund_percentage,
+                rt.refund_reason,
+                rt.refund_status,
+                rt.created_at,
+                a.client_name,
+                a.title as session_title,
+                a.start_time,
+                a.payment_status
+             FROM RefundTracking rt
+             JOIN Appointments a ON rt.appointment_id = a.id
+             WHERE a.therapist_id = $1
+             ORDER BY rt.created_at DESC
+             LIMIT 100`,
+            [therapistId]
+        );
+
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching refund history:', error);
+        res.status(500).json({ error: 'Failed to fetch refund history' });
+    }
+});
+
 export default router;

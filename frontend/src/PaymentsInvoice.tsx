@@ -52,6 +52,7 @@ const PaymentsInvoice: React.FC = () => {
   const [receiptBooking, setReceiptBooking] = useState<any | null>(null);
   const [sendingInvoiceId, setSendingInvoiceId] = useState<number | null>(null);
   const [refundingId, setRefundingId] = useState<number | null>(null);
+  const [refundHistory, setRefundHistory] = useState<any[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
   const [orgDetails, setOrgDetails] = useState<any>(null);
@@ -97,6 +98,16 @@ const PaymentsInvoice: React.FC = () => {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  // Fetch refund history
+  useEffect(() => {
+    if (activeTab === 'Manage Refunds') {
+      fetch(`${API_BASE_URL}/api/bookings/refunds/history`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : [])
+        .then(d => setRefundHistory(d))
+        .catch(() => setRefundHistory([]));
+    }
+  }, [activeTab]);
 
   // Socket.io listener for real-time payment updates
   useEffect(() => {
@@ -454,9 +465,46 @@ const PaymentsInvoice: React.FC = () => {
         </button>
       </div>
 
-      {loading ? <Loader /> : (
-        <DataTable data={filteredPayments} columns={columns} pageSize={10}
-          emptyMessage="No payment records found" enableSelection onSelectionChange={setSelectedRows} />
+      {activeTab === 'Manage Refunds' ? (
+        <div style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden' }}>
+          {refundHistory.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+              <p>No refunds yet</p>
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Client</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Session</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Original</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Refund</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>%</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Reason</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {refundHistory.map((refund, idx) => (
+                  <tr key={refund.id} style={{ borderBottom: idx < refundHistory.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{refund.client_name || '—'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{refund.session_title || '—'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>₹{parseFloat(refund.original_amount).toFixed(2)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 600, color: '#2e7d32' }}>₹{parseFloat(refund.refund_amount).toFixed(2)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{refund.refund_percentage}%</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{refund.refund_reason}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px' }}>{new Date(refund.created_at).toLocaleDateString('en-IN')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : (
+        loading ? <Loader /> : (
+          <DataTable data={filteredPayments} columns={columns} pageSize={10}
+            emptyMessage="No payment records found" enableSelection onSelectionChange={setSelectedRows} />
+        )
       )}
 
       {/* Portal action menu */}
