@@ -16,6 +16,7 @@ const TAB_SLUGS: Record<string, string> = {
   'all-cancellations': 'All Cancellations',
   'pending-payments': 'Pending Payments',
   'manage-refunds': 'Manage Refunds',
+  'payment-reports': 'Payment Reports',
 };
 const TAB_TO_SLUG: Record<string, string> = Object.fromEntries(
   Object.entries(TAB_SLUGS).map(([slug, tab]) => [tab, slug])
@@ -53,6 +54,7 @@ const PaymentsInvoice: React.FC = () => {
   const [sendingInvoiceId, setSendingInvoiceId] = useState<number | null>(null);
   const [refundingId, setRefundingId] = useState<number | null>(null);
   const [refundHistory, setRefundHistory] = useState<any[]>([]);
+  const [paymentReport, setPaymentReport] = useState<any>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
   const [orgDetails, setOrgDetails] = useState<any>(null);
@@ -67,7 +69,7 @@ const PaymentsInvoice: React.FC = () => {
     }
   }, [user]);
 
-  const tabs = ['All Payments', 'All Cancellations', 'Pending Payments', 'Manage Refunds'];
+  const tabs = ['All Payments', 'All Cancellations', 'Pending Payments', 'Manage Refunds', 'Payment Reports'];
 
   // Sync URL param → tab
   useEffect(() => {
@@ -106,6 +108,16 @@ const PaymentsInvoice: React.FC = () => {
         .then(r => r.ok ? r.json() : [])
         .then(d => setRefundHistory(d))
         .catch(() => setRefundHistory([]));
+    }
+  }, [activeTab]);
+
+  // Fetch payment report
+  useEffect(() => {
+    if (activeTab === 'Payment Reports') {
+      fetch(`${API_BASE_URL}/api/bookings/payment-report`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => setPaymentReport(d))
+        .catch(() => setPaymentReport(null));
     }
   }, [activeTab]);
 
@@ -498,6 +510,79 @@ const PaymentsInvoice: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      ) : activeTab === 'Payment Reports' ? (
+        <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+          {paymentReport ? (
+            <>
+              {/* Status Breakdown */}
+              <div style={{ borderRight: '1px solid #e0e0e0', paddingRight: '24px' }}>
+                <h3 style={{ fontFamily: 'Urbanist', fontWeight: 600, marginBottom: '16px' }}>Payment Status</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {paymentReport.statusBreakdown?.map((s: any) => (
+                    <div key={s.payment_status} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '14px', color: '#666' }}>{s.payment_status}</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 600, fontSize: '14px' }}>₹{parseFloat(s.total).toFixed(2)}</div>
+                        <div style={{ fontSize: '12px', color: '#999' }}>{s.count} transactions</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Method Breakdown */}
+              <div style={{ paddingLeft: '24px' }}>
+                <h3 style={{ fontFamily: 'Urbanist', fontWeight: 600, marginBottom: '16px' }}>By Payment Method</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {paymentReport.methodBreakdown?.map((m: any) => (
+                    <div key={m.method} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '14px', color: '#666' }}>{m.method}</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 600, fontSize: '14px', color: '#2e7d32' }}>₹{parseFloat(m.revenue).toFixed(2)}</div>
+                        <div style={{ fontSize: '12px', color: '#999' }}>{m.count} payments</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recent Transactions */}
+              <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #e0e0e0', paddingTop: '24px', marginTop: '12px' }}>
+                <h3 style={{ fontFamily: 'Urbanist', fontWeight: 600, marginBottom: '16px' }}>Recent Transactions</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #e0e0e0' }}>
+                      <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Client</th>
+                      <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Amount</th>
+                      <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Method</th>
+                      <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Status</th>
+                      <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paymentReport.recentTransactions?.map((t: any) => (
+                      <tr key={t.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                        <td style={{ padding: '8px 0' }}>{t.client_name}</td>
+                        <td style={{ padding: '8px 0', fontWeight: 600 }}>₹{parseFloat(t.payment_amount).toFixed(2)}</td>
+                        <td style={{ padding: '8px 0', fontSize: '12px', color: '#666' }}>{t.payment_method}</td>
+                        <td style={{ padding: '8px 0' }}>
+                          <span style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '4px', background: t.payment_status === 'Paid' ? '#e8f5e9' : t.payment_status === 'Refunded' ? '#fdecea' : t.payment_status === 'Pending' ? '#fff3e0' : '#fce4ec', color: t.payment_status === 'Paid' ? '#2e7d32' : t.payment_status === 'Refunded' ? '#c62828' : t.payment_status === 'Pending' ? '#e65100' : '#880e4f' }}>
+                            {t.payment_status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '8px 0', fontSize: '12px', color: '#999' }}>{new Date(t.created_at).toLocaleDateString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : (
+            <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: '#999' }}>
+              No payment data available
+            </div>
           )}
         </div>
       ) : (

@@ -1886,4 +1886,79 @@ router.get('/refunds/history', async (req, res) => {
     }
 });
 
+// GET /api/bookings/payment-report - Detailed payment report for dashboard
+router.get('/payment-report', async (req, res) => {
+    try {
+        const therapistId = req.user.id;
+        const { startDate, endDate } = req.query;
+
+        let dateFilter = '';
+        let params = [therapistId];
+
+        if (startDate && endDate) {
+            dateFilter = ' AND a.start_time >= $2 AND a.start_time <= $3';
+            params.push(startDate, endDate);
+        }
+
+        // Payment status breakdown
+        const statusRes = await pool.query(
+            `SELECT payment_status, COUNT(*) as count, COALESCE(SUM(payment_amount), 0) as total
+             FROM Appointments a
+             WHERE a.therapist_id = $1${dateFilter}
+             GROUP BY payment_status
+             ORDER BY payment_status`,
+            params
+        );
+
+        // Payment method breakdown
+        const methodRes = await pool.query(
+            `SELECT
+                CASE
+                    WHEN razorpay_payment_id IS NOT NULL THEN 'Razorpay'
+                    WHEN cashfree_order_id IS NOT NULL THEN 'Cashfree'
+                    ELSE 'Offline'
+                END as method,
+                COUNT(*) as count,
+                COALESCE(SUM(CASE WHEN payment_status = 'Paid' OR payment_status = 'Partial Refund' THEN payment_amount ELSE 0 END), 0) as revenue
+             FROM Appointments a
+             WHERE a.therapist_id = $1 AND a.payment_status IN ('Paid', 'Partial Refund')${dateFilter}
+             GROUP BY method
+             ORDER BY revenue DESC`,
+            params
+        );
+
+        // Recent transactions (last 20)
+        const recentRes = await pool.query(
+            `SELECT
+                a.id,
+                a.client_name,
+                a.title as session_title,
+                a.start_time,
+                a.payment_amount,
+                a.payment_status,
+                CASE
+                    WHEN a.razorpay_payment_id IS NOT NULL THEN 'Razorpay'
+                    WHEN a.cashfree_order_id IS NOT NULL THEN 'Cashfree'
+                    ELSE 'Offline'
+                END as payment_method,
+                a.created_at
+             FROM Appointments a
+             WHERE a.therapist_id = $1${dateFilter}
+             AND a.payment_status IN ('Paid', 'Pending', 'Refunded', 'Partial Refund')
+             ORDER BY a.created_at DESC
+             LIMIT 20`,
+            params
+        );
+
+        res.json({
+            statusBreakdown: statusRes.rows,
+            methodBreakdown: methodRes.rows,
+            recentTransactions: recentRes.rows
+        });
+    } catch (error) {
+        console.error('Error fetching payment report:', error);
+        res.status(500).json({ error: 'Failed to fetch payment report' });
+    }
+});
+
 export default router;
