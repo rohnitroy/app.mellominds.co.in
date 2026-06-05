@@ -111,13 +111,27 @@ const BookingStatus: React.FC = () => {
                                     <div style={{ fontWeight: 600 }}>{booking.therapist_name || 'Professional'}</div>
                                 </div>
 
-                                <div>
+                                <div style={{ marginBottom: booking.payment_status === 'Refunded' || booking.payment_status === 'Partial Refund' ? '16px' : '0px' }}>
                                     <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Amount Paid</div>
                                     <div style={{ fontSize: '24px', fontWeight: 700, color: '#2e7d32' }}>₹{booking.payment_amount.toFixed(2)}</div>
                                     <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                                         Transaction ID: {booking.razorpay_payment_id || booking.cashfree_order_id || 'N/A'}
                                     </div>
                                 </div>
+
+                                {(booking.payment_status === 'Refunded' || booking.payment_status === 'Partial Refund') && (
+                                    <div style={{ background: '#fce4ec', border: '1px solid #f8bbd0', borderRadius: '8px', padding: '12px', marginTop: '16px' }}>
+                                        <div style={{ fontSize: '12px', color: '#880e4f', fontWeight: 600, marginBottom: '4px' }}>
+                                            {booking.payment_status === 'Refunded' ? '💰 Full Refund Processed' : '💰 Partial Refund Processed'}
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: '#666' }}>
+                                            {booking.refund_amount && `₹${parseFloat(booking.refund_amount).toFixed(2)} refunded`}
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
+                                            You should see the refund in your account within 3-5 business days.
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
