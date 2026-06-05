@@ -109,7 +109,7 @@ router.delete('/disconnect', ensureAuthenticated, async (req, res) => {
 // POST /api/razorpay/create-order
 // Called from PublicBookingPage after slot selection, before booking is confirmed
 router.post('/create-order', async (req, res) => {
-    const { calendar_id, client_name, client_email, client_phone, start_time, form_responses } = req.body;
+    const { calendar_id, client_name, client_email, client_phone, start_time, form_responses, price_id } = req.body;
 
     if (!calendar_id || !client_email || !client_name || !start_time) {
         return res.status(400).json({ error: 'Missing required fields' });
@@ -118,7 +118,7 @@ router.post('/create-order', async (req, res) => {
     try {
         // Fetch calendar + therapist Razorpay credentials
         const calRes = await pool.query(
-            `SELECT c.*, u.id as therapist_id
+            `SELECT c.*, u.id as therapist_id, u.plan_name
              FROM Calendars c JOIN Users u ON c.user_id = u.id
              WHERE c.id = $1`,
             [calendar_id]
@@ -134,6 +134,11 @@ router.post('/create-order', async (req, res) => {
             return res.status(400).json({ error: 'Payment not enabled for this calendar' });
         }
 
+        // Plan check: only Individual and Team plans can use payment gateways
+        if (calendar.plan_name === 'free') {
+            return res.status(403).json({ error: 'Payment gateway access requires Individual or Team plan.' });
+        }
+
         // Get therapist's Razorpay credentials
         const rzpRes = await pool.query(
             `SELECT app_id, secret_key FROM UserIntegrations
@@ -147,15 +152,33 @@ router.post('/create-order', async (req, res) => {
 
         const { app_id: key_id, secret_key } = rzpRes.rows[0];
 
-        // Get price from calendar
+        // Validate and get price from calendar
         const prices = calendar.prices || [];
-        const price = prices[0];
-        if (!price || !price.amount) {
+        if (!prices.length) {
             return res.status(400).json({ error: 'No price configured for this calendar' });
+        }
+
+        // If price_id provided, find matching price; otherwise use first
+        let price = prices[0];
+        if (price_id) {
+            const selectedPrice = prices.find((p: any) => p.id === parseInt(price_id));
+            if (!selectedPrice) {
+                return res.status(400).json({ error: 'Invalid price selected' });
+            }
+            price = selectedPrice;
+        }
+
+        if (!price.amount) {
+            return res.status(400).json({ error: 'Price amount not configured' });
         }
 
         const amount = Math.round(parseFloat(price.amount) * 100); // Razorpay uses paise
         const currency = price.currency || 'INR';
+
+        // Validate amount is positive and reasonable (1 paise to 10 lakh rupees)
+        if (amount < 1 || amount > 1000000000) {
+            return res.status(400).json({ error: 'Invalid amount for payment' });
+        }
         const receiptId = `mello_${calendar_id}_${Date.now()}`;
 
         const orderPayload = {
