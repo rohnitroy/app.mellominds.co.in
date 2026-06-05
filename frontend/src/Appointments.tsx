@@ -354,6 +354,33 @@ const Appointments: React.FC = () => {
       },
     },
     {
+      accessorKey: 'payment_status',
+      header: 'Payment',
+      cell: ({ row }) => {
+        const paymentStatus = row.original.payment_status || 'Pending';
+        const paymentAmount = row.original.payment_amount;
+        const colors: Record<string, { bg: string; color: string }> = {
+          Paid:            { bg: '#e8f5e9', color: '#2e7d32' },
+          Pending:         { bg: '#fff3e0', color: '#e65100' },
+          Refunded:        { bg: '#fdecea', color: '#c62828' },
+          'Partial Refund':{ bg: '#fce4ec', color: '#880e4f' },
+        };
+        const style = colors[paymentStatus] || { bg: '#f5f5f5', color: '#666' };
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span style={{ background: style.bg, color: style.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-block', width: 'fit-content' }}>
+              {paymentStatus}
+            </span>
+            {paymentAmount && (
+              <span style={{ fontSize: '11px', color: '#666', fontFamily: 'Urbanist' }}>
+                ₹{parseFloat(paymentAmount).toFixed(2)}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       id: 'actions',
       header: 'Actions',
       enableSorting: false,
