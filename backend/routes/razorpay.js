@@ -161,7 +161,7 @@ router.post('/create-order', async (req, res) => {
         // If price_id provided, find matching price; otherwise use first
         let price = prices[0];
         if (price_id) {
-            const selectedPrice = prices.find((p: any) => p.id === parseInt(price_id));
+            const selectedPrice = prices.find(p => p.id === parseInt(price_id));
             if (!selectedPrice) {
                 return res.status(400).json({ error: 'Invalid price selected' });
             }
