@@ -12,6 +12,8 @@ interface BookingDetails {
     payment_amount: number;
     razorpay_payment_id?: string;
     cashfree_order_id?: string;
+    payment_status?: string;
+    refund_amount?: number;
 }
 
 // This page handles the Cashfree return_url redirect after payment
