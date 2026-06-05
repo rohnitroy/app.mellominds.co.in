@@ -15,6 +15,7 @@ const TAB_SLUGS: Record<string, string> = {
   'all-payments': 'All Payments',
   'all-cancellations': 'All Cancellations',
   'pending-payments': 'Pending Payments',
+  'manage-refunds': 'Manage Refunds',
 };
 const TAB_TO_SLUG: Record<string, string> = Object.fromEntries(
   Object.entries(TAB_SLUGS).map(([slug, tab]) => [tab, slug])
@@ -65,7 +66,7 @@ const PaymentsInvoice: React.FC = () => {
     }
   }, [user]);
 
-  const tabs = ['All Payments', 'All Cancellations', 'Pending Payments'];
+  const tabs = ['All Payments', 'All Cancellations', 'Pending Payments', 'Manage Refunds'];
 
   // Sync URL param → tab
   useEffect(() => {
@@ -134,6 +135,8 @@ const PaymentsInvoice: React.FC = () => {
           return b.status === 'cancelled';
         case 'Pending Payments':
           return b.payment_status === 'Pending' && b.status !== 'cancelled';
+        case 'Manage Refunds':
+          return b.payment_status === 'Paid' || b.payment_status === 'Partial Refund';
         default:
           return true;
       }
@@ -460,10 +463,10 @@ const PaymentsInvoice: React.FC = () => {
       {activeMenuId !== null && menuPos && (() => {
         const booking = bookings.find(b => b.id === activeMenuId);
         if (!booking) return null;
-        const isPaid = booking.payment_status === 'Paid';
+        const isPaid = booking.payment_status === 'Paid' || booking.payment_status === 'Partial Refund';
         const isCancelled = booking.status === 'cancelled';
-        const canFullRefund = isPaid && isCancelled;
-        const canPartialRefund = isPaid && isCancelled && !!booking.cashfree_order_id;
+        const canFullRefund = isPaid;
+        const canPartialRefund = isPaid && !!booking.cashfree_order_id;
         const isProcessing = refundingId === booking.id;
 
         return createPortal(
