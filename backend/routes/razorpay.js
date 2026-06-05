@@ -387,6 +387,21 @@ router.post('/refund', ensureAuthenticated, async (req, res) => {
             [newStatus, appt.id]
         );
 
+        // Fetch full booking details for email
+        const bookingRes = await pool.query(
+            `SELECT client_email, client_name, title, start_time, payment_amount FROM Appointments WHERE id = $1`,
+            [appt.id]
+        );
+        const booking = bookingRes.rows[0];
+
+        // Send refund notification email to client
+        if (booking?.client_email) {
+            const refundAmount = isPartial ? refund_amount : appt.payment_amount;
+            sendRefundNotificationEmail(booking, refundAmount, newStatus, isPartial).catch(err => {
+                console.error(`⚠️ Failed to send refund email to ${booking.client_email}:`, err.message);
+            });
+        }
+
         // Emit real-time bookings update
         const io = getIO();
         if (io) io.to(`user:${req.user.id}`).emit('bookings_updated');
@@ -468,5 +483,55 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         res.status(500).json({ error: 'Webhook processing failed' });
     }
 });
+
+// Helper: Send refund notification email to client
+async function sendRefundNotificationEmail(booking, refundAmount, newStatus, isPartial) {
+    try {
+        const { sendEmail } = await import('../lib/email.js');
+
+        const refundText = isPartial ? `₹${parseFloat(refundAmount).toFixed(2)} (partial refund)` : `full amount`;
+        const html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h2 style="color: #2e7d32; margin: 0 0 10px 0;">Refund Processed ✓</h2>
+                    <p style="color: #666; margin: 0;">Your refund has been successfully initiated.</p>
+                </div>
+
+                <div style="background: #fff; border: 1px solid #e0e0e0; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <h3 style="margin: 0 0 15px 0; color: #333;">Refund Details</h3>
+                    <div style="font-size: 14px; color: #666; line-height: 1.8;">
+                        <p><strong>Session:</strong> ${booking.title}</p>
+                        <p><strong>Date:</strong> ${new Date(booking.start_time).toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+                        <p><strong>Original Amount:</strong> ₹${parseFloat(booking.payment_amount).toFixed(2)}</p>
+                        <p><strong>Refund Amount:</strong> ${refundText}</p>
+                        <p><strong>Status:</strong> ${newStatus === 'Refunded' ? 'Full Refund' : 'Partial Refund'}</p>
+                    </div>
+                </div>
+
+                <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p style="margin: 0; color: #2e7d32; font-size: 14px;">
+                        💳 The refund will appear in your account within 3-5 business days, depending on your bank.
+                    </p>
+                </div>
+
+                <p style="color: #999; font-size: 12px; margin: 20px 0 0 0;">
+                    If you have any questions, please contact your therapist.
+                </p>
+            </div>
+        `;
+
+        await sendEmail({
+            to: booking.client_email,
+            subject: `Refund Processed - ${booking.title} Session`,
+            html,
+            senderId: null // No therapist ID for system email
+        });
+
+        console.log(`✅ Refund notification email sent to ${booking.client_email}`);
+    } catch (err) {
+        console.error('Error sending refund notification email:', err.message);
+        throw err;
+    }
+}
 
 export default router;
