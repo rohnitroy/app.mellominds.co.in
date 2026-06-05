@@ -3,11 +3,23 @@ import { useSearchParams } from 'react-router-dom';
 import API_BASE_URL from '../config/api';
 import Loader from './Loader';
 
+interface BookingDetails {
+    id: number;
+    title: string;
+    therapist_name?: string;
+    start_time: string;
+    duration: number;
+    payment_amount: number;
+    razorpay_payment_id?: string;
+    cashfree_order_id?: string;
+}
+
 // This page handles the Cashfree return_url redirect after payment
 const BookingStatus: React.FC = () => {
     const [searchParams] = useSearchParams();
     const [status, setStatus] = useState<'loading' | 'success' | 'failed'>('loading');
     const [message, setMessage] = useState('');
+    const [booking, setBooking] = useState<BookingDetails | null>(null);
     const hasFired = useRef(false);
 
     useEffect(() => {
@@ -53,6 +65,8 @@ const BookingStatus: React.FC = () => {
                 });
 
                 if (response.ok) {
+                    const bookingData = await response.json();
+                    setBooking(bookingData);
                     // Mark as confirmed so page refresh doesn't re-create
                     sessionStorage.setItem(sessionKey, 'true');
                     setStatus('success');
@@ -77,9 +91,39 @@ const BookingStatus: React.FC = () => {
             <div style={{ background: '#fff', borderRadius: '16px', padding: '48px', textAlign: 'center', maxWidth: '480px', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
                 {status === 'success' ? (
                     <>
-                        <div style={{ fontSize: '56px', marginBottom: '16px' }}>🎉</div>
-                        <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, marginBottom: '12px' }}>Booking Confirmed!</h2>
-                        <p style={{ color: '#666', fontSize: '15px' }}>Your payment was successful and your session has been booked. A confirmation email will be sent to you shortly.</p>
+                        <div style={{ fontSize: '56px', marginBottom: '16px' }}>✅</div>
+                        <h2 style={{ fontFamily: 'Urbanist', fontWeight: 700, marginBottom: '24px' }}>Payment Successful!</h2>
+
+                        {booking && (
+                            <div style={{ textAlign: 'left', background: '#f9f9f9', borderRadius: '12px', padding: '20px', marginBottom: '24px' }}>
+                                <div style={{ marginBottom: '16px', borderBottom: '1px solid #e0e0e0', paddingBottom: '16px' }}>
+                                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Session</div>
+                                    <div style={{ fontWeight: 600, marginBottom: '8px' }}>{booking.title}</div>
+                                    <div style={{ fontSize: '13px', color: '#666' }}>
+                                        {new Date(booking.start_time).toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
+                                        <br />
+                                        {new Date(booking.start_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} ({booking.duration} min)
+                                    </div>
+                                </div>
+
+                                <div style={{ marginBottom: '16px', borderBottom: '1px solid #e0e0e0', paddingBottom: '16px' }}>
+                                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Therapist</div>
+                                    <div style={{ fontWeight: 600 }}>{booking.therapist_name || 'Professional'}</div>
+                                </div>
+
+                                <div>
+                                    <div style={{ fontSize: '12px', color: '#999', marginBottom: '4px' }}>Amount Paid</div>
+                                    <div style={{ fontSize: '24px', fontWeight: 700, color: '#2e7d32' }}>₹{booking.payment_amount.toFixed(2)}</div>
+                                    <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                                        Transaction ID: {booking.razorpay_payment_id || booking.cashfree_order_id || 'N/A'}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <p style={{ color: '#666', fontSize: '14px', marginBottom: '20px' }}>
+                            Confirmation email with receipt has been sent to you. Save this page for your records.
+                        </p>
                     </>
                 ) : (
                     <>
