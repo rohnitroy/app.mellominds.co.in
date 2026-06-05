@@ -1390,6 +1390,38 @@ router.patch('/:id/status', async (req, res) => {
         );
         appt.therapist_name = therapistRes.rows[0]?.therapist_name || '';
 
+        // Auto-refund if cancelling a paid booking
+        if (status === 'cancelled' && appt.payment_status === 'Paid') {
+            try {
+                const hasRazorpay = !!appt.razorpay_payment_id;
+                const hasCashfree = !!appt.cashfree_order_id;
+
+                if (hasRazorpay || hasCashfree) {
+                    const refundUrl = hasRazorpay
+                        ? `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/razorpay/refund`
+                        : `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/cashfree/refund`;
+
+                    const refundResponse = await fetch(refundUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            booking_id: appt.id,
+                            refund_note: `Auto-refund: Session cancelled by therapist on ${new Date().toISOString()}`
+                        })
+                    });
+
+                    if (refundResponse.ok) {
+                        console.log(`✅ Auto-refund processed for booking ${appt.id}`);
+                    } else {
+                        const errData = await refundResponse.json();
+                        console.error(`⚠️ Auto-refund failed for booking ${appt.id}:`, errData.error);
+                    }
+                }
+            } catch (refundErr) {
+                console.error(`⚠️ Auto-refund error for booking ${appt.id}:`, refundErr.message);
+            }
+        }
+
         // When cancelled: delete Google Calendar event to free the slot
         if (status === 'cancelled' && appt.google_event_id) {
             const cancelAuth = await getGoogleAuthClient(userId);
