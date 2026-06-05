@@ -1390,35 +1390,45 @@ router.patch('/:id/status', async (req, res) => {
         );
         appt.therapist_name = therapistRes.rows[0]?.therapist_name || '';
 
-        // Auto-refund if cancelling a paid booking
+        // Auto-refund if cancelling a paid booking (respecting cancellation policy)
         if (status === 'cancelled' && appt.payment_status === 'Paid') {
             try {
-                const hasRazorpay = !!appt.razorpay_payment_id;
-                const hasCashfree = !!appt.cashfree_order_id;
+                const policy = appt.cancellation_policy;
+                const refundType = policy?.enabled ? (policy.refundType || 'full') : 'full';
+                let refundAmount = appt.payment_amount;
+                let refundPercentage = 100;
 
-                if (hasRazorpay || hasCashfree) {
-                    const refundUrl = hasRazorpay
-                        ? `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/razorpay/refund`
-                        : `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/cashfree/refund`;
+                // Determine refund based on policy (therapist cancellations ignore time windows)
+                if (refundType === 'none') {
+                    refundAmount = 0;
+                    refundPercentage = 0;
+                    console.log(`ℹ️ No refund (policy): Booking ${appt.id} marked as Paid but cancelled`);
+                } else if (refundType === 'partial') {
+                    refundPercentage = parseFloat(policy?.refundPercentage || 50);
+                    refundAmount = (appt.payment_amount * refundPercentage) / 100;
+                    console.log(`ℹ️ Partial refund ${refundPercentage}%: ₹${refundAmount.toFixed(2)} for booking ${appt.id}`);
+                } else {
+                    console.log(`ℹ️ Full refund: ₹${refundAmount.toFixed(2)} for booking ${appt.id}`);
+                }
 
-                    const refundResponse = await fetch(refundUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            booking_id: appt.id,
-                            refund_note: `Auto-refund: Session cancelled by therapist on ${new Date().toISOString()}`
-                        })
-                    });
+                // Log refund in tracking table
+                if (refundAmount > 0) {
+                    await client.query(
+                        `INSERT INTO RefundTracking (appointment_id, original_amount, refund_amount, refund_percentage, refund_reason, refund_status)
+                         VALUES ($1, $2, $3, $4, $5, 'pending')`,
+                        [appt.id, appt.payment_amount, refundAmount, refundPercentage, 'Therapist cancellation']
+                    );
+                }
 
-                    if (refundResponse.ok) {
-                        console.log(`✅ Auto-refund processed for booking ${appt.id}`);
-                    } else {
-                        const errData = await refundResponse.json();
-                        console.error(`⚠️ Auto-refund failed for booking ${appt.id}:`, errData.error);
-                    }
+                // Update refund amount in appointment
+                if (refundAmount > 0) {
+                    await client.query(
+                        `UPDATE Appointments SET refund_amount = $1, refund_reason = $2 WHERE id = $3`,
+                        [refundAmount, 'Therapist cancellation (respects policy)', appt.id]
+                    );
                 }
             } catch (refundErr) {
-                console.error(`⚠️ Auto-refund error for booking ${appt.id}:`, refundErr.message);
+                console.error(`⚠️ Refund processing error for booking ${appt.id}:`, refundErr.message);
             }
         }
 
