@@ -31,6 +31,30 @@ async function razorpayRequest(method, path, body, keyId, keySecret) {
     return data;
 }
 
+// Helper: format error responses consistently
+function handlePaymentError(err, context = '') {
+    const errorMessages = {
+        'Invalid credentials': 'Invalid Razorpay credentials. Please check your Key ID and Secret.',
+        'timeout': 'Connection timeout. Please try again.',
+        'ECONNREFUSED': 'Cannot connect to payment gateway. Please try again later.',
+        'Invalid signature': 'Payment verification failed. Please contact support.',
+        'Booking creation failed': 'Booking created but session data incomplete. Please refresh.',
+    };
+
+    let userMessage = 'Payment failed. Please try again.';
+    let logMessage = err.message || err;
+
+    for (const [key, msg] of Object.entries(errorMessages)) {
+        if (logMessage.includes(key)) {
+            userMessage = msg;
+            break;
+        }
+    }
+
+    console.error(`Payment error [${context}]:`, logMessage);
+    return { userMessage, logMessage };
+}
+
 // ─── Therapist: Save / Update Razorpay credentials ───────────────────────────
 // POST /api/razorpay/connect
 // Enforces one-PG-at-a-time: removes Cashfree if connected
@@ -204,8 +228,8 @@ router.post('/create-order', async (req, res) => {
             key_id, // sent to frontend to initialise Razorpay checkout
         });
     } catch (err) {
-        console.error('Error creating Razorpay order:', err);
-        res.status(500).json({ error: err.message || 'Failed to create payment order' });
+        const { userMessage } = handlePaymentError(err, 'create-order');
+        res.status(500).json({ error: userMessage });
     }
 });
 
@@ -290,8 +314,8 @@ router.post('/verify-payment', async (req, res) => {
         const booking = await bookingRes.json();
         res.json({ success: true, booking });
     } catch (err) {
-        console.error('Razorpay verify-payment error:', err);
-        res.status(500).json({ error: err.message || 'Payment verification failed' });
+        const { userMessage } = handlePaymentError(err, 'verify-payment');
+        res.status(500).json({ error: userMessage });
     }
 });
 
@@ -369,8 +393,8 @@ router.post('/refund', ensureAuthenticated, async (req, res) => {
 
         res.json({ success: true, status: newStatus });
     } catch (err) {
-        console.error('Razorpay refund error:', err);
-        res.status(500).json({ error: err.message || 'Failed to process refund' });
+        const { userMessage } = handlePaymentError(err, 'refund');
+        res.status(500).json({ error: userMessage });
     }
 });
 
