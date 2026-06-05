@@ -127,7 +127,7 @@ const BookingStatus: React.FC = () => {
                                             {booking.payment_status === 'Refunded' ? '💰 Full Refund Processed' : '💰 Partial Refund Processed'}
                                         </div>
                                         <div style={{ fontSize: '12px', color: '#666' }}>
-                                            {booking.refund_amount && `₹${parseFloat(booking.refund_amount).toFixed(2)} refunded`}
+                                            {booking.refund_amount && `₹${(booking.refund_amount as number).toFixed(2)} refunded`}
                                         </div>
                                         <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>
                                             You should see the refund in your account within 3-5 business days.
