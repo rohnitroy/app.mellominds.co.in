@@ -21,28 +21,17 @@
   width: 240px;
 }
 
-.dev-sidebar-header {
+/* Logo */
+.dev-logo {
   padding: 12px 20px 20px;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;
 }
 
-.dev-sidebar-header h2 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.dev-badge {
-  background: #F9E141;
-  color: #082421;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
+.dev-logo img {
+  width: 186px;
+  height: 56px;
 }
 
 .dev-nav-menu {
@@ -106,6 +95,25 @@
 
 .dev-sidebar.closed .dev-nav-label {
   display: none;
+}
+
+/* Hello Section */
+.dev-hello-section {
+  color: white;
+  padding: 0px 16px 16px 100px;
+  margin: 0px 12px 0;
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.dev-sidebar-favicon {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 88px;
+  height: 88px;
 }
 
 /* Main Content */

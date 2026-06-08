@@ -36,9 +36,8 @@ const DevDashboardLayout: React.FC = () => {
     <div className="dev-dashboard-container">
       {/* Sidebar */}
       <div className={`dev-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
-        <div className="dev-sidebar-header">
-          <h2>MelloMinds</h2>
-          <span className="dev-badge">DEV</span>
+        <div className="dev-logo">
+          <img src="/Frame 2 1 (1).svg" alt="MelloMinds Logo" />
         </div>
 
         <nav className="dev-nav-menu">
@@ -69,6 +68,15 @@ const DevDashboardLayout: React.FC = () => {
             );
           })}
         </nav>
+
+        <div className="dev-hello-section">
+          <div style={{ transform: 'translate(-5px, 20px)' }}>
+            Say 👋 hello<br />
+            to <strong style={{ color: '#F9E141' }}>mello!</strong>
+          </div>
+        </div>
+
+        <img src="/MelloFevicon 1.svg" alt="Mello Favicon" className="dev-sidebar-favicon" />
       </div>
 
       {/* Main Content */}
