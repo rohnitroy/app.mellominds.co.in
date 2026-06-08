@@ -83,6 +83,8 @@ const DevDashboardHome: React.FC = () => {
 
   return (
     <div className="dev-dashboard-home">
+      <h1 className="dev-dashboard-heading">SuperAdmin Dashboard</h1>
+
       <div className="dev-stats-grid">
         {analyticsData.map((stat, index) => (
           <div key={index} className="dev-stat-card">

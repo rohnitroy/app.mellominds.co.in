@@ -14,7 +14,7 @@ router.get('/dashboard', async (req, res) => {
     const usersByPlan = await pool.query(`
       SELECT plan_name, COUNT(*) as count
       FROM users
-      WHERE deleted_at IS NULL
+      WHERE account_status != 'deleted'
       GROUP BY plan_name
     `);
 
@@ -39,7 +39,7 @@ router.get('/dashboard', async (req, res) => {
     const activeUsers = await pool.query(`
       SELECT COUNT(*) as count
       FROM users
-      WHERE last_login >= NOW() - INTERVAL '7 days' AND deleted_at IS NULL
+      WHERE last_login >= NOW() - INTERVAL '7 days' AND account_status != 'deleted'
     `);
 
     res.json({
@@ -62,7 +62,7 @@ router.get('/all-users', async (req, res) => {
     const plan = req.query.plan || null;
     const search = req.query.search || null;
 
-    let whereClause = 'WHERE deleted_at IS NULL';
+    let whereClause = 'WHERE account_status != \'deleted\'';
     const params = [];
 
     if (plan) {
