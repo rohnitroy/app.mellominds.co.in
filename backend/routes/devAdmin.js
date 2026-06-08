@@ -78,7 +78,7 @@ router.get('/all-users', async (req, res) => {
     const plan = req.query.plan || null;
     const search = req.query.search || null;
 
-    let whereClause = 'WHERE account_status != \'deleted\'';
+    let whereClause = 'WHERE account_status != \'deleted\' AND email != \'mellomindsventure@gmail.com\'';
     const params = [];
 
     if (plan) {
