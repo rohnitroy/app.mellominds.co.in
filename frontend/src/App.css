@@ -166,6 +166,18 @@ body.scrollable {
   color: #082421;
 }
 
+.plan-info-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.plan-info-btn:hover div {
+  border-color: #082421;
+  background: rgba(8, 36, 33, 0.08);
+}
+
 .free-tier {
   background: #F9E141;
   padding: 8px 9px;

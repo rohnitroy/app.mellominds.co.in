@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styles from './PricingPage.module.css';
 
 interface Plan {
@@ -24,15 +24,19 @@ const PLANS: Plan[] = [
     cta: 'Get Started Free',
     ctaLink: '/signup',
     features: [
-      'Unlimited public booking page',
+      'Up to 5 public booking pages',
       'Up to 5 booking calendars',
-      'Client intake forms',
-      'Session notes & templates',
-      'Client database',
-      'Google Calendar sync',
-      'Google Meet integration',
-      'Basic analytics (3 months)',
-      'In-app & email notifications',
+      'Weekly availability scheduling',
+      'Custom intake forms',
+      'Client database & profiles',
+      'Session notes with templates',
+      'Google Calendar 2-way sync',
+      'Google Meet session links',
+      'Client transfer management',
+      'In-app notifications',
+      'Basic email notifications',
+      'Dashboard (3-month analytics)',
+      'Public booking payment tracking',
     ],
   },
   {
@@ -46,18 +50,27 @@ const PLANS: Plan[] = [
     cta: 'Upgrade Now',
     ctaLink: '/upgrade',
     features: [
-      'Everything in Free',
-      'Razorpay integration',
-      'Cashfree integration',
-      'Online payment processing',
-      'Invoice generation',
-      'Refund management',
-      'Custom profile link',
+      'Unlimited public booking pages',
+      'Unlimited booking calendars',
+      'Weekly availability scheduling',
+      'Custom intake forms',
+      'Client database & profiles',
+      'Session notes with templates',
       'File attachments in notes',
+      'Google Calendar & Meet integration',
+      'Client transfer management',
+      'Razorpay payment integration',
+      'Cashfree payment integration',
+      'Online payment checkout',
+      'Payment signature verification',
+      'Refund management & processing',
+      'Payment invoices & reports',
+      'Custom profile link',
       'Client activities & homework',
+      'Reminder scheduling',
+      'Email reminder configuration',
+      'Full email notification control',
       'Unlimited analytics',
-      'Email reminders configuration',
-      'Payment reports',
     ],
   },
   {
@@ -69,18 +82,27 @@ const PLANS: Plan[] = [
     cta: 'Upgrade Now',
     ctaLink: '/upgrade',
     features: [
-      'Everything in Individual',
-      'Unlimited therapist seats',
-      'Unlimited calendars',
+      'Up to 20 therapist seats (₹1,499/seat)',
+      'Unlimited booking calendars per therapist',
       'Shared client database',
-      'Role-based access',
-      'Therapist performance analytics',
+      'Role-based access (owner & members)',
+      'Member invitation & management',
+      'Seat usage tracking (up to 20 seats)',
+      'Organization settings management',
+      'Razorpay & Cashfree per therapist',
+      'Payment processing & refunds',
+      'Client transfer controls',
+      'Client activity & homework',
+      'Reminder scheduling & configuration',
+      'Custom profile links per therapist',
+      'Team analytics (owner view)',
       'Revenue per therapist tracking',
-      'Team collaboration',
-      'Shared templates',
-      'Client-facing dashboard',
-      'Bulk import/export',
-      'Advanced reporting',
+      'Session completion rates',
+      'Client retention metrics',
+      'Dashboard customization',
+      'Google Calendar & Meet integration',
+      'File attachments in notes',
+      'Full email notification control',
     ],
   },
   {
@@ -93,22 +115,24 @@ const PLANS: Plan[] = [
     ctaLink: 'mailto:sales@mellominds.co.in',
     features: [
       'Everything in Team',
-      'White-label domain',
-      'Custom branding',
-      'REST API & Webhooks',
-      'GraphQL API',
-      'SSO/SAML integration',
-      'Custom report builder',
-      'Advanced security & compliance',
+      'White-label domain (coming soon)',
+      'Custom branding (coming soon)',
+      'REST API & Webhooks (coming soon)',
+      'GraphQL API (coming soon)',
+      'SSO/SAML integration (coming soon)',
+      'Advanced audit logs',
       'Dedicated account manager',
-      'Priority support (24/7)',
-      'Phone & Slack support',
-      'Custom implementation',
+      'Priority email support',
+      'Phone support',
+      'Custom feature roadmap',
+      'Implementation assistance',
     ],
   },
 ];
 
 const PricingPage: React.FC = () => {
+  const [teamSeats, setTeamSeats] = useState(3);
+
   return (
     <div className={styles.container}>
       {/* Header */}
@@ -132,9 +156,48 @@ const PricingPage: React.FC = () => {
             <p className={styles.planDescription}>{plan.description}</p>
 
             <div className={styles.priceSection}>
-              <span className={styles.price}>{plan.price}</span>
-              <span className={styles.period}>{plan.period}</span>
+              <span className={styles.price}>{plan.id === 'team' ? '₹1,499' : plan.price}</span>
+              <span className={styles.period}>{plan.id === 'team' ? '/seat/month' : plan.period}</span>
             </div>
+
+            {plan.id === 'team' && (
+              <div className={styles.seatSelector}>
+                <label htmlFor="team-seats" className={styles.seatLabel}>
+                  Select Number of Seats
+                </label>
+                <div className={styles.seatControl}>
+                  <button
+                    className={styles.seatBtn}
+                    onClick={() => setTeamSeats(Math.max(3, teamSeats - 1))}
+                    disabled={teamSeats <= 3}
+                  >
+                    −
+                  </button>
+                  <input
+                    id="team-seats"
+                    type="number"
+                    min="3"
+                    max="20"
+                    value={teamSeats}
+                    onChange={(e) => {
+                      const val = Math.max(3, Math.min(20, parseInt(e.target.value) || 3));
+                      setTeamSeats(val);
+                    }}
+                    className={styles.seatInput}
+                  />
+                  <button
+                    className={styles.seatBtn}
+                    onClick={() => setTeamSeats(Math.min(20, teamSeats + 1))}
+                    disabled={teamSeats >= 20}
+                  >
+                    +
+                  </button>
+                </div>
+                <div className={styles.totalPrice}>
+                  Total: <span className={styles.totalAmount}>₹{(teamSeats * 1499).toLocaleString('en-IN')}</span><span className={styles.totalPeriod}>/month</span>
+                </div>
+              </div>
+            )}
 
             <button
               className={`${styles.cta} ${plan.featured ? styles.ctaPrimary : styles.ctaSecondary}`}

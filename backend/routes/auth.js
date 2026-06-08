@@ -12,6 +12,7 @@ import rateLimit from 'express-rate-limit';
 import { getIO } from '../lib/socket.js';
 import { sendEmail, passwordResetEmail, deleteAccountOTPEmail, newUserAlertEmail } from '../lib/email.js';
 import { sanitizeStr, isValidEmail } from '../middleware/sanitize.js';
+import { isDevAdmin } from '../config/devAdmin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -252,7 +253,10 @@ router.post('/login', loginLimiter, async (req, res) => {
         return res.status(500).json({ error: 'Login failed' });
       }
 
-      res.json({ message: 'Login successful', user: formatUserResponse(user) });
+      const userResponse = formatUserResponse(user);
+      userResponse.is_dev_admin = isDevAdmin(user.email);
+
+      res.json({ message: 'Login successful', user: userResponse });
     });
   } catch (error) {
     console.error('Login error:', error);

@@ -33,6 +33,7 @@ import gmailRoutes from './routes/gmail.js';
 import publicProfileRoutes from './routes/publicProfile.js';
 import therapistsRoutes from './routes/therapists.js';
 import pincodeRoutes from './routes/pincode.js';
+import devAdminRoutes from './routes/devAdmin.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateSchema, verifySchemaIntegrity, storeSchemaHash } from './security/schema-validator.js';
@@ -200,6 +201,7 @@ app.use('/api/gmail', apiLimiter, gmailRoutes);
 app.use('/api/public', apiLimiter, publicProfileRoutes);
 app.use('/api/therapists', apiLimiter, therapistsRoutes);
 app.use('/api/pincode', apiLimiter, pincodeRoutes);
+app.use('/api/dev', devAdminRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

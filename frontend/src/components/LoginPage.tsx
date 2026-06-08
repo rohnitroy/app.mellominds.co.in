@@ -53,7 +53,12 @@ const LoginPage: React.FC = () => {
       if (response.ok) {
         toast.success('Login successful!')
         login()
-        navigate('/dashboard')
+        // Redirect to dev dashboard if user is dev admin
+        if (data.user?.is_dev_admin) {
+          navigate('/devdashboard')
+        } else {
+          navigate('/dashboard')
+        }
       } else {
         toast.error(data.error || 'Login failed')
       }

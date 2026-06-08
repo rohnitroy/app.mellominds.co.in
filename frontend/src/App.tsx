@@ -36,6 +36,12 @@ import { NotificationProvider, useNotifications } from './context/NotificationCo
 import { SocketProvider } from './context/SocketContext';
 import ToastContainer from './components/ToastContainer';
 import ProtectedRoute from './components/ProtectedRoute';
+import DevAdminRoute from './components/DevAdminRoute';
+import DevDashboardLayout from './components/DevDashboardLayout';
+import DevDashboardHome from './components/DevDashboardHome';
+import DevAllUsers from './components/DevAllUsers';
+import DevPaymentInvoices from './components/DevPaymentInvoices';
+import DevSettings from './components/DevSettings';
 import TeamSettings from './components/TeamSettings';
 import TeamAnalytics from './components/TeamAnalytics';
 import API_BASE_URL from './config/api';
@@ -655,13 +661,45 @@ const DashboardLayout: React.FC = () => {
         </button>
         <div className="plan-info">
           <span>Your Plan:</span>
-          <span
-            className="free-tier"
-            onClick={!isEnterprise ? () => setShowUpgradeModal(true) : undefined}
-            style={!isEnterprise ? { cursor: 'pointer' } : {}}
+          <button
+            className="plan-info-btn"
+            onClick={() => window.location.href = '/pricing'}
+            title="View all plans and features"
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '0 6px',
+              cursor: 'pointer',
+              font: 'inherit',
+              color: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            } as React.CSSProperties}
           >
-            {planLabel} {!isEnterprise && <img src="Danger Circle.svg" alt="Info" style={{ width: '17px', height: '17px', verticalAlign: 'middle' }} />}
-          </span>
+            <span
+              className="free-tier"
+            >
+              {planLabel}
+            </span>
+            <div
+              style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                border: '1.5px solid currentColor',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '11px',
+                fontWeight: '600',
+                flexShrink: 0,
+                cursor: 'pointer'
+              }}
+            >
+              i
+            </div>
+          </button>
         </div>
       </div>
 
@@ -822,8 +860,6 @@ const DashboardLayout: React.FC = () => {
       {showAddClientModal && (
         <AddClientModal onClose={() => setShowAddClientModal(false)} />
       )}
-      <UpgradePlanModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
-
       <ConfirmModal
         isOpen={showLogoutConfirm}
         title="Log out"
@@ -1700,6 +1736,16 @@ const AppContent: React.FC = () => {
 
           {/* Terms of Service */}
           <Route path="/terms-of-service" element={<TermsOfService />} />
+
+          {/* Dev Admin Dashboard Routes */}
+          <Route element={<DevAdminRoute />}>
+            <Route element={<DevDashboardLayout />}>
+              <Route path="/devdashboard" element={<DevDashboardHome />} />
+              <Route path="/devdashboard-allusers" element={<DevAllUsers />} />
+              <Route path="/devdashboard-payment-invoices" element={<DevPaymentInvoices />} />
+              <Route path="/devdashboard-settings" element={<DevSettings />} />
+            </Route>
+          </Route>
 
           {/* Catch all redirect to dashboard */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
