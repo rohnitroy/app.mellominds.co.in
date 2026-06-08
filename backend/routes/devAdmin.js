@@ -50,8 +50,8 @@ router.get('/dashboard', async (req, res) => {
       WHERE account_status != 'deleted'
     `);
 
-    const individualPlanUsers = usersByPlan.rows.find((p: any) => p.plan_name === 'individual')?.count || 0;
-    const teamPlanUsers = usersByPlan.rows.find((p: any) => p.plan_name === 'team')?.count || 0;
+    const individualPlanUsers = usersByPlan.rows.find(p => p.plan_name === 'individual')?.count || 0;
+    const teamPlanUsers = usersByPlan.rows.find(p => p.plan_name === 'team')?.count || 0;
     const paidPlanUsers = parseInt(individualPlanUsers) + parseInt(teamPlanUsers);
 
     res.json({
