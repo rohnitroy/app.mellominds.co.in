@@ -11,6 +11,9 @@ const DevAllUsers: React.FC = () => {
   const [totalUsers, setTotalUsers] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [planFilter, setPlanFilter] = useState('');
+  const [cityFilter, setCityFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [cities, setCities] = useState<string[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showChangePlanModal, setShowChangePlanModal] = useState(false);
   const [showChangePlanConfirm, setShowChangePlanConfirm] = useState(false);
@@ -24,8 +27,24 @@ const DevAllUsers: React.FC = () => {
   const recordsPerPage = 20;
 
   useEffect(() => {
+    fetchCities();
+  }, []);
+
+  useEffect(() => {
     fetchUsers(1);
-  }, [searchQuery, planFilter]);
+  }, [searchQuery, planFilter, cityFilter, statusFilter]);
+
+  const fetchCities = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/dev/cities`, {
+        credentials: 'include'
+      });
+      const data = await res.json();
+      setCities(data.cities || []);
+    } catch (err) {
+      console.error('Failed to fetch cities:', err);
+    }
+  };
 
   useEffect(() => {
     const socket = io(API_BASE_URL.replace('/api', ''));
@@ -51,6 +70,8 @@ const DevAllUsers: React.FC = () => {
       });
       if (searchQuery) params.append('search', searchQuery);
       if (planFilter) params.append('plan', planFilter);
+      if (cityFilter) params.append('city', cityFilter);
+      if (statusFilter) params.append('status', statusFilter);
 
       const res = await fetch(`${API_BASE_URL}/api/dev/all-users?${params}`, {
         credentials: 'include'
@@ -175,17 +196,45 @@ const DevAllUsers: React.FC = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="dev-all-users-search"
         />
-        <select
-          value={planFilter}
-          onChange={(e) => setPlanFilter(e.target.value)}
-          className="dev-all-users-filter"
-        >
-          <option value="">All Plans</option>
-          <option value="free">Free</option>
-          <option value="individual">Individual</option>
-          <option value="team">Team</option>
-          <option value="enterprise">Enterprise</option>
-        </select>
+        <div className="dev-all-users-filter-wrapper">
+          <select
+            value={planFilter}
+            onChange={(e) => setPlanFilter(e.target.value)}
+            className="dev-all-users-filter"
+          >
+            <option value="">All Plans</option>
+            <option value="free">Free</option>
+            <option value="individual">Individual</option>
+            <option value="team">Team</option>
+          </select>
+          <span className="dev-all-users-filter-arrow">▼</span>
+        </div>
+        <div className="dev-all-users-filter-wrapper">
+          <select
+            value={cityFilter}
+            onChange={(e) => setCityFilter(e.target.value)}
+            className="dev-all-users-filter"
+          >
+            <option value="">All Cities</option>
+            {cities.map((city) => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
+          <span className="dev-all-users-filter-arrow">▼</span>
+        </div>
+        <div className="dev-all-users-filter-wrapper">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="dev-all-users-filter"
+          >
+            <option value="">All Status</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Banned">Banned</option>
+          </select>
+          <span className="dev-all-users-filter-arrow">▼</span>
+        </div>
       </div>
 
       <table className="dev-all-users-table">

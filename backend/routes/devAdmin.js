@@ -130,6 +130,23 @@ router.get('/all-users', async (req, res) => {
       params.push(`%${search}%`);
     }
 
+    const city = req.query.city || null;
+    if (city) {
+      whereClause += ' AND city = $' + (params.length + 1);
+      params.push(city);
+    }
+
+    const status = req.query.status || null;
+    if (status) {
+      if (status === 'Active') {
+        whereClause += ' AND account_status = \'active\' AND last_login >= NOW() - INTERVAL \'7 days\'';
+      } else if (status === 'Inactive') {
+        whereClause += ' AND account_status = \'active\' AND (last_login IS NULL OR last_login < NOW() - INTERVAL \'7 days\')';
+      } else if (status === 'Banned') {
+        whereClause += ' AND account_status = \'banned\'';
+      }
+    }
+
     // Get total count
     const countQuery = `SELECT COUNT(*) as total FROM users ${whereClause}`;
     const countResult = await pool.query(countQuery, params);
@@ -389,6 +406,22 @@ router.post('/refund', async (req, res) => {
   } catch (err) {
     console.error('Refund error:', err);
     res.status(500).json({ error: 'Failed to process refund' });
+  }
+});
+
+// GET /api/dev/cities - Get distinct cities for filter
+router.get('/cities', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT DISTINCT city FROM users
+       WHERE account_status != 'deleted' AND city IS NOT NULL AND city != ''
+       ORDER BY city ASC`
+    );
+    const cities = result.rows.map(r => r.city);
+    res.json({ cities });
+  } catch (err) {
+    console.error('Cities error:', err);
+    res.status(500).json({ error: 'Failed to fetch cities' });
   }
 });
 

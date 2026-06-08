@@ -26,10 +26,12 @@
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  align-items: flex-end;
 }
 
-.dev-all-users-search,
-.dev-all-users-filter {
+.dev-all-users-search {
+  flex: 1;
+  min-width: 200px;
   padding: 10px 14px;
   border: 1px solid #ddd;
   border-radius: 6px;
@@ -37,13 +39,37 @@
   font-size: 14px;
 }
 
-.dev-all-users-search {
-  flex: 1;
-  min-width: 200px;
+.dev-all-users-filter-wrapper {
+  position: relative;
+  width: 150px;
 }
 
 .dev-all-users-filter {
-  width: 150px;
+  width: 100%;
+  padding: 10px 14px;
+  padding-right: 30px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: Urbanist;
+  font-size: 14px;
+  appearance: none;
+  background: white;
+  cursor: pointer;
+}
+
+.dev-all-users-filter:focus {
+  outline: none;
+  border-color: #082421;
+}
+
+.dev-all-users-filter-arrow {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #666;
+  font-size: 12px;
 }
 
 .dev-all-users-table {
