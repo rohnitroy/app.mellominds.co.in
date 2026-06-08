@@ -45,7 +45,7 @@ import DevSettings from './components/DevSettings';
 import TeamSettings from './components/TeamSettings';
 import TeamAnalytics from './components/TeamAnalytics';
 import API_BASE_URL from './config/api';
-import { Category, TwoUsers, Calendar, Discovery, Wallet, Setting, Paper, AddUser } from 'react-iconly';
+import { Category, TwoUsers, Calendar, Wallet, Setting, Paper, AddUser } from 'react-iconly';
 import DataTable from './components/DataTable';
 import { ColumnDef } from '@tanstack/react-table';
 import QuickActionMenu from './components/QuickActionMenu';
@@ -1738,11 +1738,13 @@ const AppContent: React.FC = () => {
           <Route path="/terms-of-service" element={<TermsOfService />} />
 
           {/* Dev Admin Dashboard Routes */}
-          <Route element={<DevDashboardLayout />}>
-            <Route path="/devdashboard" element={<DevDashboardHome />} />
-            <Route path="/devdashboard-allusers" element={<DevAllUsers />} />
-            <Route path="/devdashboard-payment-invoices" element={<DevPaymentInvoices />} />
-            <Route path="/devdashboard-settings" element={<DevSettings />} />
+          <Route element={<DevAdminRoute />}>
+            <Route element={<DevDashboardLayout />}>
+              <Route path="/devdashboard" element={<DevDashboardHome />} />
+              <Route path="/devdashboard-allusers" element={<DevAllUsers />} />
+              <Route path="/devdashboard-payment-invoices" element={<DevPaymentInvoices />} />
+              <Route path="/devdashboard-settings" element={<DevSettings />} />
+            </Route>
           </Route>
 
           {/* Catch all redirect to dashboard */}
