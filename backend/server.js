@@ -153,10 +153,10 @@ app.use(session({
   saveUninitialized: false,
   proxy: isProduction,
   cookie: {
-    secure: false,
+    secure: isProduction,
     httpOnly: true,
     maxAge: 8 * 60 * 60 * 1000, // 8 hours (reduced from 24h)
-    sameSite: 'none',
+    sameSite: isProduction ? 'none' : 'lax',
     domain: isProduction ? '.mellominds.co.in' : undefined,
   }
 }));
