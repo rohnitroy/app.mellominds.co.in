@@ -50,14 +50,14 @@ const DevDashboardHome: React.FC = () => {
   if (loading) return <div>Loading...</div>;
 
   // Calculate metrics
-  const totalUsers = stats?.usersByPlan?.reduce((sum: number, p: any) => sum + parseInt(p.count), 0) || 0;
+  const dashboardTotalUsers = stats?.usersByPlan?.reduce((sum: number, p: any) => sum + parseInt(p.count), 0) || 0;
   const freeUsers = stats?.usersByPlan?.find((p: any) => p.plan_name === 'free')?.count || 0;
-  const paidUsers = totalUsers - freeUsers;
+  const paidUsers = dashboardTotalUsers - freeUsers;
   const paidPlanUsers = (stats?.usersByPlan?.find((p: any) => p.plan_name === 'individual')?.count || 0) +
                         (stats?.usersByPlan?.find((p: any) => p.plan_name === 'team')?.count || 0) +
                         (stats?.usersByPlan?.find((p: any) => p.plan_name === 'enterprise')?.count || 0);
   const teamPlanUsers = stats?.usersByPlan?.find((p: any) => p.plan_name === 'team')?.count || 0;
-  const inactiveUsers = totalUsers - (stats?.activeUsers || 0);
+  const inactiveUsers = dashboardTotalUsers - (stats?.activeUsers || 0);
 
   // Calculate total refunds
   const totalRefunds = stats?.recentPayments?.filter((p: any) => p.payment_status === 'Refunded')
