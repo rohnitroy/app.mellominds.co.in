@@ -24,7 +24,6 @@ import bookingsRoutes from './routes/bookings.js';
 import clientsRoutes from './routes/clients.js';
 import availabilityRoutes from './routes/availability.js';
 import notesRoutes from './routes/notes.js';
-import notificationsRoutes from './routes/notifications.js';
 import activitiesRoutes from './routes/activities.js';
 import cashfreeRoutes from './routes/cashfree.js';
 import razorpayRoutes from './routes/razorpay.js';
