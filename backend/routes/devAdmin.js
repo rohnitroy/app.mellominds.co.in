@@ -186,14 +186,14 @@ router.get('/all-users', async (req, res) => {
   }
 });
 
-// GET /api/dev/payments - Plan payments with filters
+// GET /api/dev/payments - Plan payments with filters & search
 router.get('/payments', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
     const offset = parseInt(req.query.offset) || 0;
+    const search = req.query.search || '';
     const status = req.query.status || null;
-    const startDate = req.query.startDate || null;
-    const endDate = req.query.endDate || null;
+    const plan = req.query.plan || null;
 
     let query = `
       SELECT pp.id, u.user_name, pp.amount as payment_amount, pp.plan_name, pp.payment_status, pp.payment_method, pp.created_at
@@ -201,30 +201,39 @@ router.get('/payments', async (req, res) => {
       JOIN users u ON pp.user_id = u.id
       WHERE 1=1
     `;
+    let countQuery = `SELECT COUNT(*) as total FROM plan_payments pp JOIN users u ON pp.user_id = u.id WHERE 1=1`;
     const params = [];
 
+    if (search) {
+      const searchParam = `%${search}%`;
+      query += ' AND (u.user_name ILIKE $' + (params.length + 1) + ' OR pp.amount::text ILIKE $' + (params.length + 1) + ')';
+      countQuery += ' AND (u.user_name ILIKE $' + (params.length + 1) + ' OR pp.amount::text ILIKE $' + (params.length + 1) + ')';
+      params.push(searchParam);
+    }
+
     if (status) {
-      query += ' AND a.payment_status = $' + (params.length + 1);
+      query += ' AND pp.payment_status = $' + (params.length + 1);
+      countQuery += ' AND pp.payment_status = $' + (params.length + 1);
       params.push(status);
     }
 
-    if (startDate) {
-      query += ' AND a.created_at >= $' + (params.length + 1);
-      params.push(startDate);
+    if (plan) {
+      query += ' AND pp.plan_name = $' + (params.length + 1);
+      countQuery += ' AND pp.plan_name = $' + (params.length + 1);
+      params.push(plan);
     }
 
-    if (endDate) {
-      query += ' AND a.created_at <= $' + (params.length + 1);
-      params.push(endDate);
-    }
-
-    query += ' ORDER BY a.created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
+    query += ' ORDER BY pp.created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
     params.push(limit, offset);
 
-    const result = await pool.query(query, params);
+    const [result, countResult] = await Promise.all([
+      pool.query(query, params),
+      pool.query(countQuery, params.slice(0, -2))
+    ]);
 
     res.json({
       payments: result.rows,
+      total: parseInt(countResult.rows[0]?.total) || 0,
       limit,
       offset
     });

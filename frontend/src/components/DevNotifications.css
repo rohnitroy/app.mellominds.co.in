@@ -1,0 +1,216 @@
+.dev-notifications-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0;
+}
+
+.dev-page-heading {
+  font-family: Urbanist;
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0;
+  color: #000;
+}
+
+.dev-notif-filter {
+  display: flex;
+  gap: 12px;
+}
+
+.dev-notif-container {
+  background: white;
+  border: 1px solid #f1f3f4;
+  border-radius: 10px;
+  min-height: 400px;
+}
+
+.dev-loading,
+.dev-no-data {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  font-family: Urbanist;
+  font-size: 14px;
+  color: #999;
+}
+
+.dev-notif-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dev-notif-item {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid #f1f3f4;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+
+.dev-notif-item:last-child {
+  border-bottom: none;
+}
+
+.dev-notif-item:hover {
+  background: #fafafa;
+}
+
+.dev-notif-item.unread {
+  background: #f9fffe;
+  border-left: 4px solid #082421;
+  padding-left: 12px;
+}
+
+.dev-notif-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dev-notif-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.dev-notif-header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.dev-notif-title {
+  font-family: Urbanist;
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: #000;
+}
+
+.dev-notif-type {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dev-notif-type.signup {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.dev-notif-type.upgrade {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.dev-notif-type.banned {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.dev-notif-type.cancelled {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.dev-notif-type.default {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.dev-notif-message {
+  font-family: Urbanist;
+  font-size: 13px;
+  color: #666;
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+}
+
+.dev-notif-user {
+  font-family: Urbanist;
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 6px;
+}
+
+.dev-notif-time {
+  font-family: Urbanist;
+  font-size: 11px;
+  color: #bbb;
+}
+
+.dev-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-top: 1px solid #f1f3f4;
+}
+
+.dev-pagination-btn {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #f1f3f4;
+  border-radius: 6px;
+  font-family: Urbanist;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #082421;
+}
+
+.dev-pagination-btn:hover:not(:disabled) {
+  background: #f9f9f9;
+  border-color: #082421;
+}
+
+.dev-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dev-pagination-info {
+  font-family: Urbanist;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  min-width: 140px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .dev-notif-item {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .dev-notif-header {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .dev-notif-title {
+    font-size: 14px;
+  }
+
+  .dev-pagination {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .dev-pagination-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}

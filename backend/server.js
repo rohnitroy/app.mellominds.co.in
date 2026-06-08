@@ -15,6 +15,7 @@ import { setIO } from './lib/socket.js';
 import { sendEmail, activityNotificationEmail, sessionReminderEmail, sessionReminder30MinEmail, sessionReminder60MinEmail, isEmailEnabled } from './lib/email.js';
 import { ensureAuditTable, auditMiddleware } from './lib/audit.js';
 import { initializeSessionsTable } from './lib/sessions.js';
+import { initializeNotificationsTable } from './lib/notifications.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import calendarRoutes from './routes/calendars.js';
@@ -1038,6 +1039,7 @@ httpServer.listen(PORT, async () => {
   await ensureEnterpriseLeadsSchema(); // Initialize enterprise leads table
   await ensureAuditTable(); // Initialize audit logging
   await initializeSessionsTable(); // Initialize sessions table
+  await initializeNotificationsTable(); // Initialize notifications table
 
   // NOW validate schema integrity after migrations
   const schemaValidation = await validateSchema();

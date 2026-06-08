@@ -1,23 +1,58 @@
 import pool from '../config/database.js';
-import { getIO } from './socket.js';
 
-/**
- * Create a notification for a user.
- * @param {object} opts - { userId, type, title, description, relatedId }
- */
-export async function createNotification({ userId, type, title, description = null, relatedId = null }) {
-    try {
-        await pool.query(
-            `INSERT INTO Notifications (user_id, type, title, description, related_id)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [userId, type, title, description, relatedId]
-        );
+// User notifications (for in-app use)
+export const createNotification = async (notificationData) => {
+  try {
+    const { userId, type, title, message = '', messageParams = {} } = notificationData;
 
-        // Emit real-time notification update
-        const io = getIO();
-        if (io) io.to(`user:${userId}`).emit('notifications_updated');
-    } catch (err) {
-        // Non-fatal — log but don't crash the request
-        console.error('Failed to create notification:', err.message);
-    }
-}
+    await pool.query(
+      `INSERT INTO notifications (user_id, type, title, message, message_params, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [userId, type, title, message, JSON.stringify(messageParams)]
+    );
+  } catch (err) {
+    console.error('Failed to create notification:', err);
+  }
+};
+
+// Admin notifications table
+export const initializeNotificationsTable = async () => {
+  try {
+    await pool.query(`DROP TABLE IF EXISTS admin_notifications`);
+
+    await pool.query(`
+      CREATE TABLE admin_notifications (
+        id SERIAL PRIMARY KEY,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT,
+        user_id UUID,
+        user_name VARCHAR(255),
+        metadata JSONB,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_admin_notif_created ON admin_notifications(created_at)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_admin_notif_type ON admin_notifications(type)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_admin_notif_read ON admin_notifications(is_read)`);
+
+    console.log('✅ Admin notifications schema verified');
+  } catch (err) {
+    console.error('❌ Notifications table error:', err.message);
+    throw err;
+  }
+};
+
+export const logNotification = async (type, title, message, userId, userName, metadata = {}) => {
+  try {
+    await pool.query(
+      `INSERT INTO admin_notifications (type, title, message, user_id, user_name, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [type, title, message, userId, userName, JSON.stringify(metadata)]
+    );
+  } catch (err) {
+    console.error('Failed to log notification:', err);
+  }
+};

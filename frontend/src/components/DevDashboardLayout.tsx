@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Category, TwoUsers, Wallet, Setting } from 'react-iconly';
+import { Category, TwoUsers, Wallet, Setting, Notification } from 'react-iconly';
 import './DevDashboardLayout.css';
 
 const LogoutIcon = () => (
@@ -32,6 +32,7 @@ const DevDashboardLayout: React.FC = () => {
     { label: 'Dashboard', path: '/devdashboard', icon: 'category' },
     { label: 'All Users', path: '/devdashboard-allusers', icon: 'users' },
     { label: 'Payments', path: '/devdashboard-payment-invoices', icon: 'wallet' },
+    { label: 'Notifications', path: '/devdashboard-notifications', icon: 'notification' },
   ];
 
   const handleLogout = () => {
@@ -59,6 +60,8 @@ const DevDashboardLayout: React.FC = () => {
                   return <Wallet set="bold" />;
                 case 'setting':
                   return <Setting set="bold" />;
+                case 'notification':
+                  return <Notification set="bold" />;
                 default:
                   return null;
               }
