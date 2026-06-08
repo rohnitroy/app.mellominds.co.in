@@ -2,6 +2,7 @@ import express from 'express';
 import pool from '../config/database.js';
 import devAdminOnly from '../middleware/devAdminOnly.js';
 import { io } from '../server.js';
+import { logNotification } from '../lib/notifications.js';
 
 const router = express.Router();
 
@@ -285,8 +286,18 @@ router.post('/user/:id/change-plan', async (req, res) => {
       );
     }
 
+    // Log admin notification
+    await logNotification(
+      'plan_upgrade',
+      `Plan Upgraded to ${plan_name.charAt(0).toUpperCase() + plan_name.slice(1)}`,
+      `User's plan changed to ${plan_name}${plan_name === 'team' ? ` with ${purchased_seats || 3} seats` : ''}`,
+      id,
+      user.user_name,
+      { plan_name, amount, purchased_seats }
+    );
+
     // Emit real-time update
-    io.emit('plan-changed', { userId: id, plan: newPlan, user });
+    io.emit('plan-changed', { userId: id, plan: plan_name, user });
 
     res.json({ message: 'Plan updated', user });
   } catch (err) {
@@ -309,10 +320,22 @@ router.post('/user/:id/suspend', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Emit real-time update
-    io.emit('user-banned', { userId: id, user: result.rows[0] });
+    const user = result.rows[0];
 
-    res.json({ message: 'User suspended', user: result.rows[0] });
+    // Log admin notification
+    await logNotification(
+      'user_banned',
+      'User Banned',
+      `${user.user_name} has been banned from the platform`,
+      id,
+      user.user_name,
+      { reason: 'Admin action' }
+    );
+
+    // Emit real-time update
+    io.emit('user-banned', { userId: id, user });
+
+    res.json({ message: 'User suspended', user });
   } catch (err) {
     console.error('Suspend user error:', err);
     res.status(500).json({ error: 'Failed to suspend user' });
@@ -333,10 +356,22 @@ router.post('/user/:id/unban', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Emit real-time update
-    io.emit('user-unbanned', { userId: id, user: result.rows[0] });
+    const user = result.rows[0];
 
-    res.json({ message: 'User unbanned', user: result.rows[0] });
+    // Log admin notification
+    await logNotification(
+      'user_unbanned',
+      'User Unbanned',
+      `${user.user_name} has been unbanned and can access the platform`,
+      id,
+      user.user_name,
+      { action: 'unban' }
+    );
+
+    // Emit real-time update
+    io.emit('user-unbanned', { userId: id, user });
+
+    res.json({ message: 'User unbanned', user });
   } catch (err) {
     console.error('Unban user error:', err);
     res.status(500).json({ error: 'Failed to unban user' });
@@ -383,10 +418,22 @@ router.post('/user/:id/cancel-plan', async (req, res) => {
       [id]
     );
 
+    const updatedUser = updateResult.rows[0];
+
+    // Log admin notification
+    await logNotification(
+      'plan_cancelled',
+      'Plan Cancelled',
+      `${updatedUser.user_name}'s ${currentPlan} plan has been cancelled${issueRefund ? ` and refunded ₹${refundAmount}` : ''}`,
+      id,
+      updatedUser.user_name,
+      { previousPlan: currentPlan, refunded: issueRefund, refundAmount }
+    );
+
     // Emit real-time update
     io.emit('plan-cancelled', { userId: id, plan: 'free', refunded: issueRefund, refundAmount });
 
-    res.json({ message: 'Plan cancelled', user: updateResult.rows[0], refunded: issueRefund, refundAmount });
+    res.json({ message: 'Plan cancelled', user: updatedUser, refunded: issueRefund, refundAmount });
   } catch (err) {
     console.error('Cancel plan error:', err);
     res.status(500).json({ error: 'Failed to cancel plan' });
@@ -553,10 +600,27 @@ router.put('/user/:id', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Emit real-time update
-    io.emit('user-updated', { userId: id, user: result.rows[0] });
+    const updatedUser = result.rows[0];
+    const changes = [];
+    if (user_name) changes.push(`name: ${user_name}`);
+    if (email) changes.push(`email: ${email}`);
+    if (phone) changes.push(`phone: ${phone}`);
+    if (city) changes.push(`city: ${city}`);
 
-    res.json({ message: 'User updated', user: result.rows[0] });
+    // Log admin notification
+    await logNotification(
+      'user_profile_updated',
+      'User Profile Updated',
+      `${updatedUser.user_name}'s profile updated: ${changes.join(', ')}`,
+      id,
+      updatedUser.user_name,
+      { changes }
+    );
+
+    // Emit real-time update
+    io.emit('user-updated', { userId: id, user: updatedUser });
+
+    res.json({ message: 'User updated', user: updatedUser });
   } catch (err) {
     console.error('Update user error:', err);
     res.status(500).json({ error: 'Failed to update user' });
