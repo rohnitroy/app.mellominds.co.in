@@ -188,26 +188,26 @@
 
 /* Enterprise Container */
 .enterpriseContainer {
-  max-width: 1200px;
+  max-width: 800px;
   margin: 80px auto;
   padding: 0 20px;
 }
 
 .enterpriseCard {
-  background: linear-gradient(135deg, #082421 0%, #0a3633 100%);
+  background: white;
   border-radius: 20px;
-  padding: 60px;
+  padding: 48px;
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  gap: 60px;
+  gap: 40px;
   align-items: flex-start;
-  color: white;
+  color: #082421;
   border: 2px solid #F9E141;
   transition: all 0.3s ease;
 }
 
 .enterpriseCard:hover {
-  box-shadow: 0 30px 60px rgba(249, 225, 65, 0.2);
+  box-shadow: 0 30px 60px rgba(249, 225, 65, 0.15);
   transform: translateY(-4px);
 }
 
@@ -219,11 +219,11 @@
 }
 
 .enterpriseContent .planName {
-  color: white;
+  color: #082421;
 }
 
 .enterpriseContent .planDescription {
-  color: #b3d9d5;
+  color: #666;
 }
 
 .enterpriseContent .priceSection {
@@ -245,7 +245,7 @@
   display: flex;
   gap: 12px;
   font-size: 14px;
-  color: #b3d9d5;
+  color: #333;
   line-height: 1.5;
 }
 
@@ -267,12 +267,12 @@
 @media (max-width: 1024px) {
   .enterpriseCard {
     grid-template-columns: 1fr 1fr;
-    gap: 40px;
+    gap: 30px;
+    padding: 40px;
   }
 
   .enterpriseCard .cta {
     grid-column: 1 / -1;
-    align-self: center;
     width: 100%;
   }
 }
@@ -280,32 +280,39 @@
 @media (max-width: 768px) {
   .enterpriseCard {
     grid-template-columns: 1fr;
-    gap: 30px;
-    padding: 40px 24px;
+    gap: 24px;
+    padding: 32px 24px;
   }
 
   .enterpriseContent {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .enterpriseCard .featuresList {
+    gap: 12px;
   }
 
   .enterpriseCard .cta {
-    grid-column: 1;
     width: 100%;
   }
 }
 
 @media (max-width: 480px) {
+  .enterpriseContainer {
+    max-width: 100%;
+    padding: 0 12px;
+  }
+
   .enterpriseCard {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
     padding: 24px 16px;
   }
 
   .enterpriseContent {
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
   }
 
   .enterpriseCard .featuresList {
