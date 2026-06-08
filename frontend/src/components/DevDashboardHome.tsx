@@ -49,24 +49,20 @@ const DevDashboardHome: React.FC = () => {
 
   if (loading) return <div>Loading...</div>;
 
-  // Calculate metrics
-  const dashboardTotalUsers = stats?.usersByPlan?.reduce((sum: number, p: any) => sum + parseInt(p.count), 0) || 0;
+  // Get metrics from API
   const freeUsers = stats?.usersByPlan?.find((p: any) => p.plan_name === 'free')?.count || 0;
-  const paidUsers = dashboardTotalUsers - freeUsers;
-  const paidPlanUsers = (stats?.usersByPlan?.find((p: any) => p.plan_name === 'individual')?.count || 0) +
-                        (stats?.usersByPlan?.find((p: any) => p.plan_name === 'team')?.count || 0) +
-                        (stats?.usersByPlan?.find((p: any) => p.plan_name === 'enterprise')?.count || 0);
-  const teamPlanUsers = stats?.usersByPlan?.find((p: any) => p.plan_name === 'team')?.count || 0;
-  const inactiveUsers = dashboardTotalUsers - (stats?.activeUsers || 0);
+  const individualPlanUsers = stats?.individualPlanUsers || 0;
+  const teamPlanUsers = stats?.teamPlanUsers || 0;
+  const paidPlanUsers = stats?.paidPlanUsers || 0;
 
   const analyticsData = [
     { label: 'Total Revenue', value: `₹${stats?.totalRevenue || 0}` },
     { label: 'Total Refunds', value: `₹${stats?.totalRefunds || 0}` },
     { label: 'Active Users', value: stats?.activeUsers || 0 },
     { label: 'Free Plan Users', value: freeUsers },
-    { label: 'Paid Plan Users', value: paidPlanUsers },
+    { label: 'Individual Plan Users', value: individualPlanUsers },
     { label: 'Team Plan Users', value: teamPlanUsers },
-    { label: 'Inactive Users', value: inactiveUsers },
+    { label: 'Paid Plan Users', value: paidPlanUsers },
   ];
 
   const getStatus = () => {

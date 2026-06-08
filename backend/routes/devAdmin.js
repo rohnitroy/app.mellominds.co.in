@@ -43,19 +43,26 @@ router.get('/dashboard', async (req, res) => {
       LIMIT 10
     `);
 
-    // Active users - count users with at least one appointment
+    // Active users - total users in application
     const activeUsers = await pool.query(`
-      SELECT COUNT(DISTINCT therapist_id) as count
-      FROM appointments
-      WHERE therapist_id IS NOT NULL
+      SELECT COUNT(*) as count
+      FROM users
+      WHERE account_status != 'deleted'
     `);
+
+    const individualPlanUsers = usersByPlan.rows.find((p: any) => p.plan_name === 'individual')?.count || 0;
+    const teamPlanUsers = usersByPlan.rows.find((p: any) => p.plan_name === 'team')?.count || 0;
+    const paidPlanUsers = parseInt(individualPlanUsers) + parseInt(teamPlanUsers);
 
     res.json({
       usersByPlan: usersByPlan.rows,
       totalRevenue: totalRevenue.rows[0].total,
       totalRefunds: totalRefunds.rows[0].total,
       recentPayments: recentPayments.rows,
-      activeUsers: activeUsers.rows[0].count
+      activeUsers: activeUsers.rows[0].count,
+      individualPlanUsers,
+      teamPlanUsers,
+      paidPlanUsers
     });
   } catch (err) {
     console.error('Dev dashboard error:', err);
