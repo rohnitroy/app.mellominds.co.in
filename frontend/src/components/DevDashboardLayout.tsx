@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './DevDashboardLayout.css';
 
@@ -8,6 +8,16 @@ const DevDashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Redirect non-dev-admins to /dashboard
+  if (user && !(user as any).is_dev_admin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Show blank while user loads
+  if (!user) {
+    return null;
+  }
 
   const menuItems = [
     { label: 'Dashboard', path: '/devdashboard', icon: '📊' },

@@ -1738,13 +1738,11 @@ const AppContent: React.FC = () => {
           <Route path="/terms-of-service" element={<TermsOfService />} />
 
           {/* Dev Admin Dashboard Routes */}
-          <Route element={<DevAdminRoute />}>
-            <Route element={<DevDashboardLayout />}>
-              <Route path="/devdashboard" element={<DevDashboardHome />} />
-              <Route path="/devdashboard-allusers" element={<DevAllUsers />} />
-              <Route path="/devdashboard-payment-invoices" element={<DevPaymentInvoices />} />
-              <Route path="/devdashboard-settings" element={<DevSettings />} />
-            </Route>
+          <Route element={<DevDashboardLayout />}>
+            <Route path="/devdashboard" element={<DevDashboardHome />} />
+            <Route path="/devdashboard-allusers" element={<DevAllUsers />} />
+            <Route path="/devdashboard-payment-invoices" element={<DevPaymentInvoices />} />
+            <Route path="/devdashboard-settings" element={<DevSettings />} />
           </Route>
 
           {/* Catch all redirect to dashboard */}

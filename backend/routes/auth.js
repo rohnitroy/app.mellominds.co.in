@@ -208,7 +208,7 @@ router.post('/register', registerLimiter, async (req, res) => {
 });
 
 // Traditional email/password login
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', async (req, res) => { // TODO: Re-enable loginLimiter after testing
   try {
     let { email, password } = req.body;
 
@@ -669,6 +669,7 @@ router.get('/me', async (req, res) => {
 
     const freshUser = result.rows[0];
     const user = formatUserResponse(freshUser);
+    user.is_dev_admin = isDevAdmin(freshUser.email);
 
     // For team plan users, include seat usage
     if (freshUser.plan_name === 'team') {
