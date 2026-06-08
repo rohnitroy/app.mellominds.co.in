@@ -40,6 +40,7 @@ import DevAdminRoute from './components/DevAdminRoute';
 import DevDashboardLayout from './components/DevDashboardLayout';
 import DevDashboardHome from './components/DevDashboardHome';
 import DevAllUsers from './components/DevAllUsers';
+import DevUserDetail from './components/DevUserDetail';
 import DevPaymentInvoices from './components/DevPaymentInvoices';
 import DevSettings from './components/DevSettings';
 import TeamSettings from './components/TeamSettings';
@@ -1746,6 +1747,7 @@ const AppContent: React.FC = () => {
           <Route element={<DevAdminRoute />}>
             <Route element={<DevDashboardLayout />}>
               <Route path="/devdashboard" element={<DevDashboardHome />} />
+              <Route path="/devdashboard-allusers/:id" element={<DevUserDetail />} />
               <Route path="/devdashboard-allusers" element={<DevAllUsers />} />
               <Route path="/devdashboard-payment-invoices" element={<DevPaymentInvoices />} />
               <Route path="/devdashboard-settings" element={<DevSettings />} />

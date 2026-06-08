@@ -409,6 +409,115 @@ router.post('/refund', async (req, res) => {
   }
 });
 
+// Helper function to format hours to "Xh Ym" format
+const formatTimeSpend = (hours) => {
+  const h = Math.floor(parseFloat(hours));
+  const m = Math.round((parseFloat(hours) - h) * 60);
+  if (h === 0 && m === 0) return '0m';
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+};
+
+// GET /api/dev/user/:id/detail - User detail view
+router.get('/user/:id/detail', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get user info
+    const userResult = await pool.query(
+      `SELECT id, user_name, email, phone, city, plan_name, created_at, last_login, account_status, purchased_seats
+       FROM users WHERE id = $1 AND account_status != 'deleted'`,
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Get client count (therapists booked by this user)
+    const clientCountResult = await pool.query(
+      `SELECT COUNT(DISTINCT therapist_id) as count FROM appointments
+       WHERE user_id = $1 AND status IN ('confirmed', 'completed')`,
+      [id]
+    );
+    const clientCount = parseInt(clientCountResult.rows[0].count) || 0;
+
+    // Get session stats (appointments) - count sessions only
+    const sessionStatsResult = await pool.query(
+      `SELECT COUNT(*) as total_sessions FROM appointments
+       WHERE user_id = $1 AND status IN ('confirmed', 'completed')`,
+      [id]
+    );
+    const totalSessions = parseInt(sessionStatsResult.rows[0]?.total_sessions) || 0;
+
+    // Check if user is paid
+    const paidResult = await pool.query(
+      `SELECT COUNT(*) as count FROM plan_payments
+       WHERE user_id = $1 AND payment_status = 'Paid'`,
+      [id]
+    );
+    const isPaidUser = parseInt(paidResult.rows[0]?.count) || 0 > 0;
+
+    res.json({
+      user: {
+        ...user,
+        id: user.id,
+        user_name: user.user_name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        city: user.city || '',
+        plan_name: user.plan_name || 'free',
+        created_at: user.created_at,
+        last_login: user.last_login,
+        account_status: user.account_status,
+        purchased_seats: user.purchased_seats || null
+      },
+      clientCount: clientCount || 0,
+      dailyTimeSpend: '0m',
+      avgTimeSpend: totalSessions > 0 ? '0m' : '0m',
+      totalSessions: totalSessions,
+      isPaidUser: isPaidUser
+    });
+  } catch (err) {
+    console.error('User detail error:', err);
+    res.status(500).json({ error: 'Failed to fetch user detail' });
+  }
+});
+
+// PUT /api/dev/user/:id - Update user profile
+router.put('/user/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user_name, email, phone, city } = req.body;
+
+    const result = await pool.query(
+      `UPDATE users
+       SET user_name = COALESCE($1, user_name),
+           email = COALESCE($2, email),
+           phone = COALESCE($3, phone),
+           city = COALESCE($4, city)
+       WHERE id = $5 AND account_status != 'deleted'
+       RETURNING id, user_name, email, phone, city, plan_name, created_at, last_login, account_status`,
+      [user_name || null, email || null, phone || null, city || null, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Emit real-time update
+    io.emit('user-updated', { userId: id, user: result.rows[0] });
+
+    res.json({ message: 'User updated', user: result.rows[0] });
+  } catch (err) {
+    console.error('Update user error:', err);
+    res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
 // GET /api/dev/cities - Get distinct cities for filter
 router.get('/cities', async (req, res) => {
   try {

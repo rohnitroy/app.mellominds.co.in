@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import API_BASE_URL from '../config/api';
 import DevUserActions from './DevUserActions';
 import './DevDashboardHome.css';
 
 const DevDashboardHome: React.FC = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
@@ -239,7 +241,14 @@ const DevDashboardHome: React.FC = () => {
           <tbody>
             {recentUsers.map((user) => (
               <tr key={user.id}>
-                <td>{user.user_name}</td>
+                <td>
+                  <button
+                    className="dev-user-name-link"
+                    onClick={() => navigate(`/devdashboard-allusers/${user.id}`)}
+                  >
+                    {user.user_name}
+                  </button>
+                </td>
                 <td>
                   <div>{user.email}</div>
                   {user.phone && <div style={{ fontSize: '12px', color: '#666' }}>{user.phone}</div>}

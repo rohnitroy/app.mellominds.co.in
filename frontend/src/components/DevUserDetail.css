@@ -1,11 +1,12 @@
-.dev-all-users {
+.dev-user-detail {
   display: flex;
   flex-direction: column;
   gap: 24px;
   padding: 0;
 }
 
-.dev-all-users-loading {
+.dev-user-detail-loading,
+.dev-user-detail-error {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -14,7 +15,34 @@
   color: #666;
 }
 
-.dev-all-users-title {
+.dev-back-btn {
+  align-self: flex-start;
+  padding: 8px 14px;
+  background: white;
+  border: 1px solid #f1f3f4;
+  border-radius: 6px;
+  font-family: Urbanist;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #082421;
+  transition: all 0.2s;
+}
+
+.dev-back-btn:hover {
+  background: #f9f9f9;
+  border-color: #082421;
+}
+
+.dev-user-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.dev-user-detail-header h1 {
   font-family: Urbanist;
   font-size: 32px;
   font-weight: 700;
@@ -22,162 +50,89 @@
   color: #000;
 }
 
-.dev-all-users-filters {
+.dev-user-status {
+  margin: 0;
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  align-items: flex-end;
-}
-
-.dev-all-users-search {
-  flex: 1;
-  min-width: 200px;
-  padding: 10px 14px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-family: Urbanist;
-  font-size: 14px;
-}
-
-.dev-all-users-filter-wrapper {
-  position: relative;
-  width: 150px;
-}
-
-.dev-all-users-filter {
-  width: 100%;
-  padding: 10px 14px;
-  padding-right: 30px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-family: Urbanist;
-  font-size: 14px;
-  appearance: none;
-  background: white;
-  cursor: pointer;
-}
-
-.dev-all-users-filter:focus {
-  outline: none;
-  border-color: #082421;
-}
-
-.dev-all-users-filter-arrow {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
-  color: #666;
-  font-size: 12px;
-}
-
-.dev-all-users-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-  border: 1px solid #f1f3f4;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.dev-all-users-table thead {
-  background: #f9f9f9;
-}
-
-.dev-all-users-table th {
-  padding: 14px 16px;
-  text-align: left;
-  font-family: Urbanist;
-  font-weight: 600;
-  font-size: 14px;
-  color: #000;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.dev-all-users-table tbody tr {
-  border-bottom: 1px solid #f1f3f4;
-  transition: background 0.2s;
-}
-
-.dev-all-users-table tbody tr:hover {
-  background: #fafafa;
-}
-
-.dev-all-users-table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.dev-all-users-table td {
-  padding: 14px 16px;
-  font-family: Urbanist;
-  font-size: 14px;
-  color: #000;
-  position: relative;
-}
-
-.dev-status-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.dev-status-badge.Active {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.dev-status-badge.Inactive {
-  background: #fff3e0;
-  color: #e65100;
-}
-
-.dev-status-badge.Banned {
-  background: #ffebee;
-  color: #c62828;
-}
-
-.dev-all-users-pagination {
-  display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 16px;
-  padding: 16px 0;
 }
 
-.dev-pagination-btn {
-  padding: 8px 16px;
+.dev-user-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 18px;
+}
+
+.dev-detail-card {
   background: white;
+  padding: 20px 18px;
+  border-radius: 10px;
   border: 1px solid #f1f3f4;
-  border-radius: 6px;
+}
+
+.dev-detail-card label {
+  display: block;
+  font-family: Urbanist;
+  font-weight: 500;
+  font-size: 14px;
+  color: #000000cc;
+  margin-bottom: 8px;
+}
+
+.dev-detail-value {
+  font-family: Urbanist;
+  font-weight: 600;
+  font-size: 18px;
+  color: #000;
+}
+
+.dev-contact-info {
   font-family: Urbanist;
   font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
+  color: #000;
+  line-height: 1.6;
+}
+
+.dev-plan-info {
+  font-family: Urbanist;
+  font-weight: 600;
+  font-size: 16px;
   color: #082421;
 }
 
-.dev-pagination-btn:hover:not(:disabled) {
-  background: #f9f9f9;
-  border-color: #082421;
+.dev-user-detail-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.dev-pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.dev-pagination-info {
+.dev-action-btn {
+  padding: 10px 18px;
+  border-radius: 6px;
   font-family: Urbanist;
   font-size: 14px;
-  font-weight: 500;
-  color: #666;
-  min-width: 120px;
-  text-align: center;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.dev-action-btn.dev-action-primary {
+  background: #082421;
+  color: white;
+}
+
+.dev-action-btn.dev-action-primary:hover {
+  background: #051a18;
+}
+
+.dev-action-btn.dev-action-danger {
+  background: #ffebee;
+  color: #d32f2f;
+  border: 1px solid #ffcdd2;
+}
+
+.dev-action-btn.dev-action-danger:hover {
+  background: #ffcdd2;
 }
 
 /* Modals */
@@ -312,45 +267,44 @@
   background: #b71c1c;
 }
 
-.dev-user-name-link {
-  background: none;
-  border: none;
-  color: #082421;
-  cursor: pointer;
-  font-family: Urbanist;
-  font-size: 14px;
-  font-weight: 500;
-  text-decoration: none;
-  padding: 0;
-  transition: color 0.2s;
+.dev-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.dev-user-name-link:hover {
-  color: #F9E141;
-  text-decoration: underline;
+.dev-status-badge.Active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.dev-status-badge.Banned {
+  background: #ffebee;
+  color: #c62828;
 }
 
 @media (max-width: 768px) {
-  .dev-all-users-title {
+  .dev-user-detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dev-user-detail-header h1 {
     font-size: 24px;
   }
 
-  .dev-all-users-filters {
+  .dev-user-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dev-user-detail-actions {
     flex-direction: column;
   }
 
-  .dev-all-users-search,
-  .dev-all-users-filter {
+  .dev-action-btn {
     width: 100%;
-  }
-
-  .dev-all-users-table {
-    font-size: 12px;
-  }
-
-  .dev-all-users-table th,
-  .dev-all-users-table td {
-    padding: 10px 12px;
   }
 
   .dev-modal {

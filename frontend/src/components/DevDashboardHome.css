@@ -386,6 +386,24 @@
   background: #b71c1c;
 }
 
+.dev-user-name-link {
+  background: none;
+  border: none;
+  color: #082421;
+  cursor: pointer;
+  font-family: Urbanist;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 0;
+  transition: color 0.2s;
+}
+
+.dev-user-name-link:hover {
+  color: #F9E141;
+  text-decoration: underline;
+}
+
 @media (max-width: 768px) {
   .dev-users-table {
     font-size: 12px;
