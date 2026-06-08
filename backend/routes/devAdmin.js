@@ -18,11 +18,19 @@ router.get('/dashboard', async (req, res) => {
       GROUP BY plan_name
     `);
 
-    // Total revenue (sum of all paid appointments)
+    // Total revenue (paid minus refunds)
     const totalRevenue = await pool.query(`
+      SELECT COALESCE(SUM(CASE WHEN payment_status = 'Paid' THEN payment_amount ELSE 0 END), 0) -
+             COALESCE(SUM(CASE WHEN payment_status = 'Refunded' THEN payment_amount ELSE 0 END), 0) as total
+      FROM appointments
+      WHERE payment_status IN ('Paid', 'Refunded')
+    `);
+
+    // Total refunds
+    const totalRefunds = await pool.query(`
       SELECT COALESCE(SUM(payment_amount), 0) as total
       FROM appointments
-      WHERE payment_status = 'Paid'
+      WHERE payment_status = 'Refunded'
     `);
 
     // Recent payments (last 10)
@@ -35,16 +43,17 @@ router.get('/dashboard', async (req, res) => {
       LIMIT 10
     `);
 
-    // Active users - using total users for now (last_login column doesn't exist)
+    // Active users - count users with at least one appointment
     const activeUsers = await pool.query(`
-      SELECT COUNT(*) as count
-      FROM users
-      WHERE account_status != 'deleted'
+      SELECT COUNT(DISTINCT therapist_id) as count
+      FROM appointments
+      WHERE therapist_id IS NOT NULL
     `);
 
     res.json({
       usersByPlan: usersByPlan.rows,
       totalRevenue: totalRevenue.rows[0].total,
+      totalRefunds: totalRefunds.rows[0].total,
       recentPayments: recentPayments.rows,
       activeUsers: activeUsers.rows[0].count
     });

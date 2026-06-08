@@ -59,13 +59,9 @@ const DevDashboardHome: React.FC = () => {
   const teamPlanUsers = stats?.usersByPlan?.find((p: any) => p.plan_name === 'team')?.count || 0;
   const inactiveUsers = dashboardTotalUsers - (stats?.activeUsers || 0);
 
-  // Calculate total refunds
-  const totalRefunds = stats?.recentPayments?.filter((p: any) => p.payment_status === 'Refunded')
-    .reduce((sum: number, p: any) => sum + (p.payment_amount || 0), 0) || 0;
-
   const analyticsData = [
     { label: 'Total Revenue', value: `₹${stats?.totalRevenue || 0}` },
-    { label: 'Total Refunds', value: `₹${totalRefunds}` },
+    { label: 'Total Refunds', value: `₹${stats?.totalRefunds || 0}` },
     { label: 'Active Users', value: stats?.activeUsers || 0 },
     { label: 'Free Plan Users', value: freeUsers },
     { label: 'Paid Plan Users', value: paidPlanUsers },
