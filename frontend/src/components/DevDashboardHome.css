@@ -38,24 +38,6 @@
   color: #000000;
 }
 
-.dev-dashboard-home h2 {
-  font-family: Urbanist;
-  font-weight: 600;
-  font-size: 18px;
-  color: #000000;
-  margin: 20px 0 16px 0;
-}
-
-.dev-dashboard-home table {
-  background: white;
-  border-radius: 10px;
-  border: 1px solid #f1f3f4;
-  overflow: hidden;
-}
-
-.dev-dashboard-home tbody tr:hover {
-  background: #f9f9f9;
-}
 
 /* Responsive */
 @media (max-width: 1024px) {
