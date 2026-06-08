@@ -186,6 +186,141 @@
   font-size: 16px;
 }
 
+/* Enterprise Container */
+.enterpriseContainer {
+  max-width: 1200px;
+  margin: 80px auto;
+  padding: 0 20px;
+}
+
+.enterpriseCard {
+  background: linear-gradient(135deg, #082421 0%, #0a3633 100%);
+  border-radius: 20px;
+  padding: 60px;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 60px;
+  align-items: flex-start;
+  color: white;
+  border: 2px solid #F9E141;
+  transition: all 0.3s ease;
+}
+
+.enterpriseCard:hover {
+  box-shadow: 0 30px 60px rgba(249, 225, 65, 0.2);
+  transform: translateY(-4px);
+}
+
+.enterpriseContent {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100%;
+}
+
+.enterpriseContent .planName {
+  color: white;
+}
+
+.enterpriseContent .planDescription {
+  color: #b3d9d5;
+}
+
+.enterpriseContent .priceSection {
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.enterpriseFeatures {
+  flex: 1;
+}
+
+.enterpriseCard .featuresList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.enterpriseCard .featureItem {
+  display: flex;
+  gap: 12px;
+  font-size: 14px;
+  color: #b3d9d5;
+  line-height: 1.5;
+}
+
+.enterpriseCard .checkmark {
+  color: #F9E141;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.enterpriseCard .cta {
+  align-self: flex-end;
+  width: auto;
+  min-width: 200px;
+  white-space: nowrap;
+}
+
+/* Responsive - Enterprise */
+@media (max-width: 1024px) {
+  .enterpriseCard {
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+  }
+
+  .enterpriseCard .cta {
+    grid-column: 1 / -1;
+    align-self: center;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .enterpriseCard {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding: 40px 24px;
+  }
+
+  .enterpriseContent {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .enterpriseCard .cta {
+    grid-column: 1;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .enterpriseCard {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 24px 16px;
+  }
+
+  .enterpriseContent {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .enterpriseCard .featuresList {
+    gap: 10px;
+  }
+
+  .enterpriseCard .featureItem {
+    font-size: 13px;
+  }
+
+  .enterpriseCard .cta {
+    width: 100%;
+  }
+}
+
 /* FAQ Section */
 .faqSection {
   max-width: 1200px;

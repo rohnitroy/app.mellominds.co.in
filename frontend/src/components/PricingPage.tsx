@@ -119,9 +119,9 @@ const PricingPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Pricing Cards */}
+      {/* Pricing Cards - Free, Individual, Team */}
       <div className={styles.cardsContainer}>
-        {PLANS.map((plan) => (
+        {PLANS.slice(0, 3).map((plan) => (
           <div
             key={plan.id}
             className={`${styles.card} ${plan.featured ? styles.featured : ''}`}
@@ -157,6 +157,52 @@ const PricingPage: React.FC = () => {
                 </div>
               ))}
             </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Enterprise Plan - Horizontal Container */}
+      <div className={styles.enterpriseContainer}>
+        {PLANS.slice(3, 4).map((plan) => (
+          <div
+            key={plan.id}
+            className={styles.enterpriseCard}
+          >
+            <div className={styles.enterpriseContent}>
+              <div>
+                <h2 className={styles.planName}>{plan.name}</h2>
+                <p className={styles.planDescription}>{plan.description}</p>
+              </div>
+
+              <div className={styles.priceSection}>
+                <span className={styles.price}>{plan.price}</span>
+                <span className={styles.period}>{plan.period}</span>
+              </div>
+            </div>
+
+            <div className={styles.enterpriseFeatures}>
+              <div className={styles.featuresList}>
+                {plan.features.map((feature, idx) => (
+                  <div key={idx} className={styles.featureItem}>
+                    <span className={styles.checkmark}>✓</span>
+                    <span>{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              className={`${styles.cta} ${styles.ctaPrimary}`}
+              onClick={() => {
+                if (plan.ctaLink.startsWith('mailto:')) {
+                  window.location.href = plan.ctaLink;
+                } else {
+                  window.location.href = plan.ctaLink;
+                }
+              }}
+            >
+              {plan.cta}
+            </button>
           </div>
         ))}
       </div>
