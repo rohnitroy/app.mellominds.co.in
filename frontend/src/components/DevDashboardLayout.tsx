@@ -32,7 +32,6 @@ const DevDashboardLayout: React.FC = () => {
     { label: 'Dashboard', path: '/devdashboard', icon: 'category' },
     { label: 'All Users', path: '/devdashboard-allusers', icon: 'users' },
     { label: 'Payments', path: '/devdashboard-payment-invoices', icon: 'wallet' },
-    { label: 'Settings', path: '/devdashboard-settings', icon: 'setting' },
   ];
 
   const handleLogout = () => {
