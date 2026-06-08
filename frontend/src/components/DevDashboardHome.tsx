@@ -6,13 +6,16 @@ const DevDashboardHome: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const recordsPerPage = 5;
 
   useEffect(() => {
     fetchDashboardStats();
   }, []);
 
   useEffect(() => {
-    fetchRecentUsers();
+    fetchRecentUsers(1);
   }, []);
 
   const fetchDashboardStats = async () => {
@@ -29,13 +32,16 @@ const DevDashboardHome: React.FC = () => {
     }
   };
 
-  const fetchRecentUsers = async () => {
+  const fetchRecentUsers = async (page: number = 1) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/dev/all-users?limit=10&offset=0`, {
+      const offset = (page - 1) * recordsPerPage;
+      const res = await fetch(`${API_BASE_URL}/api/dev/all-users?limit=${recordsPerPage}&offset=${offset}`, {
         credentials: 'include'
       });
       const data = await res.json();
       setRecentUsers(data.users || []);
+      setTotalUsers(data.total || 0);
+      setCurrentPage(page);
     } catch (err) {
       console.error('Failed to fetch recent users:', err);
     }
@@ -114,6 +120,28 @@ const DevDashboardHome: React.FC = () => {
             ))}
           </tbody>
         </table>
+
+        <div className="dev-pagination">
+          <button
+            className="dev-pagination-btn"
+            onClick={() => fetchRecentUsers(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </button>
+
+          <div className="dev-pagination-info">
+            Page {currentPage} of {Math.ceil(totalUsers / recordsPerPage)}
+          </div>
+
+          <button
+            className="dev-pagination-btn"
+            onClick={() => fetchRecentUsers(currentPage + 1)}
+            disabled={currentPage >= Math.ceil(totalUsers / recordsPerPage)}
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );

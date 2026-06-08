@@ -135,6 +135,48 @@
   color: #e65100;
 }
 
+/* Pagination */
+.dev-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 16px 0;
+}
+
+.dev-pagination-btn {
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid #f1f3f4;
+  border-radius: 6px;
+  font-family: Urbanist;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #082421;
+}
+
+.dev-pagination-btn:hover:not(:disabled) {
+  background: #f9f9f9;
+  border-color: #082421;
+}
+
+.dev-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dev-pagination-info {
+  font-family: Urbanist;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  min-width: 120px;
+  text-align: center;
+}
+
 @media (max-width: 768px) {
   .dev-users-table {
     font-size: 12px;
@@ -143,5 +185,15 @@
   .dev-users-table th,
   .dev-users-table td {
     padding: 10px 12px;
+  }
+
+  .dev-pagination {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .dev-pagination-btn {
+    padding: 6px 12px;
+    font-size: 12px;
   }
 }
