@@ -52,7 +52,7 @@ const LoginPage: React.FC = () => {
 
       if (response.ok) {
         toast.success('Login successful!')
-        login()
+        await login()
         // Redirect based on user type
         if (data.user?.is_dev_admin) {
           navigate('/devdashboard')

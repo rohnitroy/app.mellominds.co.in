@@ -68,10 +68,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         checkAuth();
     }, []);
 
-    const login = () => {
+    const login = async () => {
         setIsAuthenticated(true);
-        // We could also re-check auth here to be sure
-        checkAuth();
+        await checkAuth();
     };
 
     const logout = async () => {
