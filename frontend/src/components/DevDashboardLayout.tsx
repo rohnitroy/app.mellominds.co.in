@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Category, TwoUsers, Wallet, Setting } from 'react-iconly';
 import './DevDashboardLayout.css';
 
 const DevDashboardLayout: React.FC = () => {
@@ -20,10 +21,10 @@ const DevDashboardLayout: React.FC = () => {
   }
 
   const menuItems = [
-    { label: 'Dashboard', path: '/devdashboard', icon: '📊' },
-    { label: 'All Users', path: '/devdashboard-allusers', icon: '👥' },
-    { label: 'Payments', path: '/devdashboard-payment-invoices', icon: '💳' },
-    { label: 'Settings', path: '/devdashboard-settings', icon: '⚙️' },
+    { label: 'Dashboard', path: '/devdashboard', icon: 'category' },
+    { label: 'All Users', path: '/devdashboard-allusers', icon: 'users' },
+    { label: 'Payments', path: '/devdashboard-payment-invoices', icon: 'wallet' },
+    { label: 'Settings', path: '/devdashboard-settings', icon: 'setting' },
   ];
 
   const handleLogout = () => {
@@ -41,16 +42,32 @@ const DevDashboardLayout: React.FC = () => {
         </div>
 
         <nav className="dev-nav-menu">
-          {menuItems.map((item) => (
-            <a
-              key={item.path}
-              href={item.path}
-              className={`dev-nav-item ${location.pathname === item.path ? 'active' : ''}`}
-            >
-              <span className="dev-nav-icon">{item.icon}</span>
-              {sidebarOpen && <span className="dev-nav-label">{item.label}</span>}
-            </a>
-          ))}
+          {menuItems.map((item) => {
+            const renderIcon = () => {
+              switch (item.icon) {
+                case 'category':
+                  return <Category set="bold" />;
+                case 'users':
+                  return <TwoUsers set="bold" />;
+                case 'wallet':
+                  return <Wallet set="bold" />;
+                case 'setting':
+                  return <Setting set="bold" />;
+                default:
+                  return null;
+              }
+            };
+            return (
+              <a
+                key={item.path}
+                href={item.path}
+                className={`dev-nav-item ${location.pathname === item.path ? 'active' : ''}`}
+              >
+                <span className="dev-nav-icon">{renderIcon()}</span>
+                {sidebarOpen && <span className="dev-nav-label">{item.label}</span>}
+              </a>
+            );
+          })}
         </nav>
       </div>
 
@@ -63,7 +80,7 @@ const DevDashboardLayout: React.FC = () => {
             onClick={() => setSidebarOpen(!sidebarOpen)}
             title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
           >
-            ☰
+            <Category set="bold" />
           </button>
 
           <div className="dev-header-title">
@@ -76,7 +93,7 @@ const DevDashboardLayout: React.FC = () => {
               <div className="dev-user-email">{user?.email}</div>
             </div>
             <button className="dev-logout-btn" onClick={handleLogout} title="Logout">
-              🚪
+              <Setting set="bold" />
             </button>
           </div>
         </div>

@@ -7,31 +7,31 @@
 
 /* Sidebar */
 .dev-sidebar {
-  width: 280px;
+  width: 240px;
   background: #082421;
   color: white;
-  padding: 20px;
-  overflow-y: auto;
-  transition: width 0.3s ease;
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  flex-shrink: 0;
+  position: relative;
 }
 
 .dev-sidebar.closed {
-  width: 80px;
+  width: 240px;
 }
 
 .dev-sidebar-header {
+  padding: 12px 20px 20px;
   display: flex;
+  justify-content: center;
   align-items: center;
   gap: 12px;
-  margin-bottom: 40px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .dev-sidebar-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -46,26 +46,34 @@
 }
 
 .dev-nav-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex: 1;
+  padding: 0 12px;
+}
+
+.dev-nav-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 16px 12px;
 }
 
 .dev-nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.7);
-  text-decoration: none;
-  transition: all 0.2s ease;
+  padding: 12px 20px;
+  margin: 16px 0;
+  border-radius: 10px;
   cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  color: #D5FFFA;
+  transition: background 0.2s;
+  height: 40px;
+  box-sizing: border-box;
+  text-decoration: none;
 }
 
 .dev-nav-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: rgba(249, 225, 65, 0.1);
 }
 
 .dev-nav-item.active {
@@ -74,9 +82,21 @@
   font-weight: 600;
 }
 
+.dev-nav-item.active .dev-nav-icon {
+  filter: brightness(0) saturate(100%) invert(12%) sepia(25%) saturate(1234%) hue-rotate(134deg) brightness(95%) contrast(95%);
+}
+
 .dev-nav-icon {
-  font-size: 20px;
-  min-width: 24px;
+  margin-right: 14px;
+  width: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dev-nav-icon svg {
+  width: 18px;
+  height: 18px;
 }
 
 .dev-nav-label {
@@ -110,12 +130,19 @@
 .dev-sidebar-toggle {
   background: none;
   border: none;
-  font-size: 24px;
   cursor: pointer;
   color: #082421;
   padding: 8px;
   border-radius: 6px;
   transition: background 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dev-sidebar-toggle svg {
+  width: 24px;
+  height: 24px;
 }
 
 .dev-sidebar-toggle:hover {
@@ -157,11 +184,19 @@
 .dev-logout-btn {
   background: none;
   border: none;
-  font-size: 20px;
   cursor: pointer;
   padding: 8px;
   border-radius: 6px;
   transition: background 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #082421;
+}
+
+.dev-logout-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
 .dev-logout-btn:hover {
