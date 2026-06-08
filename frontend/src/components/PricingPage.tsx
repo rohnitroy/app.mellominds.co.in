@@ -66,8 +66,8 @@ const PLANS: Plan[] = [
     price: '₹1,499',
     period: '/seat/month',
     description: 'For group practices',
-    cta: 'Contact Sales',
-    ctaLink: 'mailto:sales@mellominds.co.in',
+    cta: 'Upgrade Now',
+    ctaLink: '/upgrade',
     features: [
       'Everything in Individual',
       'Unlimited therapist seats',
