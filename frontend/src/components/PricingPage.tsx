@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './PricingPage.module.css';
 
 interface Plan {
@@ -132,6 +133,14 @@ const PLANS: Plan[] = [
 
 const PricingPage: React.FC = () => {
   const [teamSeats, setTeamSeats] = useState(3);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Block mobile access - redirect to dashboard
+    if (window.innerWidth <= 768) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   return (
     <div className={styles.container}>
