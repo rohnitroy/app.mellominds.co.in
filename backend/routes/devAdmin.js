@@ -35,11 +35,11 @@ router.get('/dashboard', async (req, res) => {
       LIMIT 10
     `);
 
-    // Active users (logged in last 7 days)
+    // Active users - using total users for now (last_login column doesn't exist)
     const activeUsers = await pool.query(`
       SELECT COUNT(*) as count
       FROM users
-      WHERE last_login >= NOW() - INTERVAL '7 days' AND account_status != 'deleted'
+      WHERE account_status != 'deleted'
     `);
 
     res.json({
@@ -81,7 +81,7 @@ router.get('/all-users', async (req, res) => {
     const totalCount = parseInt(countResult.rows[0].total);
 
     // Get paginated data
-    const query = `SELECT id, user_name, email, plan_name, created_at, last_login FROM users ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    const query = `SELECT id, user_name, email, plan_name, created_at FROM users ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
     const dataParams = [...params, limit, offset];
     const result = await pool.query(query, dataParams);
 

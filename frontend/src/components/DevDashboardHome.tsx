@@ -73,12 +73,8 @@ const DevDashboardHome: React.FC = () => {
     { label: 'Inactive Users', value: inactiveUsers },
   ];
 
-  const getStatus = (lastLogin: string) => {
-    if (!lastLogin) return 'Inactive';
-    const lastLoginDate = new Date(lastLogin);
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    return lastLoginDate >= sevenDaysAgo ? 'Active' : 'Inactive';
+  const getStatus = () => {
+    return 'Active';
   };
 
   return (
@@ -113,8 +109,8 @@ const DevDashboardHome: React.FC = () => {
                 <td>{user.email}</td>
                 <td style={{ textTransform: 'capitalize' }}>{user.plan_name}</td>
                 <td>
-                  <span className={`dev-status-badge ${getStatus(user.last_login)}`}>
-                    {getStatus(user.last_login)}
+                  <span className={`dev-status-badge ${getStatus()}`}>
+                    {getStatus()}
                   </span>
                 </td>
                 <td>{new Date(user.created_at).toLocaleDateString()}</td>
