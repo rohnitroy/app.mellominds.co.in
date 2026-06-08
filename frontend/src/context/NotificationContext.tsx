@@ -36,9 +36,8 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
             const res = await fetch(`${API_URL}/api/notifications`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
-                const notifs = Array.isArray(data) ? data : (data.notifications || []);
-                setNotifications(notifs);
-                setUnreadCount(notifs.filter((n: Notification) => !n.is_read).length);
+                setNotifications(data);
+                setUnreadCount(data.filter((n: Notification) => !n.is_read).length);
             }
         } catch (err) {
             console.error('Failed to fetch notifications:', err);

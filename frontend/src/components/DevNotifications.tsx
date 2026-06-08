@@ -18,7 +18,7 @@ const DevNotifications: React.FC = () => {
     setLoading(true);
     try {
       const offset = (page - 1) * recordsPerPage;
-      let url = `${API_BASE_URL}/api/notifications?limit=${recordsPerPage}&offset=${offset}`;
+      let url = `${API_BASE_URL}/api/dev/notifications?limit=${recordsPerPage}&offset=${offset}`;
 
       if (typeFilter) url += `&type=${typeFilter}`;
 
