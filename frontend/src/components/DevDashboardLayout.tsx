@@ -83,19 +83,7 @@ const DevDashboardLayout: React.FC = () => {
       <div className="dev-main-content">
         {/* Header */}
         <div className="dev-header">
-          <button
-            className="dev-sidebar-toggle"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-          >
-            <Category set="bold" />
-          </button>
-
-          <div className="dev-header-title">
-            <h1>Dev Admin Dashboard</h1>
-          </div>
-
-          <div className="dev-header-user">
+          <div className="dev-header-user" style={{ marginLeft: 'auto' }}>
             <div className="dev-user-info">
               <div className="dev-user-name">{user?.user_name || 'Admin'}</div>
               <div className="dev-user-email">{user?.email}</div>
