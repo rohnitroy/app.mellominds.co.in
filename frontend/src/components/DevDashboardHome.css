@@ -60,17 +60,88 @@
   }
 }
 
-@media (max-width: 480px) {
-  .dev-stats-grid {
-    grid-template-columns: 1fr;
-  }
+/* Recent Users Section */
+.dev-recent-users-section {
+  margin-top: 32px;
+}
 
-  .dev-dashboard-home table {
+.dev-recent-users-section h2 {
+  font-family: Urbanist;
+  font-weight: 600;
+  font-size: 18px;
+  color: #000000;
+  margin: 0 0 16px 0;
+}
+
+.dev-users-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border: 1px solid #f1f3f4;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.dev-users-table thead {
+  background: #f9f9f9;
+}
+
+.dev-users-table th {
+  padding: 14px 16px;
+  text-align: left;
+  font-family: Urbanist;
+  font-weight: 600;
+  font-size: 14px;
+  color: #000000;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.dev-users-table tbody tr {
+  border-bottom: 1px solid #f1f3f4;
+  transition: background 0.2s;
+}
+
+.dev-users-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.dev-users-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.dev-users-table td {
+  padding: 14px 16px;
+  font-family: Urbanist;
+  font-size: 14px;
+  color: #000000;
+}
+
+.dev-status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.dev-status-badge.Active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.dev-status-badge.Inactive {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+@media (max-width: 768px) {
+  .dev-users-table {
     font-size: 12px;
   }
 
-  .dev-dashboard-home table th,
-  .dev-dashboard-home table td {
-    padding: 8px !important;
+  .dev-users-table th,
+  .dev-users-table td {
+    padding: 10px 12px;
   }
 }

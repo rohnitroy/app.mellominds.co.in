@@ -5,9 +5,14 @@ import './DevDashboardHome.css';
 const DevDashboardHome: React.FC = () => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [recentUsers, setRecentUsers] = useState<any[]>([]);
 
   useEffect(() => {
     fetchDashboardStats();
+  }, []);
+
+  useEffect(() => {
+    fetchRecentUsers();
   }, []);
 
   const fetchDashboardStats = async () => {
@@ -21,6 +26,18 @@ const DevDashboardHome: React.FC = () => {
       console.error('Failed to fetch dashboard stats:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRecentUsers = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/dev/all-users?limit=10&offset=0`, {
+        credentials: 'include'
+      });
+      const data = await res.json();
+      setRecentUsers(data.users || []);
+    } catch (err) {
+      console.error('Failed to fetch recent users:', err);
     }
   };
 
@@ -50,6 +67,14 @@ const DevDashboardHome: React.FC = () => {
     { label: 'Inactive Users', value: inactiveUsers },
   ];
 
+  const getStatus = (lastLogin: string) => {
+    if (!lastLogin) return 'Inactive';
+    const lastLoginDate = new Date(lastLogin);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    return lastLoginDate >= sevenDaysAgo ? 'Active' : 'Inactive';
+  };
+
   return (
     <div className="dev-dashboard-home">
       <div className="dev-stats-grid">
@@ -59,6 +84,36 @@ const DevDashboardHome: React.FC = () => {
             <div className="dev-stat-value">{stat.value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="dev-recent-users-section">
+        <h2>Recent Users</h2>
+        <table className="dev-users-table">
+          <thead>
+            <tr>
+              <th>User's Name</th>
+              <th>Contact Info</th>
+              <th>Plan Name</th>
+              <th>Status</th>
+              <th>Joining Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {recentUsers.map((user) => (
+              <tr key={user.id}>
+                <td>{user.user_name}</td>
+                <td>{user.email}</td>
+                <td style={{ textTransform: 'capitalize' }}>{user.plan_name}</td>
+                <td>
+                  <span className={`dev-status-badge ${getStatus(user.last_login)}`}>
+                    {getStatus(user.last_login)}
+                  </span>
+                </td>
+                <td>{new Date(user.created_at).toLocaleDateString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
