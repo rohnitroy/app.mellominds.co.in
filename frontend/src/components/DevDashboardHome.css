@@ -1,7 +1,17 @@
 .dev-dashboard-home {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 12px;
+}
+
+.dev-dashboard-heading {
+  font-family: Urbanist;
+  font-weight: 700;
+  font-size: 32px;
+  line-height: 120%;
+  letter-spacing: -0.5px;
+  color: #000000;
+  margin: 0 0 24px 0;
 }
 
 .dev-stats-grid {
@@ -62,7 +72,7 @@
 
 /* Recent Users Section */
 .dev-recent-users-section {
-  margin-top: 32px;
+  margin-top: 0;
 }
 
 .dev-recent-users-section h2 {
