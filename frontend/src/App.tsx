@@ -452,6 +452,11 @@ const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Redirect dev admins to /devdashboard
+  if (user && (user as any).is_dev_admin) {
+    return <Navigate to="/devdashboard" replace />;
+  }
+
   const showNotificationsPage = location.pathname === '/notifications';
 
   const navItems: NavItem[] = [
