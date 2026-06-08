@@ -62,29 +62,34 @@ router.get('/all-users', async (req, res) => {
     const plan = req.query.plan || null;
     const search = req.query.search || null;
 
-    let query = 'SELECT id, user_name, email, plan_name, created_at, last_login FROM users WHERE deleted_at IS NULL';
+    let whereClause = 'WHERE deleted_at IS NULL';
     const params = [];
 
     if (plan) {
-      query += ' AND plan_name = $' + (params.length + 1);
+      whereClause += ' AND plan_name = $' + (params.length + 1);
       params.push(plan);
     }
 
     if (search) {
-      query += ' AND (email ILIKE $' + (params.length + 1) + ' OR user_name ILIKE $' + (params.length + 1) + ')';
+      whereClause += ' AND (email ILIKE $' + (params.length + 1) + ' OR user_name ILIKE $' + (params.length + 1) + ')';
       params.push(`%${search}%`);
     }
 
-    query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1) + ' OFFSET $' + (params.length + 2);
-    params.push(limit, offset);
+    // Get total count
+    const countQuery = `SELECT COUNT(*) as total FROM users ${whereClause}`;
+    const countResult = await pool.query(countQuery, params);
+    const totalCount = parseInt(countResult.rows[0].total);
 
-    const result = await pool.query(query, params);
+    // Get paginated data
+    const query = `SELECT id, user_name, email, plan_name, created_at, last_login FROM users ${whereClause} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    const dataParams = [...params, limit, offset];
+    const result = await pool.query(query, dataParams);
 
     res.json({
       users: result.rows,
       limit,
       offset,
-      total: result.rows.length
+      total: totalCount
     });
   } catch (err) {
     console.error('All users error:', err);
