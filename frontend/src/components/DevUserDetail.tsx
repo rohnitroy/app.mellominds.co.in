@@ -25,6 +25,7 @@ const DevUserDetail: React.FC = () => {
     city: ''
   });
   const [error, setError] = useState<string | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   useEffect(() => {
     fetchUserDetail();
@@ -204,7 +205,69 @@ const DevUserDetail: React.FC = () => {
       </button>
 
       <div className="dev-user-detail-header">
-        <h1>{userData.user_name}</h1>
+        <div>
+          <div className="dev-header-title">
+            <h1>{userData.user_name}</h1>
+            <div className="dev-dropdown-container" style={{ position: 'relative' }}>
+              <button
+                className="dev-action-menu-btn"
+                onClick={() => setShowDropdown(!showDropdown)}
+                title="Actions"
+              >
+                ⋯
+              </button>
+              {showDropdown && (
+                <div className="dev-action-dropdown">
+                  <button
+                    className="dev-action-item"
+                    onClick={() => {
+                      setShowChangePlanModal(true);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    Upgrade Plan
+                  </button>
+                  <button
+                    className="dev-action-item"
+                    onClick={() => {
+                      handleOpenEditInfo();
+                      setShowDropdown(false);
+                    }}
+                  >
+                    Update Info
+                  </button>
+                  <button
+                    className="dev-action-item dev-action-danger"
+                    onClick={() => {
+                      setShowBanConfirm(true);
+                      setShowDropdown(false);
+                    }}
+                  >
+                    {userData.account_status === 'banned' ? 'Unban User' : 'Ban User'}
+                  </button>
+                  {detail.isPaidUser && (
+                    <button
+                      className="dev-action-item dev-action-danger"
+                      onClick={() => {
+                        setShowCancelPlanModal(true);
+                        setShowDropdown(false);
+                      }}
+                    >
+                      Cancel Plan
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="dev-contact-info-header">
+            <span>{userData.email}</span>
+            {userData.phone !== 'N/A' && <span>•</span>}
+            {userData.phone !== 'N/A' && <span>{userData.phone}</span>}
+            {userData.city !== 'N/A' && <span>•</span>}
+            {userData.city !== 'N/A' && <span>{userData.city}</span>}
+          </div>
+        </div>
         <p className="dev-user-status">
           <span className={`dev-status-badge ${userData.account_status === 'banned' ? 'Banned' : 'Active'}`}>
             {userData.account_status === 'banned' ? 'Banned' : 'Active'}
@@ -213,15 +276,6 @@ const DevUserDetail: React.FC = () => {
       </div>
 
       <div className="dev-user-detail-grid">
-        <div className="dev-detail-card">
-          <label>Contact Info</label>
-          <div className="dev-contact-info">
-            <div>{userData.email}</div>
-            {userData.phone !== 'N/A' && <div>{userData.phone}</div>}
-            {userData.city !== 'N/A' && <div>{userData.city}</div>}
-          </div>
-        </div>
-
         <div className="dev-detail-card">
           <label>Plan</label>
           <div className="dev-plan-info" style={{ textTransform: 'capitalize' }}>
@@ -249,13 +303,6 @@ const DevUserDetail: React.FC = () => {
         </div>
 
         <div className="dev-detail-card">
-          <label>Daily Time Spend</label>
-          <div className="dev-detail-value">
-            {detail.dailyTimeSpend}
-          </div>
-        </div>
-
-        <div className="dev-detail-card">
           <label>Avg Time Spend</label>
           <div className="dev-detail-value">
             {detail.avgTimeSpend}
@@ -270,34 +317,6 @@ const DevUserDetail: React.FC = () => {
         </div>
       </div>
 
-      <div className="dev-user-detail-actions">
-        <button
-          className="dev-action-btn dev-action-primary"
-          onClick={() => setShowChangePlanModal(true)}
-        >
-          Upgrade Plan
-        </button>
-        <button
-          className="dev-action-btn dev-action-primary"
-          onClick={handleOpenEditInfo}
-        >
-          Update Info
-        </button>
-        {detail.isPaidUser && (
-          <button
-            className="dev-action-btn dev-action-danger"
-            onClick={() => setShowCancelPlanModal(true)}
-          >
-            Cancel Plan
-          </button>
-        )}
-        <button
-          className="dev-action-btn dev-action-danger"
-          onClick={() => setShowBanConfirm(true)}
-        >
-          {userData.account_status === 'banned' ? 'Unban User' : 'Ban User'}
-        </button>
-      </div>
 
       {/* Change Plan Modal */}
       {showChangePlanModal && (

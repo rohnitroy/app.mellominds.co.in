@@ -36,18 +36,98 @@
 
 .dev-user-detail-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 16px;
   padding-bottom: 16px;
   border-bottom: 1px solid #f1f3f4;
+}
+
+.dev-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .dev-user-detail-header h1 {
   font-family: Urbanist;
   font-size: 32px;
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 8px 0;
   color: #000;
+}
+
+.dev-contact-info-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-family: Urbanist;
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.dev-dropdown-container {
+  position: relative;
+}
+
+.dev-action-menu-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  padding: 4px 8px;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.2s;
+}
+
+.dev-action-menu-btn:hover {
+  color: #000;
+}
+
+.dev-action-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 160px;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.dev-action-item {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: Urbanist;
+  font-size: 14px;
+  font-weight: 500;
+  color: #000;
+  transition: background 0.2s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dev-action-item:last-child {
+  border-bottom: none;
+}
+
+.dev-action-item:hover {
+  background: #f9f9f9;
+}
+
+.dev-action-item.dev-action-danger {
+  color: #d32f2f;
+}
+
+.dev-action-item.dev-action-danger:hover {
+  background: #ffebee;
 }
 
 .dev-user-status {

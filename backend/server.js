@@ -14,6 +14,7 @@ import pool from './config/database.js';
 import { setIO } from './lib/socket.js';
 import { sendEmail, activityNotificationEmail, sessionReminderEmail, sessionReminder30MinEmail, sessionReminder60MinEmail, isEmailEnabled } from './lib/email.js';
 import { ensureAuditTable, auditMiddleware } from './lib/audit.js';
+import { initializeSessionsTable } from './lib/sessions.js';
 import authRoutes from './routes/auth.js';
 import usersRoutes from './routes/users.js';
 import calendarRoutes from './routes/calendars.js';
@@ -34,6 +35,7 @@ import publicProfileRoutes from './routes/publicProfile.js';
 import therapistsRoutes from './routes/therapists.js';
 import pincodeRoutes from './routes/pincode.js';
 import devAdminRoutes from './routes/devAdmin.js';
+import sessionsRoutes from './routes/sessions.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { validateSchema, verifySchemaIntegrity, storeSchemaHash } from './security/schema-validator.js';
@@ -145,7 +147,7 @@ const PgSession = connectPgSimple(session);
 app.use(session({
   store: new PgSession({
     pool,                     // reuse existing pg pool
-    tableName: 'user_sessions',
+    tableName: 'pg_sessions',
     createTableIfMissing: true, // auto-create sessions table
     pruneSessionInterval: 60 * 15, // prune expired sessions every 15 min
   }),
@@ -203,6 +205,7 @@ app.use('/api/public', apiLimiter, publicProfileRoutes);
 app.use('/api/therapists', apiLimiter, therapistsRoutes);
 app.use('/api/pincode', apiLimiter, pincodeRoutes);
 app.use('/api/dev', devAdminRoutes);
+app.use('/api/sessions', sessionsRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
@@ -1034,7 +1037,8 @@ httpServer.listen(PORT, async () => {
   await ensureOrganizationDetailsSchema();
   await ensureEnterpriseLeadsSchema(); // Initialize enterprise leads table
   await ensureAuditTable(); // Initialize audit logging
-  
+  await initializeSessionsTable(); // Initialize sessions table
+
   // NOW validate schema integrity after migrations
   const schemaValidation = await validateSchema();
   if (!schemaValidation.valid && schemaValidation.critical) {

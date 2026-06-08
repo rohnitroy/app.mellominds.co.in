@@ -437,21 +437,56 @@ router.get('/user/:id/detail', async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // Get client count (therapists booked by this user)
+    // Get client count from clients table (all clients under this therapist)
     const clientCountResult = await pool.query(
-      `SELECT COUNT(DISTINCT therapist_id) as count FROM appointments
-       WHERE user_id = $1 AND status IN ('confirmed', 'completed')`,
+      `SELECT COUNT(*) as count FROM clients
+       WHERE therapist_id = $1`,
       [id]
     );
-    const clientCount = parseInt(clientCountResult.rows[0].count) || 0;
+    const clientCount = parseInt(clientCountResult.rows[0]?.count) || 0;
 
-    // Get session stats (appointments) - count sessions only
-    const sessionStatsResult = await pool.query(
-      `SELECT COUNT(*) as total_sessions FROM appointments
-       WHERE user_id = $1 AND status IN ('confirmed', 'completed')`,
-      [id]
-    );
-    const totalSessions = parseInt(sessionStatsResult.rows[0]?.total_sessions) || 0;
+    // Get session stats from user_sessions table (if table exists)
+    let totalSessions = 0, dailyAvgMinutes = 0, avgSessionMinutes = 0, totalMinutes = 0;
+
+    try {
+      const totalSessionsRes = await pool.query(
+        `SELECT COUNT(*) as count FROM user_sessions
+         WHERE user_id = $1 AND logout_time IS NOT NULL`,
+        [id]
+      );
+      totalSessions = parseInt(totalSessionsRes.rows[0]?.count) || 0;
+
+      // Get total time spent (last 7 days for daily avg)
+      const dailyRes = await pool.query(
+        `SELECT COALESCE(SUM(duration_minutes), 0) as total
+         FROM user_sessions
+         WHERE user_id = $1 AND logout_time IS NOT NULL AND login_time >= NOW() - INTERVAL '7 days'`,
+        [id]
+      );
+      const last7DaysMinutes = parseInt(dailyRes.rows[0]?.total) || 0;
+      dailyAvgMinutes = last7DaysMinutes > 0 ? Math.round(last7DaysMinutes / 7) : 0;
+
+      // Get average time per session
+      const avgSessionRes = await pool.query(
+        `SELECT COALESCE(SUM(duration_minutes), 0) as total
+         FROM user_sessions
+         WHERE user_id = $1 AND logout_time IS NOT NULL`,
+        [id]
+      );
+      totalMinutes = parseInt(avgSessionRes.rows[0]?.total) || 0;
+      avgSessionMinutes = totalSessions > 0 ? Math.round(totalMinutes / totalSessions) : 0;
+    } catch (err) {
+      // user_sessions table might not exist yet, fallback to 0
+      console.warn('Session stats unavailable:', err.message);
+    }
+
+    // Format time helper
+    const formatTime = (minutes) => {
+      if (!minutes || minutes < 1) return '0m';
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+    };
 
     // Check if user is paid
     const paidResult = await pool.query(
@@ -476,9 +511,10 @@ router.get('/user/:id/detail', async (req, res) => {
         purchased_seats: user.purchased_seats || null
       },
       clientCount: clientCount || 0,
-      dailyTimeSpend: '0m',
-      avgTimeSpend: totalSessions > 0 ? '0m' : '0m',
+      dailyTimeSpend: formatTime(dailyAvgMinutes),
+      avgTimeSpend: formatTime(avgSessionMinutes),
       totalSessions: totalSessions,
+      totalMinutes: totalMinutes,
       isPaidUser: isPaidUser
     });
   } catch (err) {

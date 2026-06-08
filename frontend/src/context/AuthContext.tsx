@@ -41,6 +41,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
+    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
 
     const checkAuth = async () => {
         try {
@@ -68,13 +70,61 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         checkAuth();
     }, []);
 
+    useEffect(() => {
+        const handleBeforeUnload = async () => {
+            if (sessionId && isAuthenticated) {
+                await endSession();
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [sessionId, isAuthenticated]);
+
+    const startSession = async () => {
+        try {
+            const response = await fetch(`${API_URL}/sessions/start`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setSessionId(data.sessionId);
+                setSessionStartTime(Date.now());
+            }
+        } catch (error) {
+            console.error('Session start failed:', error);
+        }
+    };
+
+    const endSession = async () => {
+        if (!sessionId || !sessionStartTime) return;
+
+        try {
+            const durationMinutes = Math.round((Date.now() - sessionStartTime) / 60000);
+            await fetch(`${API_URL}/sessions/end`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId, durationMinutes }),
+            });
+        } catch (error) {
+            console.error('Session end failed:', error);
+        } finally {
+            setSessionId(null);
+            setSessionStartTime(null);
+        }
+    };
+
     const login = async () => {
         setIsAuthenticated(true);
         await checkAuth();
+        await startSession();
     };
 
     const logout = async () => {
         try {
+            await endSession();
             await fetch(`${API_URL}/auth/logout`, {
                 method: 'POST',
                 credentials: 'include',
