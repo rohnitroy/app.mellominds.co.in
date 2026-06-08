@@ -1106,5 +1106,5 @@ httpServer.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
 
-// Export the app for Vercel serverless functions
-export default app;
+// Export the app and io for use in routes and Vercel
+export { app, io };

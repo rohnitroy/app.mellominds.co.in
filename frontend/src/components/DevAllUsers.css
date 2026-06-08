@@ -1,89 +1,52 @@
-.dev-dashboard-home {
+.dev-all-users {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 24px;
+  padding: 0;
 }
 
-.dev-dashboard-heading {
+.dev-all-users-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 400px;
+  font-size: 16px;
+  color: #666;
+}
+
+.dev-all-users-title {
   font-family: Urbanist;
-  font-weight: 700;
   font-size: 32px;
-  line-height: 120%;
-  letter-spacing: -0.5px;
-  color: #000000;
-  margin: 0 0 24px 0;
+  font-weight: 700;
+  margin: 0;
+  color: #000;
 }
 
-.dev-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 18px;
-  margin-bottom: 28px;
+.dev-all-users-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.dev-stat-card {
-  background: white;
-  padding: 20px 18px;
-  border-radius: 10px;
-  box-shadow: none;
-  border: 1px solid #f1f3f4;
-}
-
-.dev-stat-label {
+.dev-all-users-search,
+.dev-all-users-filter {
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
   font-family: Urbanist;
-  font-weight: 500;
   font-size: 14px;
-  line-height: 150%;
-  letter-spacing: -1.1%;
-  color: #000000cc;
-  margin-bottom: 6px;
 }
 
-.dev-stat-value {
-  font-family: Urbanist;
-  font-weight: 800;
-  font-size: 30px;
-  line-height: 100%;
-  letter-spacing: 0%;
-  color: #000000;
+.dev-all-users-search {
+  flex: 1;
+  min-width: 200px;
 }
 
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .dev-stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  }
-
-  .dev-stat-value {
-    font-size: 24px;
-  }
+.dev-all-users-filter {
+  width: 150px;
 }
 
-@media (max-width: 768px) {
-  .dev-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .dev-stat-value {
-    font-size: 20px;
-  }
-}
-
-/* Recent Users Section */
-.dev-recent-users-section {
-  margin-top: 0;
-}
-
-.dev-recent-users-section h2 {
-  font-family: Urbanist;
-  font-weight: 600;
-  font-size: 18px;
-  color: #000000;
-  margin: 0 0 16px 0;
-}
-
-.dev-users-table {
+.dev-all-users-table {
   width: 100%;
   border-collapse: collapse;
   background: white;
@@ -92,38 +55,38 @@
   overflow: hidden;
 }
 
-.dev-users-table thead {
+.dev-all-users-table thead {
   background: #f9f9f9;
 }
 
-.dev-users-table th {
+.dev-all-users-table th {
   padding: 14px 16px;
   text-align: left;
   font-family: Urbanist;
   font-weight: 600;
   font-size: 14px;
-  color: #000000;
+  color: #000;
   border-bottom: 1px solid #e0e0e0;
 }
 
-.dev-users-table tbody tr {
+.dev-all-users-table tbody tr {
   border-bottom: 1px solid #f1f3f4;
   transition: background 0.2s;
 }
 
-.dev-users-table tbody tr:hover {
+.dev-all-users-table tbody tr:hover {
   background: #fafafa;
 }
 
-.dev-users-table tbody tr:last-child {
+.dev-all-users-table tbody tr:last-child {
   border-bottom: none;
 }
 
-.dev-users-table td {
+.dev-all-users-table td {
   padding: 14px 16px;
   font-family: Urbanist;
   font-size: 14px;
-  color: #000000;
+  color: #000;
   position: relative;
 }
 
@@ -151,13 +114,11 @@
   color: #c62828;
 }
 
-/* Pagination */
-.dev-pagination {
+.dev-all-users-pagination {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 16px;
-  margin-top: 20px;
   padding: 16px 0;
 }
 
@@ -191,67 +152,6 @@
   color: #666;
   min-width: 120px;
   text-align: center;
-}
-
-/* Action Button */
-.dev-user-actions {
-  display: inline-block;
-}
-
-.dev-action-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 18px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background 0.2s;
-  color: #000;
-}
-
-.dev-action-btn:hover {
-  background: #f5f5f5;
-}
-
-.dev-action-dropdown {
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  min-width: 160px;
-  overflow: hidden;
-}
-
-.dev-action-item {
-  display: block;
-  width: 100%;
-  padding: 10px 14px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  text-align: left;
-  font-family: Urbanist;
-  font-size: 14px;
-  font-weight: 500;
-  color: #000;
-  transition: background 0.2s;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.dev-action-item:last-child {
-  border-bottom: none;
-}
-
-.dev-action-item:hover {
-  background: #f9f9f9;
-}
-
-.dev-action-item.dev-action-danger {
-  color: #d32f2f;
-}
-
-.dev-action-item.dev-action-danger:hover {
-  background: #ffebee;
 }
 
 /* Modals */
@@ -296,6 +196,15 @@
   font-weight: 500;
 }
 
+.dev-modal p.dev-info {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin: 12px 0;
+}
+
 .dev-modal select,
 .dev-modal input {
   width: 100%;
@@ -328,15 +237,6 @@
   color: #999;
   margin-top: -16px;
   margin-bottom: 16px;
-}
-
-.dev-modal p.dev-info {
-  background: #e3f2fd;
-  color: #1976d2;
-  padding: 10px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  margin: 12px 0;
 }
 
 .dev-modal-actions {
@@ -387,23 +287,26 @@
 }
 
 @media (max-width: 768px) {
-  .dev-users-table {
+  .dev-all-users-title {
+    font-size: 24px;
+  }
+
+  .dev-all-users-filters {
+    flex-direction: column;
+  }
+
+  .dev-all-users-search,
+  .dev-all-users-filter {
+    width: 100%;
+  }
+
+  .dev-all-users-table {
     font-size: 12px;
   }
 
-  .dev-users-table th,
-  .dev-users-table td {
+  .dev-all-users-table th,
+  .dev-all-users-table td {
     padding: 10px 12px;
-  }
-
-  .dev-pagination {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-
-  .dev-pagination-btn {
-    padding: 6px 12px;
-    font-size: 12px;
   }
 
   .dev-modal {

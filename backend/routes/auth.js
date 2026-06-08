@@ -247,6 +247,9 @@ router.post('/login', async (req, res) => { // TODO: Re-enable loginLimiter afte
       });
     }
 
+    // Update last_login timestamp
+    await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
+
     // Login user (create session)
     req.login(user, (err) => {
       if (err) {
