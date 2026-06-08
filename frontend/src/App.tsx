@@ -21,6 +21,7 @@ import ManageBooking from './components/ManageBooking';
 import TherapistProfilePage from './components/TherapistProfilePage';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
+import PricingPage from './components/PricingPage';
 import CreateEventPage from './components/CreateEventPage';
 import ManageReminders from './components/ManageReminders';
 import EditDashboard from './components/EditDashboard';
@@ -1690,6 +1691,9 @@ const AppContent: React.FC = () => {
           <Route path="/book/:userId/:slug" element={<PublicBookingPage />} />
           <Route path="/booking-status" element={<BookingStatus />} />
           <Route path="/manage-booking/:token" element={<ManageBooking />} />
+
+          {/* Pricing Page */}
+          <Route path="/pricing" element={<PricingPage />} />
 
           {/* Privacy Policy */}
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />

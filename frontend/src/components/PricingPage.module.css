@@ -1,0 +1,409 @@
+.container {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%);
+  padding: 80px 20px;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 80px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.title {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  color: #082421;
+  margin: 0 0 16px 0;
+  line-height: 1.2;
+}
+
+.subtitle {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 18px;
+  font-weight: 400;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Pricing Cards Container */
+.cardsContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 32px;
+  max-width: 1400px;
+  margin: 0 auto 80px auto;
+  padding: 0 20px;
+}
+
+/* Pricing Card */
+.card {
+  background: white;
+  border-radius: 20px;
+  padding: 40px;
+  position: relative;
+  border: 2px solid #e0e0e0;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.card:hover {
+  border-color: #F9E141;
+  box-shadow: 0 20px 40px rgba(8, 36, 33, 0.1);
+  transform: translateY(-8px);
+}
+
+.featured {
+  border-color: #F9E141;
+  box-shadow: 0 20px 40px rgba(249, 225, 65, 0.2);
+  transform: scale(1.05);
+}
+
+.featured:hover {
+  transform: scale(1.05) translateY(-8px);
+}
+
+.badge {
+  position: absolute;
+  top: -12px;
+  right: 20px;
+  background: #F9E141;
+  color: #082421;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.planName {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: #082421;
+  margin: 16px 0 8px 0;
+}
+
+.planDescription {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  color: #999;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+/* Price Section */
+.priceSection {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 32px 0;
+}
+
+.price {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  color: #082421;
+}
+
+.period {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  color: #999;
+  font-weight: 400;
+}
+
+/* CTA Button */
+.cta {
+  padding: 14px 32px;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 32px;
+  min-width: 100%;
+  text-align: center;
+}
+
+.ctaPrimary {
+  background: #082421;
+  color: white;
+}
+
+.ctaPrimary:hover {
+  background: #0a2f2c;
+  box-shadow: 0 8px 20px rgba(8, 36, 33, 0.3);
+}
+
+.ctaSecondary {
+  background: transparent;
+  color: #082421;
+  border: 2px solid #082421;
+}
+
+.ctaSecondary:hover {
+  background: #082421;
+  color: white;
+}
+
+/* Features List */
+.featuresList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-grow: 1;
+}
+
+.featureItem {
+  display: flex;
+  gap: 12px;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.5;
+}
+
+.checkmark {
+  color: #F9E141;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+/* FAQ Section */
+.faqSection {
+  max-width: 1200px;
+  margin: 80px auto;
+  padding: 0 20px;
+}
+
+.faqTitle {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  color: #082421;
+  text-align: center;
+  margin: 0 0 60px 0;
+}
+
+.faqGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 40px;
+}
+
+.faqItem {
+  background: white;
+  padding: 32px;
+  border-radius: 16px;
+  border-left: 4px solid #F9E141;
+}
+
+.faqItem h3 {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #082421;
+  margin: 0 0 12px 0;
+}
+
+.faqItem p {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* CTA Section */
+.ctaSection {
+  background: linear-gradient(135deg, #082421 0%, #0a3633 100%);
+  padding: 80px 40px;
+  border-radius: 20px;
+  text-align: center;
+  max-width: 800px;
+  margin: 80px auto 0;
+  color: white;
+}
+
+.ctaSection h2 {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 42px;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: white;
+}
+
+.ctaSection p {
+  font-family: 'Urbanist', sans-serif;
+  font-size: 18px;
+  color: #b3d9d5;
+  margin: 0 0 32px 0;
+}
+
+.ctaButton {
+  background: #F9E141;
+  color: #082421;
+  padding: 16px 48px;
+  border: none;
+  border-radius: 12px;
+  font-family: 'Urbanist', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.ctaButton:hover {
+  background: #ffe680;
+  box-shadow: 0 12px 30px rgba(249, 225, 65, 0.3);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .cardsContainer {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+
+  .featured {
+    grid-column: 1 / -1;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 60px 16px;
+  }
+
+  .header {
+    margin-bottom: 60px;
+  }
+
+  .title {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+
+  .subtitle {
+    font-size: 16px;
+  }
+
+  .cardsContainer {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-bottom: 60px;
+  }
+
+  .featured {
+    grid-column: 1;
+    transform: scale(1);
+  }
+
+  .featured:hover {
+    transform: translateY(-8px);
+  }
+
+  .card {
+    padding: 32px 24px;
+  }
+
+  .planName {
+    font-size: 24px;
+  }
+
+  .price {
+    font-size: 40px;
+  }
+
+  .faqGrid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .faqTitle {
+    font-size: 28px;
+    margin-bottom: 40px;
+  }
+
+  .ctaSection {
+    padding: 60px 24px;
+    margin: 60px auto 0;
+  }
+
+  .ctaSection h2 {
+    font-size: 32px;
+  }
+
+  .ctaSection p {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 40px 12px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .cardsContainer {
+    gap: 16px;
+    padding: 0;
+  }
+
+  .card {
+    padding: 24px 16px;
+  }
+
+  .planName {
+    font-size: 20px;
+  }
+
+  .price {
+    font-size: 32px;
+  }
+
+  .featureItem {
+    font-size: 13px;
+  }
+
+  .cta {
+    padding: 12px 24px;
+    font-size: 14px;
+  }
+
+  .ctaSection {
+    padding: 40px 16px;
+  }
+
+  .ctaSection h2 {
+    font-size: 24px;
+  }
+
+  .ctaSection p {
+    font-size: 14px;
+  }
+
+  .ctaButton {
+    padding: 12px 32px;
+    font-size: 14px;
+  }
+}
