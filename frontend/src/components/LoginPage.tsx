@@ -52,11 +52,13 @@ const LoginPage: React.FC = () => {
 
       if (response.ok) {
         toast.success('Login successful!')
-        login()
         // Redirect to dev dashboard if user is dev admin
         if (data.user?.is_dev_admin) {
-          navigate('/devdashboard')
+          login()
+          // Small delay to let context update before navigation
+          setTimeout(() => navigate('/devdashboard'), 100)
         } else {
+          login()
           navigate('/dashboard')
         }
       } else {
