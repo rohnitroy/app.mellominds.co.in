@@ -5,9 +5,10 @@ import cloudinary from '../config/cloudinary.js';
 import { sendEmail, transferRequestEmail, transferApprovedEmail, transferRejectedEmail, transferCancelledEmail, bookingLinkEmail, isEmailEnabled } from '../lib/email.js';
 import { createNotification } from '../lib/notifications.js';
 import { getIO } from '../lib/socket.js';
-import { encryptFields, decryptFields, encryptSensitiveData, decryptSensitiveData } from '../lib/encryption.js';
+import { encryptFields, decryptFields, encryptSensitiveData, decryptSensitiveData, encryptJSONB } from '../lib/encryption.js';
 import { logClientAccess, logAppointmentAccess } from '../lib/audit.js';
 import { verifyClientOwnership } from '../middleware/ownership.js';
+import { resolveNoteContent } from './notes.js';
 
 // Define which fields should be encrypted (sensitive PII only)
 const ENCRYPTED_CLIENT_FIELDS = ['emergency_name', 'emergency_phone', 'emergency_relation'];
@@ -20,6 +21,32 @@ const encryptClientData = (clientData, userId) => {
 // Helper to decrypt client data after fetching
 const decryptClientData = (clientData, userId) => {
     return decryptFields(clientData, ENCRYPTED_CLIENT_FIELDS, userId);
+};
+
+// Transfer session notes to another therapist, re-encrypting content with the
+// new owner's key (notes are encrypted per-therapist; a plain UPDATE would
+// leave them unreadable for the receiving therapist)
+const transferSessionNotes = async (dbClient, fromTherapistId, toTherapistId, clientEmail) => {
+    const notesRes = await dbClient.query(
+        `SELECT id, note_content_encrypted, note_content, content FROM SessionNotes
+         WHERE therapist_id = $1 AND appointment_id IN (
+             SELECT id FROM Appointments WHERE therapist_id = $1 AND client_email = $2
+         )`,
+        [fromTherapistId, clientEmail]
+    );
+    for (const note of notesRes.rows) {
+        const plain = resolveNoteContent(note, fromTherapistId);
+        const reEncrypted = plain !== null ? encryptJSONB(plain, toTherapistId) : null;
+        await dbClient.query(
+            `UPDATE SessionNotes
+             SET therapist_id = $1,
+                 note_content_encrypted = $2,
+                 note_content = NULL,
+                 content = NULL
+             WHERE id = $3`,
+            [toTherapistId, reEncrypted, note.id]
+        );
+    }
 };
 
 const router = express.Router();
@@ -202,13 +229,7 @@ router.post('/transfers/:transferId/approve', async (req, res) => {
         }
 
         if (opts.notes) {
-            await dbClient.query(
-                `UPDATE SessionNotes SET therapist_id = $1
-                 WHERE therapist_id = $2 AND appointment_id IN (
-                     SELECT id FROM Appointments WHERE therapist_id = $2 AND client_email = $3
-                 )`,
-                [toTherapistId, transfer.from_therapist_id, transfer.email]
-            );
+            await transferSessionNotes(dbClient, transfer.from_therapist_id, toTherapistId, transfer.email);
         }
 
         if (opts.activities) {
@@ -398,13 +419,7 @@ router.post('/transfers/:transferId/owner-approve', async (req, res) => {
         }
 
         if (opts.notes) {
-            await dbClient.query(
-                `UPDATE SessionNotes SET therapist_id = $1
-                 WHERE therapist_id = $2 AND appointment_id IN (
-                     SELECT id FROM Appointments WHERE therapist_id = $2 AND client_email = $3
-                 )`,
-                [toTherapistId, transfer.from_therapist_id, transfer.email]
-            );
+            await transferSessionNotes(dbClient, transfer.from_therapist_id, toTherapistId, transfer.email);
         }
 
         if (opts.activities) {

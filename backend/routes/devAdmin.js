@@ -3,6 +3,7 @@ import pool from '../config/database.js';
 import devAdminOnly from '../middleware/devAdminOnly.js';
 import { io } from '../server.js';
 import { logNotification } from '../lib/notifications.js';
+import { DEV_ADMIN_EMAILS } from '../config/devAdmin.js';
 
 const router = express.Router();
 
@@ -12,13 +13,13 @@ router.use(devAdminOnly);
 // GET /api/dev/dashboard - Dashboard stats
 router.get('/dashboard', async (req, res) => {
   try {
-    // Total users by plan
+    // Total users by plan (dev admins are platform owners, not customers)
     const usersByPlan = await pool.query(`
       SELECT plan_name, COUNT(*) as count
       FROM users
-      WHERE account_status != 'deleted'
+      WHERE account_status != 'deleted' AND NOT (LOWER(email) = ANY($1))
       GROUP BY plan_name
-    `);
+    `, [DEV_ADMIN_EMAILS]);
 
     // Total revenue from plan payments (paid minus refunds)
     const totalRevenue = await pool.query(`
@@ -45,12 +46,12 @@ router.get('/dashboard', async (req, res) => {
       LIMIT 10
     `);
 
-    // Active users - total users in application
+    // Active users - total users in application (excluding dev admins)
     const activeUsers = await pool.query(`
       SELECT COUNT(*) as count
       FROM users
-      WHERE account_status != 'deleted'
-    `);
+      WHERE account_status != 'deleted' AND NOT (LOWER(email) = ANY($1))
+    `, [DEV_ADMIN_EMAILS]);
 
     // Paid Individual Plan Users - only actual payments
     const paidIndividualUsers = await pool.query(`
@@ -118,8 +119,8 @@ router.get('/all-users', async (req, res) => {
     const plan = req.query.plan || null;
     const search = req.query.search || null;
 
-    let whereClause = 'WHERE account_status != \'deleted\' AND email != \'mellomindsventure@gmail.com\'';
-    const params = [];
+    let whereClause = 'WHERE account_status != \'deleted\' AND NOT (LOWER(email) = ANY($1))';
+    const params = [DEV_ADMIN_EMAILS];
 
     if (plan) {
       whereClause += ' AND plan_name = $' + (params.length + 1);
@@ -633,7 +634,9 @@ router.get('/cities', async (req, res) => {
     const result = await pool.query(
       `SELECT DISTINCT city FROM users
        WHERE account_status != 'deleted' AND city IS NOT NULL AND city != ''
-       ORDER BY city ASC`
+         AND NOT (LOWER(email) = ANY($1))
+       ORDER BY city ASC`,
+      [DEV_ADMIN_EMAILS]
     );
     const cities = result.rows.map(r => r.city);
     res.json({ cities });

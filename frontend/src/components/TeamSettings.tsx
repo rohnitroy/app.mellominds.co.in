@@ -6,7 +6,7 @@ import API_BASE_URL from '../config/api';
 import styles from './TeamSettings.module.css';
 import { ChevronLeft } from 'react-iconly';
 
-interface EnterpriseSettingsProps {
+interface TeamSettingsProps {
   onBack: () => void;
 }
 
@@ -21,16 +21,16 @@ interface OrgDetails {
   country: string;
 }
 
-interface EnterpriseControlSettings {
+interface TeamControlSettings {
   allow_client_transfers: boolean;
   require_transfer_approval: boolean;
 }
 
-const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
+const TeamSettings: React.FC<TeamSettingsProps> = ({ onBack }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
-  const isEnterprise = user?.plan_name === 'team';
+  const isTeamPlan = user?.plan_name === 'team';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [orgDetails, setOrgDetails] = useState<OrgDetails>({
@@ -43,7 +43,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
     state: '',
     country: '',
   });
-  const [settings, setSettings] = useState<EnterpriseControlSettings>({
+  const [settings, setSettings] = useState<TeamControlSettings>({
     allow_client_transfers: true,
     require_transfer_approval: false,
   });
@@ -60,7 +60,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
         const data = await settingsRes.json();
         setSettings(data.settings);
       } else if (settingsRes.status === 403) {
-        toast.error('Enterprise settings require Enterprise plan access');
+        toast.error('Team settings require Team plan owner access');
       } else {
         toast.error('Failed to load enterprise settings');
       }
@@ -69,7 +69,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
         const data = await orgRes.json();
         setOrgDetails(data.organization || orgDetails);
       } else if (orgRes.status === 403) {
-        toast.error('Organization details require Enterprise plan access');
+        toast.error('Organization details require Team plan owner access');
       } else {
         toast.error('Failed to load organization details');
       }
@@ -81,12 +81,12 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
   }, [toast, orgDetails]);
 
   useEffect(() => {
-    if (!isEnterprise) {
+    if (!isTeamPlan) {
       setLoading(false);
       return;
     }
     fetchSettings();
-  }, [isEnterprise, fetchSettings]);
+  }, [isTeamPlan, fetchSettings]);
 
   useEffect(() => {
     if (!socket) return;
@@ -102,13 +102,13 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
     setOrgDetails(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  const handleSettingChange = useCallback((field: keyof EnterpriseControlSettings, value: boolean) => {
+  const handleSettingChange = useCallback((field: keyof TeamControlSettings, value: boolean) => {
     setSettings(prev => ({ ...prev, [field]: value }));
   }, []);
 
   const saveOrgDetails = useCallback(async () => {
-    if (!isEnterprise) {
-      toast.error('Only Enterprise plan users can update organization details');
+    if (!isTeamPlan) {
+      toast.error('Only Team plan owners can update organization details');
       return;
     }
     try {
@@ -123,7 +123,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
       if (res.ok) {
         toast.success('Organization details saved successfully');
       } else if (res.status === 403) {
-        toast.error('Organization details require Enterprise plan access');
+        toast.error('Organization details require Team plan owner access');
       } else {
         const err = await res.json();
         toast.error(err.error || 'Failed to save organization details');
@@ -133,11 +133,11 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
     } finally {
       setSaving(false);
     }
-  }, [orgDetails, isEnterprise, toast]);
+  }, [orgDetails, isTeamPlan, toast]);
 
   const saveSettings = useCallback(async () => {
-    if (!isEnterprise) {
-      toast.error('Only Enterprise plan users can update enterprise settings');
+    if (!isTeamPlan) {
+      toast.error('Only Team plan owners can update team settings');
       return;
     }
     try {
@@ -150,9 +150,9 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
       });
 
       if (res.ok) {
-        toast.success('Enterprise settings saved successfully');
+        toast.success('Team settings saved successfully');
       } else if (res.status === 403) {
-        toast.error('Enterprise settings require Enterprise plan access');
+        toast.error('Team settings require Team plan owner access');
       } else {
         const err = await res.json();
         toast.error(err.error || 'Failed to save settings');
@@ -162,7 +162,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
     } finally {
       setSaving(false);
     }
-  }, [settings, isEnterprise, toast]);
+  }, [settings, isTeamPlan, toast]);
 
   if (loading) {
     return (
@@ -171,7 +171,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
           <button onClick={onBack} className={styles.backBtn}>
             <ChevronLeft size={24} primaryColor="#082421" />
           </button>
-          <h1>Enterprise Settings</h1>
+          <h1>Team Settings</h1>
         </div>
         <div style={{ textAlign: 'center', padding: '40px', color: '#6E6E6E' }}>Loading...</div>
       </div>
@@ -184,7 +184,7 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
         <button onClick={onBack} className={styles.backBtn}>
           <ChevronLeft size={24} primaryColor="#082421" />
         </button>
-        <h1>Enterprise Settings</h1>
+        <h1>Team Settings</h1>
       </div>
 
       <div className={styles.content}>
@@ -324,4 +324,4 @@ const EnterpriseSettings: React.FC<EnterpriseSettingsProps> = ({ onBack }) => {
   );
 };
 
-export default EnterpriseSettings;
+export default TeamSettings;

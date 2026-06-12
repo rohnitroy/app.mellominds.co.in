@@ -4,7 +4,7 @@ import API_BASE_URL from '../config/api';
 import styles from './TeamAnalytics.module.css';
 import { ChevronLeft } from 'react-iconly';
 
-interface EnterpriseAnalyticsProps {
+interface TeamAnalyticsProps {
   onBack: () => void;
 }
 
@@ -19,7 +19,7 @@ interface Analytics {
   noOfClients: number;
 }
 
-const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => {
+const TeamAnalytics: React.FC<TeamAnalyticsProps> = ({ onBack }) => {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<Analytics>({
@@ -185,4 +185,4 @@ const EnterpriseAnalytics: React.FC<EnterpriseAnalyticsProps> = ({ onBack }) => 
   );
 };
 
-export default EnterpriseAnalytics;
+export default TeamAnalytics;

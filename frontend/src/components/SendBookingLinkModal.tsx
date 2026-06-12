@@ -8,6 +8,10 @@ import Loader from './Loader';
 interface SendBookingLinkModalProps {
   isOpen: boolean;
   onClose: () => void;
+  prefillName?: string;
+  prefillEmail?: string;
+  prefillPhone?: string;
+  prefillCalendarId?: string;
 }
 
 interface Calendar {
@@ -25,7 +29,7 @@ interface ClientSuggestion {
   phone: string;
 }
 
-const SendBookingLinkModal: React.FC<SendBookingLinkModalProps> = ({ isOpen, onClose }) => {
+const SendBookingLinkModal: React.FC<SendBookingLinkModalProps> = ({ isOpen, onClose, prefillName, prefillEmail, prefillPhone, prefillCalendarId }) => {
   const { user } = useAuth();
   const toast = useToast();
 
@@ -46,16 +50,26 @@ const SendBookingLinkModal: React.FC<SendBookingLinkModalProps> = ({ isOpen, onC
 
   useEffect(() => {
     if (!isOpen) return;
+    // Carry over any data the user already entered (e.g. from Create a Booking)
+    setClientName(prefillName || '');
+    setClientEmail(prefillEmail || '');
+    setClientPhone(prefillPhone || '');
     setLoading(true);
     Promise.all([
       fetch(`${API_BASE_URL}/api/calendars`, { credentials: 'include' }).then(r => r.ok ? r.json() : []),
       fetch(`${API_BASE_URL}/api/bookings/clients`, { credentials: 'include' }).then(r => r.ok ? r.json() : []),
     ]).then(([cals, clients]) => {
       setCalendars(cals);
-      if (cals.length > 0) setSelectedCalendarId(String(cals[0].id));
+      if (cals.length > 0) {
+        // Honour the calendar picked in the parent form when it's still valid
+        const preferred = prefillCalendarId && cals.some((c: Calendar) => String(c.id) === String(prefillCalendarId))
+          ? String(prefillCalendarId)
+          : String(cals[0].id);
+        setSelectedCalendarId(preferred);
+      }
       setAllClients(clients);
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [isOpen]);
+  }, [isOpen, prefillName, prefillEmail, prefillPhone, prefillCalendarId]);
 
   // Close suggestions on outside click
   useEffect(() => {

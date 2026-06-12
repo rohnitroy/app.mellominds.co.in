@@ -638,8 +638,8 @@ const DashboardLayout: React.FC = () => {
   );
 
   const renderHeader = (): JSX.Element => {
-    const isEnterprise = user?.plan_name === 'team';
-    const planLabel = isEnterprise
+    const isTeamPlan = user?.plan_name === 'team';
+    const planLabel = isTeamPlan
       ? `Team Plan ${user?.used_seats && user?.purchased_seats ? `(${user.used_seats}/${user.purchased_seats})` : ''}`
       : 'Free (Early Access)';
 
@@ -924,7 +924,7 @@ const DashboardHome: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const analyticsMode = params.get('analytics');
-    if (analyticsMode === 'enterprise' && user?.plan_name === 'team' && user?.org_role !== 'member') {
+    if ((analyticsMode === 'team' || analyticsMode === 'enterprise') && user?.plan_name === 'team' && user?.org_role !== 'member') {
       setShowTeamAnalytics(true);
     }
   }, [location.search, user]);
@@ -1065,7 +1065,7 @@ const DashboardHome: React.FC = () => {
   const [cancelConfirmId, setCancelConfirmId] = useState<number | null>(null);
 
   // Dashboard widget prefs (enterprise only)
-  const isEnterprise = user?.plan_name === 'team';
+  const isTeamPlan = user?.plan_name === 'team';
   const ALL_WIDGETS = ['Revenue', 'Refund', 'Sessions', 'Cancelled', 'No Show', 'Pending Notes', 'Pending Payment', 'No of Clients'];
   const defaultWidgets = Object.fromEntries(ALL_WIDGETS.map(k => [k, true]));
   const [widgetPrefs, setWidgetPrefs] = useState<Record<string, boolean>>(defaultWidgets);
@@ -1074,12 +1074,12 @@ const DashboardHome: React.FC = () => {
   const [savingWidgets, setSavingWidgets] = useState(false);
 
   useEffect(() => {
-    if (!isEnterprise) return;
+    if (!isTeamPlan) return;
     fetch(`${API_BASE_URL}/auth/dashboard-prefs`, { credentials: 'include' })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.widgets) { setWidgetPrefs(d.widgets); setEditWidgets(d.widgets); } })
       .catch(() => {});
-  }, [isEnterprise]);
+  }, [isTeamPlan]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -1142,7 +1142,7 @@ const DashboardHome: React.FC = () => {
 
         // Fetch Upcoming Bookings only
         const bookingsUrl = showTeamAnalytics
-          ? `${API_BASE_URL}/api/bookings?upcoming=true&enterprise=true`
+          ? `${API_BASE_URL}/api/bookings?upcoming=true&team=true`
           : `${API_BASE_URL}/api/bookings?upcoming=true`;
         const bookingsRes = await fetch(bookingsUrl, { credentials: 'include' });
         if (bookingsRes.ok) {
@@ -1241,7 +1241,7 @@ const DashboardHome: React.FC = () => {
     { label: 'Pending Notes', value: (stats.pendingNotes ?? 0).toString() },
     { label: 'Pending Payment', value: (stats.pendingPayment ?? 0).toString() },
     { label: 'No of Clients', value: (stats.noOfClients ?? 0).toString() }
-  ].filter(s => !isEnterprise || widgetPrefs[s.label] !== false);
+  ].filter(s => !isTeamPlan || widgetPrefs[s.label] !== false);
 
   const handleSaveWidgetPrefs = async () => {
     setSavingWidgets(true);
@@ -1396,7 +1396,7 @@ const DashboardHome: React.FC = () => {
                     setShowTeamAnalytics(newState);
                     const params = new URLSearchParams(location.search);
                     if (newState) {
-                      params.set('analytics', 'enterprise');
+                      params.set('analytics', 'team');
                     } else {
                       params.delete('analytics');
                     }

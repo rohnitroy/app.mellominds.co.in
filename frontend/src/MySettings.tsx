@@ -14,9 +14,9 @@ const MySettings: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
-  const isEnterprise = user?.plan_name === 'team';
+  const isTeamPlan = user?.plan_name === 'team';
   const isMember = user?.org_role === 'member';
-  const isTeamOwner = isEnterprise && !isMember;
+  const isTeamOwner = isTeamPlan && !isMember;
 
   const [googleConnected, setGoogleConnected] = useState(false);
   const [cashfreeConnected, setCashfreeConnected] = useState(false);
@@ -30,13 +30,6 @@ const MySettings: React.FC = () => {
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showGoogleDisconnectConfirm, setShowGoogleDisconnectConfirm] = useState(false);
 
-  // Razorpay state
-  const [razorpayConnected, setRazorpayConnected] = useState(false);
-  const [showRazorpayForm, setShowRazorpayForm] = useState(false);
-  const [razorpayForm, setRazorpayForm] = useState({ key_id: '', key_secret: '' });
-  const [razorpayLoading, setRazorpayLoading] = useState(false);
-  const [disconnectingRazorpay, setDisconnectingRazorpay] = useState(false);
-  const [showRazorpayDisconnectConfirm, setShowRazorpayDisconnectConfirm] = useState(false);
 
   const defaultEnterpriseSettings = {
     allow_client_transfers: true,
@@ -78,10 +71,6 @@ const MySettings: React.FC = () => {
         .then(r => r.ok ? r.json() : { connected: false })
         .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
         .catch(() => {}),
-      fetch(`${API_BASE_URL}/api/razorpay/status`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : { connected: false })
-        .then(d => { setRazorpayConnected(d.connected); })
-        .catch(() => {}),
     ]).finally(() => setIntegrationsLoading(false));
 
     // Fetch enterprise settings for owners
@@ -101,10 +90,6 @@ const MySettings: React.FC = () => {
       fetch(`${API_BASE_URL}/api/cashfree/status`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : { connected: false })
         .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
-        .catch(() => {});
-      fetch(`${API_BASE_URL}/api/razorpay/status`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : { connected: false })
-        .then(d => { setRazorpayConnected(d.connected); })
         .catch(() => {});
     });
     socket.on('team_settings_updated', () => {
@@ -137,8 +122,6 @@ const MySettings: React.FC = () => {
         setCashfreeEnv(cashfreeForm.environment);
         setShowCashfreeForm(false);
         setCashfreeForm({ app_id: '', secret_key: '', environment: 'sandbox' });
-        // One PG at a time — backend removes Razorpay when Cashfree connects
-        setRazorpayConnected(false);
       } else {
         alert(data.error || 'Failed to connect Cashfree');
       }
@@ -147,7 +130,7 @@ const MySettings: React.FC = () => {
     } finally {
       setCashfreeLoading(false);
     }
-  }, [toast, setCashfreeConnected, setCashfreeEnv, setShowCashfreeForm, setCashfreeForm, setRazorpayConnected]);
+  }, [toast, setCashfreeConnected, setCashfreeEnv, setShowCashfreeForm, setCashfreeForm]);
 
   const handleCashfreeDisconnect = useCallback(async () => {
     setDisconnectingCashfree(true);
@@ -156,43 +139,6 @@ const MySettings: React.FC = () => {
     setShowCashfreeForm(false);
     setShowDisconnectConfirm(false);
     setDisconnectingCashfree(false);
-  }, []);
-
-  const handleRazorpayConnect = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    setRazorpayLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/razorpay/connect`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(razorpayForm),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setRazorpayConnected(true);
-        setShowRazorpayForm(false);
-        setRazorpayForm({ key_id: '', key_secret: '' });
-        // One PG at a time — backend removes Cashfree when Razorpay connects
-        setCashfreeConnected(false);
-        toast.success('Razorpay connected successfully!');
-      } else {
-        toast.error(data.error || 'Failed to connect Razorpay');
-      }
-    } catch {
-      toast.error('Network error. Please try again.');
-    } finally {
-      setRazorpayLoading(false);
-    }
-  }, [toast, setCashfreeConnected]);
-
-  const handleRazorpayDisconnect = useCallback(async () => {
-    setDisconnectingRazorpay(true);
-    await fetch(`${API_BASE_URL}/api/razorpay/disconnect`, { method: 'DELETE', credentials: 'include' });
-    setRazorpayConnected(false);
-    setShowRazorpayForm(false);
-    setShowRazorpayDisconnectConfirm(false);
-    setDisconnectingRazorpay(false);
   }, []);
 
   const handleGoogleDisconnect = useCallback(async () => {
@@ -265,8 +211,8 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75, cursor: isEnterprise ? 'pointer' : 'not-allowed' }} onClick={isEnterprise ? () => navigate('/settings/profile-link') : undefined}>
-            {!isEnterprise && (
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: isTeamPlan ? 1 : 0.75, cursor: isTeamPlan ? 'pointer' : 'not-allowed' }} onClick={isTeamPlan ? () => navigate('/settings/profile-link') : undefined}>
+            {!isTeamPlan && (
               <div style={{
                 position: 'absolute', inset: 0, borderRadius: '16px',
                 zIndex: 2, cursor: 'not-allowed',
@@ -284,14 +230,14 @@ const MySettings: React.FC = () => {
                 </span>
               </div>
             )}
-            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
+            <div className={styles.cardContent} style={!isTeamPlan ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
                 <People set="bulk" size="medium" primaryColor="#082421" />
                 Profile Link & Description
               </h3>
               <p>set a custom URL and add your professional description</p>
             </div>
-            <div className={styles.cardArrow} style={!isEnterprise ? { pointerEvents: 'none' } : {}}>
+            <div className={styles.cardArrow} style={!isTeamPlan ? { pointerEvents: 'none' } : {}}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -328,8 +274,8 @@ const MySettings: React.FC = () => {
             </div>
           </div>
 
-          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75, cursor: isEnterprise ? 'pointer' : 'not-allowed' }} onClick={isEnterprise ? () => navigate('/settings/reminders') : undefined}>
-            {!isEnterprise && (
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: isTeamPlan ? 1 : 0.75, cursor: isTeamPlan ? 'pointer' : 'not-allowed' }} onClick={isTeamPlan ? () => navigate('/settings/reminders') : undefined}>
+            {!isTeamPlan && (
               <div style={{
                 position: 'absolute', inset: 0, borderRadius: '16px',
                 zIndex: 2, cursor: 'not-allowed',
@@ -347,22 +293,22 @@ const MySettings: React.FC = () => {
                 </span>
               </div>
             )}
-            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
+            <div className={styles.cardContent} style={!isTeamPlan ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
                 <Filter set="bulk" size="medium" primaryColor="#082421" />
                 Manage Reminders
               </h3>
               <p>enable/disable reminders and notifications...</p>
             </div>
-            <div className={styles.cardArrow} style={!isEnterprise ? { pointerEvents: 'none' } : {}}>
+            <div className={styles.cardArrow} style={!isTeamPlan ? { pointerEvents: 'none' } : {}}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
           </div>
 
-          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75, cursor: isEnterprise ? 'pointer' : 'not-allowed' }} onClick={isEnterprise ? () => navigate('/settings/edit-dashboard') : undefined}>
-            {!isEnterprise && (
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: isTeamPlan ? 1 : 0.75, cursor: isTeamPlan ? 'pointer' : 'not-allowed' }} onClick={isTeamPlan ? () => navigate('/settings/edit-dashboard') : undefined}>
+            {!isTeamPlan && (
               <div style={{
                 position: 'absolute', inset: 0, borderRadius: '16px',
                 zIndex: 2, cursor: 'not-allowed',
@@ -380,7 +326,7 @@ const MySettings: React.FC = () => {
                 </span>
               </div>
             )}
-            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
+            <div className={styles.cardContent} style={!isTeamPlan ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#082421" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
@@ -390,7 +336,7 @@ const MySettings: React.FC = () => {
               </h3>
               <p>show or hide analytics modules on your dashboard...</p>
             </div>
-            <div className={styles.cardArrow} style={!isEnterprise ? { pointerEvents: 'none' } : {}}>
+            <div className={styles.cardArrow} style={!isTeamPlan ? { pointerEvents: 'none' } : {}}>
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
                 <path d="M12 24L20 16L12 8" stroke="#2D7579" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -408,7 +354,7 @@ const MySettings: React.FC = () => {
                     <line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/>
                   </svg>
                   <h3 style={{ fontFamily: 'Urbanist', fontWeight: 700, fontSize: '18px', color: '#000', margin: 0 }}>
-                    Enterprise Control Center
+                    Team Control Center
                     {enterpriseSettingsSaving && <span style={{ fontSize: '12px', color: '#2D7579', fontWeight: 400, marginLeft: '10px' }}>Saving...</span>}
                   </h3>
                 </div>
@@ -499,8 +445,8 @@ const MySettings: React.FC = () => {
           </div>
 
           {!isMember && (
-          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75 }}>
-            {!isEnterprise && (
+          <div className={styles.settingCard} style={{ position: 'relative', opacity: isTeamPlan ? 1 : 0.75 }}>
+            {!isTeamPlan && (
               <div style={{
                 position: 'absolute', inset: 0, borderRadius: '16px',
                 zIndex: 2, cursor: 'not-allowed',
@@ -518,7 +464,7 @@ const MySettings: React.FC = () => {
                 </span>
               </div>
             )}
-            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
+            <div className={styles.cardContent} style={!isTeamPlan ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
               <h3>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#082421" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
                   <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -527,7 +473,7 @@ const MySettings: React.FC = () => {
                 Connect Cashfree
               </h3>
               <p>Accept appointment payments via Cashfree payment gateway</p>
-              {isEnterprise ? (
+              {isTeamPlan ? (
                 cashfreeConnected ? (
                   <div>
                     <div className={styles.connectedTag}>✓ Connected ({cashfreeEnv})</div>
@@ -554,63 +500,6 @@ const MySettings: React.FC = () => {
           </div>
           )}
 
-          {/* ── Razorpay Integration ── */}
-          {!isMember && (
-          <div className={styles.settingCard} style={{ position: 'relative', opacity: isEnterprise ? 1 : 0.75 }}>
-            {!isEnterprise && (
-              <div style={{
-                position: 'absolute', inset: 0, borderRadius: '16px',
-                zIndex: 2, cursor: 'not-allowed',
-                display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
-                padding: '16px'
-              }}>
-                <span style={{
-                  background: '#F9E141',
-                  color: '#082421', fontSize: '11px', fontWeight: 700,
-                  padding: '4px 10px', borderRadius: '20px',
-                  fontFamily: 'Urbanist', letterSpacing: '0.3px',
-                  whiteSpace: 'nowrap'
-                }}>
-                  ⭐ Upgrade your plan
-                </span>
-              </div>
-            )}
-            <div className={styles.cardContent} style={!isEnterprise ? { pointerEvents: 'none', userSelect: 'none' } : {}}>
-              <h3>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#082421" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '4px' }}>
-                  <rect x="2" y="5" width="20" height="14" rx="2" />
-                  <line x1="2" y1="10" x2="22" y2="10" />
-                </svg>
-                Connect Razorpay
-              </h3>
-              <p>Accept appointment payments via Razorpay payment gateway</p>
-              {isEnterprise ? (
-                razorpayConnected ? (
-                  <div>
-                    <div className={styles.connectedTag}>✓ Connected</div>
-                    <button className={styles.connectBtn} style={{ marginTop: '8px', background: '#fee2e2', color: '#dc2626' }} onClick={() => setShowRazorpayDisconnectConfirm(true)} disabled={disconnectingRazorpay}>{disconnectingRazorpay ? 'Disconnecting...' : 'Disconnect'}</button>
-                  </div>
-                ) : showRazorpayForm ? (
-                  <form onSubmit={handleRazorpayConnect} style={{ marginTop: '8px' }}>
-                    {cashfreeConnected && (
-                      <p style={{ fontSize: '12px', color: '#b45309', background: '#fef3c7', padding: '8px', borderRadius: '6px', marginBottom: '8px' }}>
-                        ⚠️ Connecting Razorpay will disconnect your existing Cashfree integration.
-                      </p>
-                    )}
-                    <input placeholder="Key ID" value={razorpayForm.key_id} onChange={e => setRazorpayForm(f => ({ ...f, key_id: e.target.value }))} required style={{ display: 'block', marginBottom: '6px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
-                    <input placeholder="Key Secret" type="password" value={razorpayForm.key_secret} onChange={e => setRazorpayForm(f => ({ ...f, key_secret: e.target.value }))} required style={{ display: 'block', marginBottom: '8px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
-                    <button type="submit" className={styles.connectBtn} disabled={razorpayLoading}>{razorpayLoading ? 'Connecting...' : 'Save'}</button>
-                    <button type="button" className={styles.connectBtn} style={{ marginLeft: '8px', background: '#f3f4f6', color: '#374151' }} onClick={() => setShowRazorpayForm(false)}>Cancel</button>
-                  </form>
-                ) : (
-                  <button className={styles.connectBtn} onClick={() => setShowRazorpayForm(true)}>+ Connect Razorpay</button>
-                )
-              ) : (
-                <button className={styles.connectBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>+ Connect Razorpay</button>
-              )}
-            </div>
-          </div>
-          )}
         </div>
       </div>
     </div>
@@ -634,16 +523,6 @@ const MySettings: React.FC = () => {
       danger
       onConfirm={handleGoogleDisconnect}
       onCancel={() => setShowGoogleDisconnectConfirm(false)}
-    />
-    <ConfirmModal
-      isOpen={showRazorpayDisconnectConfirm}
-      title="Disconnect Razorpay"
-      message="Disconnect Razorpay? Payments will stop working for your calendars that use it."
-      confirmLabel={disconnectingRazorpay ? 'Disconnecting...' : 'Disconnect'}
-      cancelLabel="Keep Connected"
-      danger
-      onConfirm={handleRazorpayDisconnect}
-      onCancel={() => setShowRazorpayDisconnectConfirm(false)}
     />
     </>
   );

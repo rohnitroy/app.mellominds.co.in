@@ -3,6 +3,7 @@ import pool from '../config/database.js';
 import multer from 'multer';
 import cloudinary from '../config/cloudinary.js';
 import { getIO } from '../lib/socket.js';
+import { encryptJSONB, decryptJSONB } from '../lib/encryption.js';
 
 const router = express.Router();
 
@@ -15,9 +16,45 @@ router.use(ensureAuthenticated);
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit for session note files
 
+// Resolve note content: encrypted column first, then legacy plaintext columns
+export const resolveNoteContent = (row, therapistId) => {
+    if (row.note_content_encrypted) {
+        const decrypted = decryptJSONB(row.note_content_encrypted, therapistId);
+        if (decrypted !== null) return decrypted;
+    }
+    if (row.note_content !== null && row.note_content !== undefined) return row.note_content;
+    if (row.content !== null && row.content !== undefined) {
+        try { return JSON.parse(row.content); } catch { return row.content; }
+    }
+    return null;
+};
+
+const toClientNote = (row, therapistId) => ({
+    id: row.id,
+    appointment_id: row.appointment_id,
+    therapist_id: row.therapist_id,
+    content: resolveNoteContent(row, therapistId),
+    attachments: row.attachments || [],
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+});
+
+// Best-effort delete of Cloudinary attachments (never blocks the response)
+const destroyAttachments = async (attachments) => {
+    if (!Array.isArray(attachments)) return;
+    for (const a of attachments) {
+        if (!a?.public_id) continue;
+        try {
+            await cloudinary.uploader.destroy(a.public_id, { resource_type: a.resource_type === 'raw' ? 'raw' : 'image' });
+        } catch (err) {
+            console.error('Failed to delete Cloudinary attachment:', a.public_id, err.message);
+        }
+    }
+};
+
 // ─── Static routes first ──────────────────────────────────────────────────────
 
-// POST /api/notes/upload-attachment - Upload a session note file (Enterprise only)
+// POST /api/notes/upload-attachment - Upload a session note file (Individual & Team plans)
 router.post('/upload-attachment', upload.single('file'), async (req, res) => {
     try {
         if (req.user.plan_name !== 'team' && req.user.plan_name !== 'individual') {
@@ -67,12 +104,33 @@ router.post('/upload-attachment', upload.single('file'), async (req, res) => {
         res.json({
             url: finalUrl,
             original_name: req.file.originalname,
+            public_id: uploadResult.public_id,
             resource_type: uploadResult.resource_type,
             format: uploadResult.format,
         });
     } catch (error) {
         console.error('Session note upload error:', error);
         res.status(500).json({ error: 'Failed to upload file' });
+    }
+});
+
+// POST /api/notes/delete-attachment - Remove an uploaded file that was never saved with a note
+router.post('/delete-attachment', async (req, res) => {
+    try {
+        const { public_id, resource_type } = req.body;
+        if (!public_id) return res.status(400).json({ error: 'public_id is required' });
+
+        // Only allow deleting files this therapist uploaded (public_id carries the owner prefix)
+        const ownPrefix = `mellominds/session-notes/therapist_${req.user.id}_`;
+        if (!public_id.startsWith(ownPrefix)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        await cloudinary.uploader.destroy(public_id, { resource_type: resource_type === 'raw' ? 'raw' : 'image' });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting attachment:', error);
+        res.status(500).json({ error: 'Failed to delete attachment' });
     }
 });
 
@@ -142,12 +200,13 @@ router.post('/', async (req, res) => {
         }
 
         const safeAttachments = Array.isArray(attachments) ? attachments : [];
+        const encryptedContent = encryptJSONB(content, therapist_id);
 
         const result = await client.query(
-            `INSERT INTO SessionNotes (appointment_id, therapist_id, content, attachments)
+            `INSERT INTO SessionNotes (appointment_id, therapist_id, note_content_encrypted, attachments)
              VALUES ($1, $2, $3, $4)
              RETURNING *`,
-            [appointment_id, therapist_id, content, JSON.stringify(safeAttachments)]
+            [appointment_id, therapist_id, encryptedContent, JSON.stringify(safeAttachments)]
         );
 
         // Auto-complete the appointment if it's still 'scheduled' and the session has ended
@@ -162,7 +221,7 @@ router.post('/', async (req, res) => {
             [appointment_id, therapist_id]
         );
 
-        res.status(201).json(result.rows[0]);
+        res.status(201).json(toClientNote(result.rows[0], therapist_id));
     } catch (error) {
         console.error('Error adding note:', error);
         res.status(500).json({ error: 'Failed to add note' });
@@ -182,33 +241,40 @@ router.put('/:id', async (req, res) => {
         if (!content) return res.status(400).json({ error: 'Content is required' });
 
         const safeAttachments = Array.isArray(attachments) ? attachments : undefined;
+        const encryptedContent = encryptJSONB(content, therapist_id);
 
         const result = await pool.query(
             `UPDATE SessionNotes
-             SET content = $1,
+             SET note_content_encrypted = $1,
+                 note_content = NULL,
+                 content = NULL,
                  attachments = COALESCE($2::jsonb, attachments),
                  updated_at = NOW()
              WHERE id = $3 AND therapist_id = $4 RETURNING *`,
-            [content, safeAttachments ? JSON.stringify(safeAttachments) : null, req.params.id, therapist_id]
+            [encryptedContent, safeAttachments ? JSON.stringify(safeAttachments) : null, req.params.id, therapist_id]
         );
 
         if (result.rows.length === 0) return res.status(404).json({ error: 'Note not found' });
-        res.json(result.rows[0]);
+        res.json(toClientNote(result.rows[0], therapist_id));
     } catch (error) {
         console.error('Error updating note:', error);
         res.status(500).json({ error: 'Failed to update note' });
     }
 });
 
-// DELETE /api/notes/:id - Delete a note
+// DELETE /api/notes/:id - Delete a note (and its Cloudinary attachments)
 router.delete('/:id', async (req, res) => {
     try {
         const therapist_id = req.user.id;
         const result = await pool.query(
-            'DELETE FROM SessionNotes WHERE id = $1 AND therapist_id = $2 RETURNING id',
+            'DELETE FROM SessionNotes WHERE id = $1 AND therapist_id = $2 RETURNING id, attachments',
             [req.params.id, therapist_id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Note not found' });
+
+        // Clean up attached files in Cloudinary (best effort, non-blocking for the client)
+        destroyAttachments(result.rows[0].attachments);
+
         res.json({ success: true });
     } catch (error) {
         console.error('Error deleting note:', error);
@@ -221,12 +287,12 @@ router.get('/:appointmentId', async (req, res) => {
     const client = await pool.connect();
     try {
         const result = await client.query(
-            `SELECT * FROM SessionNotes 
+            `SELECT * FROM SessionNotes
              WHERE appointment_id = $1 AND therapist_id = $2
              ORDER BY created_at DESC`,
             [req.params.appointmentId, req.user.id]
         );
-        res.json(result.rows);
+        res.json(result.rows.map(row => toClientNote(row, req.user.id)));
     } catch (error) {
         console.error('Error fetching notes:', error);
         res.status(500).json({ error: 'Failed to fetch notes' });

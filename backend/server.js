@@ -716,6 +716,13 @@ async function ensureClientActivitiesSchema() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query(`
+      ALTER TABLE ClientActivities
+        ADD COLUMN IF NOT EXISTS exercise_type VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS purpose TEXT,
+        ADD COLUMN IF NOT EXISTS due_date DATE,
+        ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb
+    `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_activities_therapist_id ON ClientActivities(therapist_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_activities_client_id ON ClientActivities(client_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_client_activities_next_reminder ON ClientActivities(next_reminder_at)`);

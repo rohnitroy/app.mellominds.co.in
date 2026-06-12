@@ -50,7 +50,7 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
     const { user } = useAuth();
     const { socket } = useSocket();
     const toast = useToast();
-    const isEnterprise = user?.plan_name === 'team';
+    const isTeamPlan = user?.plan_name === 'team';
 
     const [prefs, setPrefs] = useState<EmailPreferences | null>(null);
     const [saving, setSaving] = useState<keyof EmailPreferences | null>(null);
@@ -68,7 +68,7 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
     }, [toast]);
 
     const fetchGmailStatus = useCallback(async () => {
-        if (!isEnterprise) return;
+        if (!isTeamPlan) return;
         try {
             const r = await fetch(`${API_BASE_URL}/api/gmail/status`, { credentials: 'include' });
             const data = await r.json();
@@ -76,7 +76,7 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
         } catch (err) {
             console.error('Failed to load Gmail status:', err);
         }
-    }, [isEnterprise, toast]);
+    }, [isTeamPlan, toast]);
 
     useEffect(() => {
         fetchPreferences();
@@ -177,7 +177,7 @@ const ManageReminders: React.FC<ManageRemindersProps> = ({ onBack }) => {
             </div>
 
             {/* Gmail Section */}
-            {isEnterprise && (
+            {isTeamPlan && (
                 <div style={{ marginBottom: '32px' }}>
                     <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#082421' }}>Email Sender</h2>
                     <div className={settingsStyles.settingCardColumn}>

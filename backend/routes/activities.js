@@ -1,5 +1,7 @@
 import express from 'express';
 import pool from '../config/database.js';
+import multer from 'multer';
+import cloudinary from '../config/cloudinary.js';
 import { sendEmail, activityNotificationEmail, isEmailEnabled } from '../lib/email.js';
 
 const router = express.Router();
@@ -10,6 +12,83 @@ const ensureAuthenticated = (req, res, next) => {
 };
 
 router.use(ensureAuthenticated);
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit for activity resources
+
+// Best-effort delete of Cloudinary attachments (never blocks the response)
+const destroyAttachments = async (attachments) => {
+    if (!Array.isArray(attachments)) return;
+    for (const a of attachments) {
+        if (!a?.public_id) continue;
+        try {
+            await cloudinary.uploader.destroy(a.public_id, { resource_type: a.resource_type === 'raw' ? 'raw' : 'image' });
+        } catch (err) {
+            console.error('Failed to delete Cloudinary resource:', a.public_id, err.message);
+        }
+    }
+};
+
+// POST /api/activities/upload-resource - Upload a resource file (Individual & Team plans)
+router.post('/upload-resource', upload.single('file'), async (req, res) => {
+    try {
+        if (req.user.plan_name !== 'team' && req.user.plan_name !== 'individual') {
+            return res.status(403).json({ error: 'Resource attachments are available for Individual and Team plan users.' });
+        }
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded' });
+        }
+
+        const therapistId = req.user.id;
+        const isPdf = req.file.mimetype === 'application/pdf' || req.file.originalname.toLowerCase().endsWith('.pdf');
+        const isImage = req.file.mimetype.startsWith('image/');
+
+        const uploadResult = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                {
+                    folder: 'mellominds/activity-resources',
+                    public_id: `therapist_${therapistId}_${Date.now()}`,
+                    resource_type: (isPdf || isImage) ? 'image' : 'raw',
+                    ...(isPdf && { format: 'pdf', flags: 'attachment:false' }),
+                },
+                (error, result) => { if (error) reject(error); else resolve(result); }
+            );
+            stream.end(req.file.buffer);
+        });
+
+        const finalUrl = uploadResult.resource_type === 'raw'
+            ? uploadResult.secure_url.replace('/raw/upload/', '/raw/upload/fl_attachment:false/')
+            : uploadResult.secure_url;
+
+        res.json({
+            url: finalUrl,
+            original_name: req.file.originalname,
+            public_id: uploadResult.public_id,
+            resource_type: uploadResult.resource_type,
+        });
+    } catch (error) {
+        console.error('Activity resource upload error:', error);
+        res.status(500).json({ error: 'Failed to upload file' });
+    }
+});
+
+// POST /api/activities/delete-resource - Remove an uploaded file that was never saved with an activity
+router.post('/delete-resource', async (req, res) => {
+    try {
+        const { public_id, resource_type } = req.body;
+        if (!public_id) return res.status(400).json({ error: 'public_id is required' });
+
+        const ownPrefix = `mellominds/activity-resources/therapist_${req.user.id}_`;
+        if (!public_id.startsWith(ownPrefix)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        await cloudinary.uploader.destroy(public_id, { resource_type: resource_type === 'raw' ? 'raw' : 'image' });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting resource:', error);
+        res.status(500).json({ error: 'Failed to delete resource' });
+    }
+});
 
 // GET /api/activities/:clientId
 router.get('/:clientId', async (req, res) => {
@@ -28,10 +107,14 @@ router.get('/:clientId', async (req, res) => {
 // POST /api/activities
 router.post('/', async (req, res) => {
     try {
-        const { client_id, name, description, notify_client, reminder_count, reminder_interval_days } = req.body;
+        const { client_id, name, description, notify_client, reminder_count, reminder_interval_days,
+                exercise_type, purpose, due_date, attachments } = req.body;
         if (!client_id || !name) {
             return res.status(400).json({ error: 'client_id and name are required' });
         }
+
+        const safeAttachments = Array.isArray(attachments) ? attachments : [];
+        const safeDueDate = due_date || null;
 
         const shouldNotify = !!notify_client;
 
@@ -49,9 +132,11 @@ router.post('/', async (req, res) => {
 
         const result = await pool.query(
             `INSERT INTO ClientActivities
-                (client_id, therapist_id, name, description, notify_client, reminder_count, reminder_interval_days, reminders_sent, next_reminder_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8) RETURNING *`,
-            [client_id, req.user.id, name, description || null, shouldNotify, count, intervalDays, nextReminderAt]
+                (client_id, therapist_id, name, description, notify_client, reminder_count, reminder_interval_days, reminders_sent, next_reminder_at,
+                 exercise_type, purpose, due_date, attachments)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12) RETURNING *`,
+            [client_id, req.user.id, name, description || null, shouldNotify, count, intervalDays, nextReminderAt,
+             exercise_type || null, purpose || null, safeDueDate, JSON.stringify(safeAttachments)]
         );
 
         res.status(201).json(result.rows[0]);
@@ -71,10 +156,14 @@ router.post('/', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     try {
         const result = await pool.query(
-            `DELETE FROM ClientActivities WHERE id = $1 AND therapist_id = $2 RETURNING id`,
+            `DELETE FROM ClientActivities WHERE id = $1 AND therapist_id = $2 RETURNING id, attachments`,
             [req.params.id, req.user.id]
         );
         if (result.rowCount === 0) return res.status(404).json({ error: 'Activity not found' });
+
+        // Clean up attached files in Cloudinary (best effort)
+        destroyAttachments(result.rows[0].attachments);
+
         res.json({ success: true });
     } catch (error) {
         console.error('Error deleting activity:', error);

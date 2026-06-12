@@ -7,6 +7,7 @@ import { getGoogleAuthClient } from '../lib/googleAuth.js';
 import { getIO } from '../lib/socket.js';
 import rateLimit from 'express-rate-limit';
 import { sanitizeStr, isValidEmail, isValidPhone } from '../middleware/sanitize.js';
+import { resolveNoteContent } from './notes.js';
 
 const router = express.Router();
 
@@ -909,9 +910,11 @@ router.get('/', async (req, res) => {
     const client = await pool.connect();
     try {
         const userId = req.user.id;
-        const { email, upcoming, enterprise } = req.query;
+        const { email, upcoming, enterprise, team } = req.query;
+        // Team-wide mode (?team=true). ?enterprise=true kept as legacy alias.
+        const teamMode = team === 'true' || enterprise === 'true';
 
-        // Check if user is enterprise owner
+        // Check if user is team plan owner
         const userRes = await client.query(
             'SELECT plan_name, org_role FROM users WHERE id = $1',
             [userId]
@@ -919,9 +922,9 @@ router.get('/', async (req, res) => {
         const user = userRes.rows[0];
         const isTeamOwner = user && user.plan_name === 'team' && user.org_role !== 'member';
 
-        // If enterprise mode and user is not owner, deny
-        if (enterprise === 'true' && !isTeamOwner) {
-            return res.status(403).json({ error: 'Not authorized for enterprise analytics' });
+        // If team mode and user is not owner, deny
+        if (teamMode && !isTeamOwner) {
+            return res.status(403).json({ error: 'Not authorized for team analytics' });
         }
 
         let query = `
@@ -935,7 +938,9 @@ router.get('/', async (req, res) => {
                     json_agg(
                         json_build_object(
                             'id', sn.id,
-                            'content', sn.note_content,
+                            'note_content_encrypted', sn.note_content_encrypted,
+                            'note_content', sn.note_content,
+                            'legacy_content', sn.content,
                             'created_at', sn.created_at,
                             'attachments', COALESCE(sn.attachments, '[]'::jsonb)
                         )
@@ -948,7 +953,7 @@ router.get('/', async (req, res) => {
         `;
         let params = [];
 
-        if (enterprise === 'true') {
+        if (teamMode) {
             // Team owner - get all team members' bookings
             query += `
                 WHERE a.therapist_id IN (
@@ -969,7 +974,7 @@ router.get('/', async (req, res) => {
         }
 
         if (email) {
-            const emailParam = enterprise === 'true' ? params.length + 1 : 2;
+            const emailParam = teamMode ? params.length + 1 : 2;
             query += ` AND LOWER(a.client_email) = LOWER($${emailParam})`;
             params.push(email);
         }
@@ -977,7 +982,22 @@ router.get('/', async (req, res) => {
         query += " GROUP BY a.id, u.user_name ORDER BY a.created_at DESC";
 
         const result = await client.query(query, params);
-        res.json(result.rows);
+
+        // Decrypt note content per booking (notes are encrypted with the owning therapist's key)
+        const rows = result.rows.map(row => ({
+            ...row,
+            notes: (row.notes || []).map(n => ({
+                id: n.id,
+                content: resolveNoteContent(
+                    { note_content_encrypted: n.note_content_encrypted, note_content: n.note_content, content: n.legacy_content },
+                    row.therapist_id
+                ),
+                created_at: n.created_at,
+                attachments: n.attachments || []
+            }))
+        }));
+
+        res.json(rows);
     } catch (error) {
         console.error('Error fetching bookings:', error);
         res.status(500).json({ error: 'Failed to fetch bookings' });
@@ -1852,10 +1872,28 @@ router.patch('/:id/mark-payment-received', ensureAuthenticated, async (req, res)
     }
 });
 
-// GET /api/bookings/refunds/history - Fetch refund history for therapist
+// Resolve which therapist IDs a request may see payment data for.
+// Returns [own id] normally; with ?team=true a team plan owner gets the whole org.
+// Returns null when team mode is requested by a non-owner (caller should 403).
+async function resolvePaymentScope(userId, teamParam) {
+    if (teamParam !== 'true') return [userId];
+    const userRes = await pool.query('SELECT plan_name, org_role FROM users WHERE id = $1', [userId]);
+    const u = userRes.rows[0];
+    if (!u || u.plan_name !== 'team' || u.org_role === 'member') return null;
+    const idsRes = await pool.query(
+        `SELECT therapist_user_id as id FROM organization_therapists
+         WHERE owner_id = $1 AND status = 'active' AND therapist_user_id IS NOT NULL
+         UNION SELECT $1 as id`,
+        [userId]
+    );
+    return idsRes.rows.map(r => r.id);
+}
+
+// GET /api/bookings/refunds/history - Fetch refund history (org-wide with ?team=true for owners)
 router.get('/refunds/history', async (req, res) => {
     try {
-        const therapistId = req.user.id;
+        const therapistIds = await resolvePaymentScope(req.user.id, req.query.team);
+        if (!therapistIds) return res.status(403).json({ error: 'Not authorized for team payment data' });
 
         const result = await pool.query(
             `SELECT
@@ -1870,13 +1908,15 @@ router.get('/refunds/history', async (req, res) => {
                 a.client_name,
                 a.title as session_title,
                 a.start_time,
-                a.payment_status
+                a.payment_status,
+                u.user_name as therapist_name
              FROM RefundTracking rt
              JOIN Appointments a ON rt.appointment_id = a.id
-             WHERE a.therapist_id = $1
+             LEFT JOIN users u ON a.therapist_id = u.id
+             WHERE a.therapist_id = ANY($1::int[])
              ORDER BY rt.created_at DESC
              LIMIT 100`,
-            [therapistId]
+            [therapistIds]
         );
 
         res.json(result.rows);
@@ -1886,14 +1926,16 @@ router.get('/refunds/history', async (req, res) => {
     }
 });
 
-// GET /api/bookings/payment-report - Detailed payment report for dashboard
+// GET /api/bookings/payment-report - Detailed payment report (org-wide with ?team=true for owners)
 router.get('/payment-report', async (req, res) => {
     try {
-        const therapistId = req.user.id;
+        const therapistIds = await resolvePaymentScope(req.user.id, req.query.team);
+        if (!therapistIds) return res.status(403).json({ error: 'Not authorized for team payment data' });
+
         const { startDate, endDate } = req.query;
 
         let dateFilter = '';
-        let params = [therapistId];
+        let params = [therapistIds];
 
         if (startDate && endDate) {
             dateFilter = ' AND a.start_time >= $2 AND a.start_time <= $3';
@@ -1904,7 +1946,7 @@ router.get('/payment-report', async (req, res) => {
         const statusRes = await pool.query(
             `SELECT payment_status, COUNT(*) as count, COALESCE(SUM(payment_amount), 0) as total
              FROM Appointments a
-             WHERE a.therapist_id = $1${dateFilter}
+             WHERE a.therapist_id = ANY($1::int[])${dateFilter}
              GROUP BY payment_status
              ORDER BY payment_status`,
             params
@@ -1921,7 +1963,7 @@ router.get('/payment-report', async (req, res) => {
                 COUNT(*) as count,
                 COALESCE(SUM(CASE WHEN payment_status = 'Paid' OR payment_status = 'Partial Refund' THEN payment_amount ELSE 0 END), 0) as revenue
              FROM Appointments a
-             WHERE a.therapist_id = $1 AND a.payment_status IN ('Paid', 'Partial Refund')${dateFilter}
+             WHERE a.therapist_id = ANY($1::int[]) AND a.payment_status IN ('Paid', 'Partial Refund')${dateFilter}
              GROUP BY method
              ORDER BY revenue DESC`,
             params
@@ -1941,9 +1983,11 @@ router.get('/payment-report', async (req, res) => {
                     WHEN a.cashfree_order_id IS NOT NULL THEN 'Cashfree'
                     ELSE 'Offline'
                 END as payment_method,
-                a.created_at
+                a.created_at,
+                u.user_name as therapist_name
              FROM Appointments a
-             WHERE a.therapist_id = $1${dateFilter}
+             LEFT JOIN users u ON a.therapist_id = u.id
+             WHERE a.therapist_id = ANY($1::int[])${dateFilter}
              AND a.payment_status IN ('Paid', 'Pending', 'Refunded', 'Partial Refund')
              ORDER BY a.created_at DESC
              LIMIT 20`,

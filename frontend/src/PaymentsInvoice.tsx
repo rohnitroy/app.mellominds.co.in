@@ -59,6 +59,9 @@ const PaymentsInvoice: React.FC = () => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [orgDetails, setOrgDetails] = useState<any>(null);
 
+  // Team plan owners see org-wide payments (billing is per org/clinic)
+  const isTeamOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
+
   // Fetch org details for enterprise users
   useEffect(() => {
     if (user?.plan_name === 'team') {
@@ -85,7 +88,8 @@ const PaymentsInvoice: React.FC = () => {
 
   const fetchBookings = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/bookings`, { credentials: 'include' });
+      const url = isTeamOwner ? `${API_BASE_URL}/api/bookings?team=true` : `${API_BASE_URL}/api/bookings`;
+      const response = await fetch(url, { credentials: 'include' });
       if (response.ok) {
         const data = await response.json();
         setBookings(data);
@@ -95,7 +99,7 @@ const PaymentsInvoice: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isTeamOwner]);
 
   useEffect(() => {
     fetchBookings();
@@ -104,22 +108,22 @@ const PaymentsInvoice: React.FC = () => {
   // Fetch refund history
   useEffect(() => {
     if (activeTab === 'Manage Refunds') {
-      fetch(`${API_BASE_URL}/api/bookings/refunds/history`, { credentials: 'include' })
+      fetch(`${API_BASE_URL}/api/bookings/refunds/history${isTeamOwner ? '?team=true' : ''}`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : [])
         .then(d => setRefundHistory(d))
         .catch(() => setRefundHistory([]));
     }
-  }, [activeTab]);
+  }, [activeTab, isTeamOwner]);
 
   // Fetch payment report
   useEffect(() => {
     if (activeTab === 'Payment Reports') {
-      fetch(`${API_BASE_URL}/api/bookings/payment-report`, { credentials: 'include' })
+      fetch(`${API_BASE_URL}/api/bookings/payment-report${isTeamOwner ? '?team=true' : ''}`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
         .then(d => setPaymentReport(d))
         .catch(() => setPaymentReport(null));
     }
-  }, [activeTab]);
+  }, [activeTab, isTeamOwner]);
 
   // Socket.io listener for real-time payment updates
   useEffect(() => {
@@ -174,7 +178,8 @@ const PaymentsInvoice: React.FC = () => {
       (b.client_name || '').toLowerCase().includes(q) ||
       (b.client_phone || '').toLowerCase().includes(q) ||
       (b.client_email || '').toLowerCase().includes(q) ||
-      (b.title || '').toLowerCase().includes(q)
+      (b.title || '').toLowerCase().includes(q) ||
+      (b.therapist_name || '').toLowerCase().includes(q)
     );
   }, [tabFiltered, searchQuery]);
 
@@ -351,6 +356,12 @@ const PaymentsInvoice: React.FC = () => {
         </div>
       ),
     },
+    // Org-wide view: owners see which therapist each payment belongs to
+    ...(isTeamOwner ? [{
+      accessorKey: 'therapist_name',
+      header: 'Therapist',
+      cell: ({ getValue }: any) => <span>{getValue() || '—'}</span>,
+    } as ColumnDef<any, any>] : []),
     {
       accessorKey: 'title',
       header: 'Session Type',
@@ -432,7 +443,7 @@ const PaymentsInvoice: React.FC = () => {
         );
       },
     },
-  ], [activeMenuId]);
+  ], [activeMenuId, isTeamOwner]);
 
   return (
     <div className={styles.paymentsPage}>
@@ -468,6 +479,7 @@ const PaymentsInvoice: React.FC = () => {
           const toExport = selectedRows.length > 0 ? selectedRows : filteredPayments;
           exportToCSV(toExport, 'payments', {
             client_name: 'Client Name', client_phone: 'Phone',
+            ...(isTeamOwner ? { therapist_name: 'Therapist' } : {}),
             title: 'Session Type', start_time: 'Session Time',
             payment_amount: 'Amount', payment_status: 'Payment Status', status: 'Booking Status'
           });
@@ -488,6 +500,7 @@ const PaymentsInvoice: React.FC = () => {
               <thead>
                 <tr style={{ background: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
                   <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Client</th>
+                  {isTeamOwner && <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Therapist</th>}
                   <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Session</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Original</th>
                   <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '13px', fontWeight: 600 }}>Refund</th>
@@ -500,6 +513,7 @@ const PaymentsInvoice: React.FC = () => {
                 {refundHistory.map((refund, idx) => (
                   <tr key={refund.id} style={{ borderBottom: idx < refundHistory.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
                     <td style={{ padding: '12px 16px', fontSize: '13px' }}>{refund.client_name || '—'}</td>
+                    {isTeamOwner && <td style={{ padding: '12px 16px', fontSize: '13px' }}>{refund.therapist_name || '—'}</td>}
                     <td style={{ padding: '12px 16px', fontSize: '13px' }}>{refund.session_title || '—'}</td>
                     <td style={{ padding: '12px 16px', fontSize: '13px' }}>₹{parseFloat(refund.original_amount).toFixed(2)}</td>
                     <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 600, color: '#2e7d32' }}>₹{parseFloat(refund.refund_amount).toFixed(2)}</td>
@@ -555,6 +569,7 @@ const PaymentsInvoice: React.FC = () => {
                   <thead>
                     <tr style={{ borderBottom: '1px solid #e0e0e0' }}>
                       <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Client</th>
+                      {isTeamOwner && <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Therapist</th>}
                       <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Amount</th>
                       <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Method</th>
                       <th style={{ padding: '8px 0', textAlign: 'left', fontWeight: 600 }}>Status</th>
@@ -565,6 +580,7 @@ const PaymentsInvoice: React.FC = () => {
                     {paymentReport.recentTransactions?.map((t: any) => (
                       <tr key={t.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                         <td style={{ padding: '8px 0' }}>{t.client_name}</td>
+                        {isTeamOwner && <td style={{ padding: '8px 0', fontSize: '12px', color: '#666' }}>{t.therapist_name || '—'}</td>}
                         <td style={{ padding: '8px 0', fontWeight: 600 }}>₹{parseFloat(t.payment_amount).toFixed(2)}</td>
                         <td style={{ padding: '8px 0', fontSize: '12px', color: '#666' }}>{t.payment_method}</td>
                         <td style={{ padding: '8px 0' }}>

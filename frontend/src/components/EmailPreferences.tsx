@@ -83,7 +83,7 @@ const PREFERENCE_GROUPS = [
   {
     title: 'Email Integration',
     preferences: [
-      { key: 'use_own_email', label: 'Use my Gmail account to send emails (Enterprise only)' },
+      { key: 'use_own_email', label: 'Use my Gmail account to send emails (Team plan only)' },
     ]
   },
 ];

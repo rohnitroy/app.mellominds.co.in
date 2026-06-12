@@ -37,12 +37,32 @@ interface ClientViewProps {
   onTabChange?: (tab: string) => void;
 }
 
+// Predefined therapeutic exercises: selecting one auto-fills purpose & instructions
+const THERAPEUTIC_EXERCISES: { name: string; purpose: string; instructions: string }[] = [
+  { name: 'Reflection Journal', purpose: 'Promotes self-awareness and emotional processing.', instructions: 'Maintain a diary and reflect on a significant experience this week and record your thoughts, feelings, and observations.' },
+  { name: 'Mood Monitoring', purpose: 'Tracks emotional patterns and triggers over time.', instructions: 'Record your mood throughout the week and note any situations associated with emotional changes in your notebook/diary.' },
+  { name: 'Thought Reflection', purpose: 'Helps identify recurring thoughts and interpretations.', instructions: 'Document situations that stood out to you and note the thoughts that accompanied them.' },
+  { name: 'Goal Setting Exercise', purpose: 'Supports intentional behavior change and progress.', instructions: 'Identify 1-3 achievable goals for the coming week and outline the steps you will take.' },
+  { name: 'Mindfulness Practice', purpose: 'Enhances present-moment awareness and attention.', instructions: 'Practice mindful awareness for 5-10 minutes daily and observe thoughts and sensations without judgment.' },
+  { name: 'Grounding Exercise', purpose: 'Helps manage distress and increase present-moment focus.', instructions: 'Use a grounding technique when feeling overwhelmed and note its impact on your experience.' },
+  { name: 'Breathing Exercise', purpose: 'Supports emotional regulation and relaxation.', instructions: 'Practice slow, controlled breathing for 5 minutes daily and observe any changes in your emotional state.' },
+  { name: 'Activity Planning', purpose: 'Encourages engagement in meaningful activities.', instructions: 'Schedule and complete one enjoyable or personally meaningful activity before the next session.' },
+  { name: 'Communication Reflection', purpose: 'Builds awareness of interpersonal patterns.', instructions: 'Reflect on a recent interaction with anyone and identify what went well and what you might do differently.' },
+  { name: 'Values Reflection', purpose: 'Clarifies personal values and priorities.', instructions: 'Reflect on what matters most to you and identify one action that aligns with those values.' },
+  { name: 'Self-Compassion Exercise', purpose: 'Encourages a balanced and supportive self-perspective.', instructions: 'Write a brief response to yourself as you would to a close friend facing a similar challenge.' },
+  { name: 'Gratitude Practice', purpose: 'Promotes positive reflection and appreciation.', instructions: 'Record five things you appreciated or felt grateful for each day.' },
+  { name: 'Strengths Reflection', purpose: 'Increases awareness of personal strengths and resources.', instructions: 'Identify strengths you used during the week and how they helped you navigate challenges.' },
+  { name: 'Problem-Solving Exercise', purpose: 'Supports structured decision-making and coping.', instructions: 'Identify a current challenge, generate possible solutions, and evaluate their potential outcomes.' },
+];
+
 const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, propCutoffDate, onTabChange }) => {
   const toast = useToast();
   const { user } = useAuth();
-  const isEnterprise = user?.plan_name === 'team';
+  const isTeamPlan = user?.plan_name === 'team';
   const isOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
-  const canSeeContactInfo = !isEnterprise || isOwner;
+  // Matches backend gate in /api/notes/upload-attachment (Individual & Team plans)
+  const canAttachFiles = user?.plan_name === 'team' || user?.plan_name === 'individual';
+  const canSeeContactInfo = !isTeamPlan || isOwner;
   const [uploadingNoteFile, setUploadingNoteFile] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(initialTab || 'Overview');
   const [selectedDate, setSelectedDate] = useState<string>('all');
@@ -108,7 +128,10 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [activitySubmitting, setActivitySubmitting] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingNote, setDeletingNote] = useState<number | null>(null);
-  const [activityForm, setActivityForm] = useState({ name: '', description: '', notify_client: false });
+  const [activityForm, setActivityForm] = useState({
+    exercise_type: '', name: '', purpose: '', description: '', due_date: '',
+    notify_client: false, reminder_count: 4, reminder_interval_days: 7
+  });
   const [transferInfo, setTransferInfo] = useState<{ transferred: boolean; from_therapist_email?: string; created_at?: string } | null>(null);
   const [isTransferredClient, setIsTransferredClient] = useState(!!propCutoffDate);
   const [transferCutoffDate, setTransferCutoffDate] = useState<Date | null>(propCutoffDate || null);
@@ -120,7 +143,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [noteTemplate, setNoteTemplate] = useState<any[]>([]);
   const [noteFormData, setNoteFormData] = useState<Record<string, any>>({});
   const [editingNote, setEditingNote] = useState<any | null>(null);
-  const [pendingAttachments, setPendingAttachments] = useState<{ url: string; original_name: string }[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<{ url: string; original_name: string; public_id?: string; resource_type?: string }[]>([]);
   const [uploadingNoteAttachment, setUploadingNoteAttachment] = useState(false);
 
   const fetchActivities = async () => {
@@ -227,23 +250,57 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     return () => document.removeEventListener('mousedown', close);
   }, [openActionMenu]);
 
+  const emptyActivityForm = {
+    exercise_type: '', name: '', purpose: '', description: '', due_date: '',
+    notify_client: false, reminder_count: 4, reminder_interval_days: 7
+  };
+
+  const closeActivitiesModal = () => {
+    setShowAddActivitiesModal(false);
+    setActivityForm(emptyActivityForm);
+  };
+
+  const handleExerciseTypeChange = (value: string) => {
+    if (value === 'custom' || value === '') {
+      setActivityForm(prev => ({ ...prev, exercise_type: value, name: '', purpose: '', description: '' }));
+      return;
+    }
+    const preset = THERAPEUTIC_EXERCISES.find(e => e.name === value);
+    if (preset) {
+      setActivityForm(prev => ({ ...prev, exercise_type: value, name: preset.name, purpose: preset.purpose, description: preset.instructions }));
+    }
+  };
+
   const handleActivitySubmit = async () => {
-    if (!activityForm.name.trim()) { toast.warning('Activity name is required.'); return; }
+    if (!activityForm.exercise_type) { toast.warning('Please select an exercise type.'); return; }
+    if (!activityForm.name.trim()) { toast.warning('Exercise name is required.'); return; }
     setActivitySubmitting(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/activities`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: client.id, name: activityForm.name, description: activityForm.description, notify_client: activityForm.notify_client }),
+        body: JSON.stringify({
+          client_id: client.id,
+          name: activityForm.name,
+          description: activityForm.description,
+          notify_client: activityForm.notify_client,
+          reminder_count: activityForm.reminder_count,
+          reminder_interval_days: activityForm.reminder_interval_days,
+          exercise_type: activityForm.exercise_type === 'custom' ? 'Custom' : activityForm.exercise_type,
+          purpose: activityForm.purpose,
+          due_date: activityForm.due_date || null
+        }),
         credentials: 'include'
       });
       if (res.ok) {
-        toast.success('Activity added!');
-        setShowAddActivitiesModal(false);
-        setActivityForm({ name: '', description: '', notify_client: false });
+        toast.success('Exercise added!');
+        closeActivitiesModal();
         fetchActivities();
-      } else { toast.error('Failed to add activity.'); }
-    } catch (e) { toast.error('Error adding activity.'); }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast.error(err.error || 'Failed to add exercise.');
+      }
+    } catch (e) { toast.error('Error adding exercise.'); }
     finally { setActivitySubmitting(false); }
   };
 
@@ -333,7 +390,9 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     if (!editingNote && selectedAppointmentId) {
       const selectedApp = appointments.find(a => a.id.toString() === selectedAppointmentId.toString());
       if (selectedApp) {
-        if (selectedApp.status !== 'completed' || new Date(selectedApp.end_time) >= new Date()) {
+        const sessionEnded = new Date(selectedApp.end_time) < new Date();
+        const noteableStatus = selectedApp.status === 'completed' || selectedApp.status === 'scheduled';
+        if (!noteableStatus || !sessionEnded) {
           toast.warning('Notes can only be added after the session has ended.');
           return;
         }
@@ -370,11 +429,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
 
       if (response.ok) {
         toast.success(isEdit ? 'Note updated!' : 'Note added successfully!');
-        setShowAddNotesModal(false);
+        closeNotesModal(true);
         setNoteContent('');
-        setSelectedAppointmentId('');
-        setEditingNote(null);
-        setPendingAttachments([]);
         const init: Record<string, any> = {};
         noteTemplate.forEach((f: any) => { init[f.key] = f.type === 'checkbox' ? [] : ''; });
         setNoteFormData(init);
@@ -536,8 +592,27 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     return () => clearTimeout(timer);
   }, [transferEmail]);
 
+  // Delete an uploaded file from storage when it was never saved with a note
+  const discardAttachment = (a: { public_id?: string; resource_type?: string }) => {
+    if (!a.public_id) return;
+    fetch(`${API_BASE_URL}/api/notes/delete-attachment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ public_id: a.public_id, resource_type: a.resource_type }),
+    }).catch(() => {});
+  };
+
+  const closeNotesModal = (saved: boolean = false) => {
+    if (!saved) pendingAttachments.forEach(discardAttachment);
+    setShowAddNotesModal(false);
+    setEditingNote(null);
+    setSelectedAppointmentId('');
+    setPendingAttachments([]);
+  };
+
   const handleUploadNoteFile = (appointmentId: string) => {
-    if (!isEnterprise) { toast.error('File attachments are available on Enterprise plan only.'); return; }
+    if (!canAttachFiles) { toast.error('File attachments are available on Individual and Team plans.'); return; }
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg';
@@ -558,7 +633,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
         if (res.ok) {
           const data = await res.json();
           // Add to pending attachments and open the note modal so it gets saved with a note
-          setPendingAttachments(prev => [...prev, { url: data.url, original_name: data.original_name }]);
+          setPendingAttachments(prev => [...prev, { url: data.url, original_name: data.original_name, public_id: data.public_id, resource_type: data.resource_type }]);
           setSelectedAppointmentId(appointmentId);
           setShowAddNotesModal(true);
           toast.success(`File "${data.original_name}" ready — add a note and save to attach it.`);
@@ -575,7 +650,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     input.click();
   };
 
-  const tabs: string[] = ['Overview', 'Session Notes', 'Activity Suggestion'];
+  const tabs: string[] = ['Overview', 'Session Notes', 'Therapeutic Exercises'];
 
   const handleTransferClient = async () => {
     if (!transferEmail.trim()) { toast.warning('Please enter the therapist email.'); return; }
@@ -1023,7 +1098,9 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                         {!(isTransferredClient && transferCutoffDate) && (
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {!(app.notes?.length > 0) && (
+                              {!(app.notes?.length > 0) &&
+                                (app.status === 'completed' || app.status === 'scheduled') &&
+                                new Date(app.end_time) < new Date() && (
                                 <button
                                   className={styles.noteEditBtn}
                                   onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
@@ -1102,7 +1179,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
             )}
 
 
-            {activeTab === 'Activity Suggestion' && (
+            {activeTab === 'Therapeutic Exercises' && (
               <div className={styles.activityContent}>
                 <div className={styles.sessionsHeader}>
                   <div className={styles.dateSelector} onClick={() => setShowDateDropdown(!showDateDropdown)}>
@@ -1150,16 +1227,36 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                       : filtered;
                     if (cutoffFiltered.length === 0) return (
                       <div style={{ padding: '20px', textAlign: 'center', color: '#6E6E6E', fontSize: '14px' }}>
-                        {activities.length === 0 ? 'No activities added yet.' : 'No activities for this period.'}
+                        {activities.length === 0 ? 'No exercises assigned yet.' : 'No exercises for this period.'}
                       </div>
                     );
                     return cutoffFiltered.map((act: any) => (
                       <div className={styles.activityItem} key={act.id}>
                         <div className={styles.activityInfo}>
                           <div className={styles.activityName}>{act.name}</div>
+                          {act.purpose && (
+                            <div style={{ fontSize: '12px', color: '#2D7579', fontStyle: 'italic', fontFamily: 'Urbanist', marginTop: '2px' }}>
+                              {act.purpose}
+                            </div>
+                          )}
                           <div className={styles.activityDescription}>{act.description || '—'}</div>
+                          {act.attachments?.length > 0 && (
+                            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              {act.attachments.map((a: any, ai: number) => (
+                                <a key={ai} href={a.url} target="_blank" rel="noopener noreferrer"
+                                  style={{ fontSize: '12px', color: '#2D7579', textDecoration: 'underline', fontFamily: 'Urbanist' }}>
+                                  📎 {a.original_name}
+                                </a>
+                              ))}
+                            </div>
+                          )}
                           <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', fontFamily: 'Urbanist' }}>
                             {new Date(act.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {act.due_date && (
+                              <span style={{ marginLeft: '10px', color: '#c77700' }}>
+                                Due: {new Date(act.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <button className={styles.deleteBtn} onClick={() => setActivityToDelete(act.id)}>
@@ -1171,7 +1268,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                 </div>
 
                 {!(isTransferredClient && transferCutoffDate) && (
-                  <button className={styles.addActivitiesBtn} onClick={() => setShowAddActivitiesModal(true)}>+ Add Activities</button>
+                  <button className={styles.addActivitiesBtn} onClick={() => setShowAddActivitiesModal(true)}>+ Add Exercise/Activity</button>
                 )}
               </div>
             )}
@@ -1255,11 +1352,11 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
 
       {/* Add Notes Modal */}
       {showAddNotesModal && (
-        <div className={styles.modalOverlay} onClick={() => { setShowAddNotesModal(false); setEditingNote(null); setSelectedAppointmentId(''); setPendingAttachments([]); }}>
+        <div className={styles.modalOverlay} onClick={() => closeNotesModal()}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <h2 style={{ margin: 0 }}>{editingNote ? 'Edit Note' : '+ Add Notes'}</h2>
-              <button onClick={() => { setShowAddNotesModal(false); setEditingNote(null); setSelectedAppointmentId(''); setPendingAttachments([]); }} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+              <button onClick={() => closeNotesModal()} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
             </div>
             <p>{editingNote ? 'Update the note for this session.' : 'Add notes to a dedicated client booking.'}</p>
 
@@ -1274,7 +1371,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   <option value="">Select booking</option>
                   {appointments
                     .filter(app =>
-                      app.status === 'completed' &&
+                      (app.status === 'completed' || app.status === 'scheduled') &&
                       new Date(app.end_time) < new Date() &&
                       !(app.notes?.length > 0)
                     )
@@ -1363,8 +1460,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
               </div>
             )}
 
-            {/* Attachments — enterprise only */}
-            {isEnterprise && (
+            {/* Attachments — Individual & Team plans */}
+            {canAttachFiles && (
               <div className={styles.formGroup}>
                 <label>Attachments</label>
                 {/* Existing attachments on edit */}
@@ -1384,7 +1481,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                     {pendingAttachments.map((a, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '13px', color: '#2D7579', fontFamily: 'Urbanist' }}>📎 {a.original_name}</span>
-                        <button onClick={() => setPendingAttachments(prev => prev.filter((_, idx) => idx !== i))}
+                        <button onClick={() => { discardAttachment(a); setPendingAttachments(prev => prev.filter((_, idx) => idx !== i)); }}
                           style={{ background: 'none', border: 'none', color: '#c62828', cursor: 'pointer', fontSize: '13px', padding: 0 }}>✕</button>
                       </div>
                     ))}
@@ -1411,7 +1508,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                         });
                         if (res.ok) {
                           const data = await res.json();
-                          setPendingAttachments(prev => [...prev, { url: data.url, original_name: data.original_name }]);
+                          setPendingAttachments(prev => [...prev, { url: data.url, original_name: data.original_name, public_id: data.public_id, resource_type: data.resource_type }]);
                         } else {
                           const err = await res.json();
                           toast.error(err.error || 'Failed to upload file');
@@ -1434,19 +1531,67 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       )}
 
 
-      {/* Add Activities Modal */}
+      {/* Add Therapeutic Exercise/Activity Modal */}
       {showAddActivitiesModal && (
-        <div className={styles.modalOverlay} onClick={() => setShowAddActivitiesModal(false)}>
+        <div className={styles.modalOverlay} onClick={() => closeActivitiesModal()}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-              <h2 style={{ margin: 0 }}>+ Add Activity</h2>
-              <button onClick={() => setShowAddActivitiesModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+              <h2 style={{ margin: 0 }}>+ Add Therapeutic Exercise/Activity</h2>
+              <button onClick={() => closeActivitiesModal()} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
             </div>
-            <p>Add an activity suggestion for this client.</p>
+            <p>Assign a therapeutic exercise or activity to this client.</p>
+
+            <div className={styles.formGroup}>
+              <label>Exercise Type</label>
+              <select className={styles.formSelect} value={activityForm.exercise_type}
+                onChange={(e) => handleExerciseTypeChange(e.target.value)}>
+                <option value="">Select exercise type</option>
+                {THERAPEUTIC_EXERCISES.map(ex => (
+                  <option key={ex.name} value={ex.name}>{ex.name}</option>
+                ))}
+                <option value="custom">Custom Exercise</option>
+              </select>
+              {activityForm.exercise_type && activityForm.exercise_type !== 'custom' && activityForm.purpose && (
+                <div style={{ marginTop: '6px', fontSize: '13px', color: '#2D7579', fontFamily: 'Urbanist', fontStyle: 'italic' }}>
+                  {activityForm.purpose}
+                </div>
+              )}
+            </div>
+
+            {activityForm.exercise_type === 'custom' && (
+              <>
+                <div className={styles.formGroup}>
+                  <label>Exercise Name</label>
+                  <input type="text" placeholder="Enter exercise name" className={styles.formInput}
+                    value={activityForm.name} onChange={(e) => setActivityForm({ ...activityForm, name: e.target.value })} />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>Purpose</label>
+                  <input type="text" placeholder="What is this exercise for?" className={styles.formInput}
+                    value={activityForm.purpose} onChange={(e) => setActivityForm({ ...activityForm, purpose: e.target.value })} />
+                </div>
+              </>
+            )}
+
+            {activityForm.exercise_type && (
+              <div className={styles.formGroup}>
+                <label>Suggested Instructions</label>
+                <textarea placeholder="Instructions for the client" className={styles.formTextarea} rows={3}
+                  value={activityForm.description} onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}></textarea>
+              </div>
+            )}
+
+            <div className={styles.formGroup}>
+              <label>Due Date (Optional)</label>
+              <input type="date" className={styles.formInput}
+                min={new Date().toISOString().split('T')[0]}
+                value={activityForm.due_date}
+                onChange={(e) => setActivityForm({ ...activityForm, due_date: e.target.value })} />
+            </div>
 
             <div className={styles.formGroup}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ margin: 0 }}>Notify Client</label>
+                <label style={{ margin: 0 }}>Reminders</label>
                 <div
                   onClick={() => setActivityForm({ ...activityForm, notify_client: !activityForm.notify_client })}
                   style={{
@@ -1463,21 +1608,25 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   }} />
                 </div>
               </div>
+              {activityForm.notify_client && (
+                <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '12px' }}>Number of reminders</label>
+                    <input type="number" min={1} max={20} className={styles.formInput}
+                      value={activityForm.reminder_count}
+                      onChange={(e) => setActivityForm({ ...activityForm, reminder_count: parseInt(e.target.value) || 1 })} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '12px' }}>Every X days</label>
+                    <input type="number" min={1} max={90} className={styles.formInput}
+                      value={activityForm.reminder_interval_days}
+                      onChange={(e) => setActivityForm({ ...activityForm, reminder_interval_days: parseInt(e.target.value) || 1 })} />
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className={styles.formGroup}>
-              <label>Activity Name</label>
-              <input type="text" placeholder="Enter activity name" className={styles.formInput}
-                value={activityForm.name} onChange={(e) => setActivityForm({ ...activityForm, name: e.target.value })} />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>Activity Description</label>
-              <textarea placeholder="Enter activity description" className={styles.formTextarea} rows={4}
-                value={activityForm.description} onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}></textarea>
-            </div>
-
-            <button className={styles.modalSubmitBtn} onClick={handleActivitySubmit} disabled={activitySubmitting}>{activitySubmitting ? 'Adding...' : 'Add Activity'}</button>
+            <button className={styles.modalSubmitBtn} onClick={handleActivitySubmit} disabled={activitySubmitting}>{activitySubmitting ? 'Adding...' : 'Add Exercise'}</button>
           </div>
         </div>
       )}
@@ -1563,7 +1712,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
 
               {[
                 { key: 'notes', label: 'Session Notes', desc: 'All session notes for this client', disabled: false },
-                { key: 'activities', label: 'Activity Suggestions', desc: 'All activity suggestions for this client', disabled: false },
+                { key: 'activities', label: 'Therapeutic Exercises/Activities', desc: 'All therapeutic exercises assigned to this client', disabled: false },
               ].map(opt => (
                 <label key={opt.key} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px', cursor: opt.disabled ? 'not-allowed' : 'pointer', opacity: opt.disabled ? 0.45 : 1 }}>
                   <input

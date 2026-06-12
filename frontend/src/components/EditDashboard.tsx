@@ -25,7 +25,7 @@ const EditDashboard: React.FC<EditDashboardProps> = ({ onBack }) => {
   const { user } = useAuth();
   const { socket } = useSocket();
   const toast = useToast();
-  const isEnterprise = user?.plan_name === 'team';
+  const isTeamPlan = user?.plan_name === 'team';
 
   const [widgets, setWidgets] = useState<Record<string, boolean>>(
     Object.fromEntries(ALL_WIDGETS.map(w => [w.key, true]))
@@ -52,12 +52,12 @@ const EditDashboard: React.FC<EditDashboardProps> = ({ onBack }) => {
   }, [toast]);
 
   useEffect(() => {
-    if (!isEnterprise) {
+    if (!isTeamPlan) {
       setLoading(false);
       return;
     }
     fetchPreferences();
-  }, [isEnterprise, fetchPreferences]);
+  }, [isTeamPlan, fetchPreferences]);
 
   useEffect(() => {
     if (!socket) return;
@@ -70,7 +70,7 @@ const EditDashboard: React.FC<EditDashboardProps> = ({ onBack }) => {
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!isEnterprise) {
+    if (!isTeamPlan) {
       toast.error('Only Enterprise plan users can customize the dashboard');
       return;
     }
@@ -95,7 +95,7 @@ const EditDashboard: React.FC<EditDashboardProps> = ({ onBack }) => {
     } finally {
       setSaving(false);
     }
-  }, [widgets, isEnterprise, toast, onBack]);
+  }, [widgets, isTeamPlan, toast, onBack]);
 
   if (loading) return <Loader fullScreen />;
 

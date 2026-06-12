@@ -240,8 +240,10 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack, prefillClient, pr
         const parsed = parseTimeSlot(selectedTimeSlot);
         if (!parsed) { toast.error('Invalid time slot'); return; }
 
-        const startTime = new Date(formData.selectedDate);
-        startTime.setHours(parsed.hours, parsed.minutes, 0, 0);
+        // Build from local Y-M-D parts so the date can't roll to the previous/next
+        // day on UTC parsing of the "YYYY-MM-DD" string
+        const [yr, mo, dy] = formData.selectedDate.split('-').map(Number);
+        const startTime = new Date(yr, mo - 1, dy, parsed.hours, parsed.minutes, 0, 0);
 
         setShowPaymentConfirm(false);
         setSubmitting(true);
@@ -467,12 +469,8 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack, prefillClient, pr
                                     {submitting ? 'Creating...' : 'Pay Later / Cash'}
                                 </button>
                                 <button className={styles.sendPaymentBtn} onClick={() => {
-                                    if (!formData.selectedCalendar || !formData.selectedDate || !selectedTimeSlot || !formData.clientName) {
-                                        toast.warning('Please fill in all required fields');
-                                        return;
-                                    }
-                                    if (!formData.sessionType.online && !formData.sessionType.inPerson) {
-                                        toast.warning('Please select a session mode (Online or In-person)');
+                                    if (!formData.selectedCalendar || !formData.clientName || !formData.clientEmail) {
+                                        toast.warning('Please fill in client name, email and calendar');
                                         return;
                                     }
                                     setShowSendLinkModal(true);
@@ -518,7 +516,14 @@ const CreateBooking: React.FC<CreateBookingProps> = ({ onBack, prefillClient, pr
                 </div>
             )}
 
-            <SendBookingLinkModal isOpen={showSendLinkModal} onClose={() => setShowSendLinkModal(false)} />
+            <SendBookingLinkModal
+                isOpen={showSendLinkModal}
+                onClose={() => setShowSendLinkModal(false)}
+                prefillName={formData.clientName}
+                prefillEmail={formData.clientEmail}
+                prefillPhone={formData.clientWhatsApp}
+                prefillCalendarId={formData.selectedCalendar}
+            />
         </div>
     );
 };
