@@ -18,6 +18,7 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   enableSelection?: boolean;
   onSelectionChange?: (selectedRows: T[]) => void;
+  onRowClick?: (row: T) => void;
 }
 
 function DataTable<T>({
@@ -27,6 +28,7 @@ function DataTable<T>({
   emptyMessage = 'No records found',
   enableSelection = false,
   onSelectionChange,
+  onRowClick,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
@@ -119,12 +121,27 @@ function DataTable<T>({
             </tr>
           ) : (
             table.getRowModel().rows.map(row => (
-              <tr key={row.id} style={row.getIsSelected() ? { background: '#f0faf9' } : undefined}>
-                {row.getVisibleCells().map(cell => (
-                  <td key={cell.id} className={styles.td}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+              <tr
+                key={row.id}
+                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                style={{
+                  ...(row.getIsSelected() ? { background: '#f0faf9' } : {}),
+                  ...(onRowClick ? { cursor: 'pointer' } : {}),
+                }}
+              >
+                {row.getVisibleCells().map(cell => {
+                  // Interactive cells (checkbox, actions) shouldn't trigger row navigation
+                  const isInteractive = cell.column.id === '__select__' || cell.column.id === 'actions';
+                  return (
+                    <td
+                      key={cell.id}
+                      className={styles.td}
+                      onClick={onRowClick && isInteractive ? (e) => e.stopPropagation() : undefined}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  );
+                })}
               </tr>
             ))
           )}

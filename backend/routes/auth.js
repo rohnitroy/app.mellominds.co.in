@@ -868,8 +868,8 @@ router.get('/team-analytics', async (req, res) => {
 
     const pendingNotesRes = await pool.query(
       `SELECT COUNT(*) FROM Appointments a
-       WHERE a.therapist_id = ANY($1) AND a.status = 'scheduled'
-       AND a.end_time < NOW()${dateCondition}`,
+       WHERE a.therapist_id = ANY($1)
+       AND (a.status = 'pending_notes' OR (a.status = 'scheduled' AND a.end_time < NOW()))${dateCondition}`,
       [therapistIds, ...dateParams]
     );
 

@@ -801,11 +801,12 @@ router.get('/stats', ensureAuthenticated, async (req, res) => {
         );
         const pendingPayment = parseInt(pendingPaymentRes.rows[0].count);
 
-        // Pending notes - scheduled appointments that have passed their end time (uses alias 'a')
+        // Pending notes - real 'pending_notes' status, plus any past 'scheduled'
+        // not yet flipped by the background job (covers the gap between cron runs)
         const pendingNotesRes = await client.query(
-            `SELECT COUNT(*) FROM Appointments a 
-             WHERE a.therapist_id = $1 AND a.status = 'scheduled'
-             AND a.end_time < NOW()${dateFilterA}`,
+            `SELECT COUNT(*) FROM Appointments a
+             WHERE a.therapist_id = $1
+             AND (a.status = 'pending_notes' OR (a.status = 'scheduled' AND a.end_time < NOW()))${dateFilterA}`,
             params
         );
         const pendingNotes = parseInt(pendingNotesRes.rows[0].count);
@@ -1379,7 +1380,7 @@ router.patch('/:id/status', async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
 
-        const allowed = ['scheduled', 'cancelled', 'completed', 'noshow'];
+        const allowed = ['scheduled', 'pending_notes', 'cancelled', 'completed', 'noshow'];
         if (!allowed.includes(status)) {
             return res.status(400).json({ error: `Invalid status. Must be one of: ${allowed.join(', ')}` });
         }

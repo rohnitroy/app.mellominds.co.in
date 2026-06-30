@@ -60,10 +60,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const { user } = useAuth();
   const isTeamPlan = user?.plan_name === 'team';
   const isOwner = user?.plan_name === 'team' && user?.org_role !== 'member';
-  // Matches backend gate in /api/notes/upload-attachment (Individual & Team plans)
-  const canAttachFiles = user?.plan_name === 'team' || user?.plan_name === 'individual';
   const canSeeContactInfo = !isTeamPlan || isOwner;
-  const [uploadingNoteFile, setUploadingNoteFile] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(initialTab || 'Overview');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   const [showDateDropdown, setShowDateDropdown] = useState<boolean>(false);
@@ -143,8 +140,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const [noteTemplate, setNoteTemplate] = useState<any[]>([]);
   const [noteFormData, setNoteFormData] = useState<Record<string, any>>({});
   const [editingNote, setEditingNote] = useState<any | null>(null);
-  const [pendingAttachments, setPendingAttachments] = useState<{ url: string; original_name: string; public_id?: string; resource_type?: string }[]>([]);
-  const [uploadingNoteAttachment, setUploadingNoteAttachment] = useState(false);
 
   const fetchActivities = async () => {
     setActivitiesLoading(true);
@@ -391,7 +386,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       const selectedApp = appointments.find(a => a.id.toString() === selectedAppointmentId.toString());
       if (selectedApp) {
         const sessionEnded = new Date(selectedApp.end_time) < new Date();
-        const noteableStatus = selectedApp.status === 'completed' || selectedApp.status === 'scheduled';
+        const noteableStatus = selectedApp.status === 'completed' || selectedApp.status === 'pending_notes' || selectedApp.status === 'scheduled';
         if (!noteableStatus || !sessionEnded) {
           toast.warning('Notes can only be added after the session has ended.');
           return;
@@ -417,8 +412,8 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       const url = isEdit ? `${API_BASE_URL}/api/notes/${editingNote.id}` : `${API_BASE_URL}/api/notes`;
       const method = isEdit ? 'PUT' : 'POST';
       const body = isEdit
-        ? JSON.stringify({ content, attachments: [...(editingNote.attachments || []), ...pendingAttachments] })
-        : JSON.stringify({ appointment_id: selectedAppointmentId, content, attachments: pendingAttachments });
+        ? JSON.stringify({ content, attachments: editingNote.attachments || [] })
+        : JSON.stringify({ appointment_id: selectedAppointmentId, content });
 
       const response = await fetch(url, {
         method,
@@ -429,7 +424,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
 
       if (response.ok) {
         toast.success(isEdit ? 'Note updated!' : 'Note added successfully!');
-        closeNotesModal(true);
+        closeNotesModal();
         setNoteContent('');
         const init: Record<string, any> = {};
         noteTemplate.forEach((f: any) => { init[f.key] = f.type === 'checkbox' ? [] : ''; });
@@ -447,7 +442,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   const handleEditNote = (note: any, appointmentId: string) => {
     setEditingNote(note);
     setSelectedAppointmentId(appointmentId);
-    setPendingAttachments([]);
     if (noteTemplate.length > 0 && note.content && typeof note.content === 'object' && !note.content.text) {
       setNoteFormData(note.content);
     } else {
@@ -593,61 +587,10 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
   }, [transferEmail]);
 
   // Delete an uploaded file from storage when it was never saved with a note
-  const discardAttachment = (a: { public_id?: string; resource_type?: string }) => {
-    if (!a.public_id) return;
-    fetch(`${API_BASE_URL}/api/notes/delete-attachment`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ public_id: a.public_id, resource_type: a.resource_type }),
-    }).catch(() => {});
-  };
-
-  const closeNotesModal = (saved: boolean = false) => {
-    if (!saved) pendingAttachments.forEach(discardAttachment);
+  const closeNotesModal = () => {
     setShowAddNotesModal(false);
     setEditingNote(null);
     setSelectedAppointmentId('');
-    setPendingAttachments([]);
-  };
-
-  const handleUploadNoteFile = (appointmentId: string) => {
-    if (!canAttachFiles) { toast.error('File attachments are available on Individual and Team plans.'); return; }
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      if (file.size > 10 * 1024 * 1024) { toast.error('File size must be less than 10MB'); return; }
-      setUploadingNoteFile(true);
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('appointment_id', appointmentId);
-        const res = await fetch(`${API_BASE_URL}/api/notes/upload-attachment`, {
-          method: 'POST',
-          credentials: 'include',
-          body: formData,
-        });
-        if (res.ok) {
-          const data = await res.json();
-          // Add to pending attachments and open the note modal so it gets saved with a note
-          setPendingAttachments(prev => [...prev, { url: data.url, original_name: data.original_name, public_id: data.public_id, resource_type: data.resource_type }]);
-          setSelectedAppointmentId(appointmentId);
-          setShowAddNotesModal(true);
-          toast.success(`File "${data.original_name}" ready — add a note and save to attach it.`);
-        } else {
-          const err = await res.json();
-          toast.error(err.error || 'Failed to upload file');
-        }
-      } catch {
-        toast.error('Error uploading file');
-      } finally {
-        setUploadingNoteFile(false);
-      }
-    };
-    input.click();
   };
 
   const tabs: string[] = ['Overview', 'Session Notes', 'Therapeutic Exercises'];
@@ -744,6 +687,42 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
     });
   };
 
+  // Single source of truth for a booking row's available actions.
+  // The 3-dot button and the portal dropdown both read from this, so the menu
+  // can never render empty (and the button is hidden when there are no actions).
+  const closeRowMenu = () => { setOpenActionMenu(null); setMenuPos(null); };
+  const getRowActions = (appt: any): { key: string; label: string; color?: string; run: () => void }[] => {
+    if (!appt) return [];
+    if (appt.status === 'cancelled' || appt.status === 'noshow') return [];
+    const isPast = new Date(appt.start_time) < new Date();
+    const isScheduled = appt.status === 'scheduled';
+    const isCompleted = appt.status === 'completed';
+    // A session whose time has passed but isn't resolved yet — real 'pending_notes'
+    // status, or a past 'scheduled' not yet flipped by the background job
+    const isPendingNotes = appt.status === 'pending_notes' || (isScheduled && isPast);
+    const hasNotes = (appt.notes?.length ?? 0) > 0;
+    const actions: { key: string; label: string; color?: string; run: () => void }[] = [];
+
+    if (isScheduled && !isPast) {
+      actions.push({ key: 'remind', label: 'Send Reminder', run: () => { sendReminder(appt.id); closeRowMenu(); } });
+      actions.push({ key: 'reschedule', label: 'Reschedule', run: () => { setRescheduleAppt(appt); setRescheduleDate(new Date().toISOString().split('T')[0]); setRescheduleSlot(null); closeRowMenu(); } });
+    }
+    // Past unresolved or completed session without notes yet — let therapist add notes
+    if ((isPendingNotes || isCompleted) && !hasNotes) {
+      actions.push({ key: 'note', label: 'Add Note', color: '#2D7579', run: () => { setSelectedAppointmentId(appt.id.toString()); setShowAddNotesModal(true); closeRowMenu(); } });
+    }
+    if (!isCompleted) {
+      actions.push({ key: 'complete', label: 'Mark as Completed', color: '#1565c0', run: () => { handleUpdateBookingStatus(appt.id, 'completed'); closeRowMenu(); } });
+    }
+    if (isPendingNotes) {
+      actions.push({ key: 'noshow', label: 'Mark as No Show', color: '#e65100', run: () => { setConfirmModal({ id: appt.id, action: 'noshow' }); closeRowMenu(); } });
+    }
+    if (isScheduled || isPendingNotes) {
+      actions.push({ key: 'cancel', label: 'Cancel Booking', color: '#c62828', run: () => { setConfirmModal({ id: appt.id, action: 'cancel' }); closeRowMenu(); } });
+    }
+    return actions;
+  };
+
   const bookingColumns: ColumnDef<any, any>[] = useMemo(() => [
     {
       accessorKey: 'start_time',
@@ -797,11 +776,9 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       cell: ({ row }: any) => {
         const appt = row.original;
         const isUpdating = bookingStatusUpdating === appt.id;
-        const isCancelledOrNoshow = appt.status === 'cancelled' || appt.status === 'noshow';
-        if (isCancelledOrNoshow) return <span style={{ color: '#ccc', fontSize: '12px' }}>—</span>;
+        // No available actions → show a dash instead of a button that opens an empty menu
+        if (getRowActions(appt).length === 0) return <span style={{ color: '#ccc', fontSize: '12px' }}>—</span>;
 
-        const isPast = new Date(appt.start_time) < new Date();
-        const isScheduled = appt.status === 'scheduled';
         const isOpen = openActionMenu === appt.id;
 
         return (
@@ -1095,26 +1072,16 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                             );
                           })()}
                         </div>
-                        {!(isTransferredClient && transferCutoffDate) && (
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {!(app.notes?.length > 0) &&
-                                (app.status === 'completed' || app.status === 'scheduled') &&
-                                new Date(app.end_time) < new Date() && (
-                                <button
-                                  className={styles.noteEditBtn}
-                                  onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
-                                  + Add Note
-                                </button>
-                              )}
-                              <button
-                                className={styles.noteEditBtn}
-                                disabled={uploadingNoteFile}
-                                onClick={() => handleUploadNoteFile(app.id.toString())}>
-                                {uploadingNoteFile ? 'Uploading...' : '↑ Upload File'}
-                              </button>
-                            </div>
-                            <span style={{ fontSize: '10px', color: '#9CA3AF', fontFamily: 'Urbanist' }}>PDF, DOC, Image · max 10MB</span>
+                        {!(isTransferredClient && transferCutoffDate) &&
+                          !(app.notes?.length > 0) &&
+                          (app.status === 'completed' || app.status === 'pending_notes' || app.status === 'scheduled') &&
+                          new Date(app.end_time) < new Date() && (
+                          <div style={{ flexShrink: 0 }}>
+                            <button
+                              className={styles.noteEditBtn}
+                              onClick={() => { setSelectedAppointmentId(app.id.toString()); setShowAddNotesModal(true); }}>
+                              + Add Note
+                            </button>
                           </div>
                         )}
                       </div>
@@ -1371,7 +1338,7 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   <option value="">Select booking</option>
                   {appointments
                     .filter(app =>
-                      (app.status === 'completed' || app.status === 'scheduled') &&
+                      (app.status === 'completed' || app.status === 'pending_notes' || app.status === 'scheduled') &&
                       new Date(app.end_time) < new Date() &&
                       !(app.notes?.length > 0)
                     )
@@ -1457,71 +1424,6 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
                 />
-              </div>
-            )}
-
-            {/* Attachments — Individual & Team plans */}
-            {canAttachFiles && (
-              <div className={styles.formGroup}>
-                <label>Attachments</label>
-                {/* Existing attachments on edit */}
-                {editingNote?.attachments?.length > 0 && (
-                  <div style={{ marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {editingNote.attachments.map((a: any, i: number) => (
-                      <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '13px', color: '#2D7579', textDecoration: 'underline', fontFamily: 'Urbanist' }}>
-                        📎 {a.original_name}
-                      </a>
-                    ))}
-                  </div>
-                )}
-                {/* Newly added attachments */}
-                {pendingAttachments.length > 0 && (
-                  <div style={{ marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {pendingAttachments.map((a, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '13px', color: '#2D7579', fontFamily: 'Urbanist' }}>📎 {a.original_name}</span>
-                        <button onClick={() => { discardAttachment(a); setPendingAttachments(prev => prev.filter((_, idx) => idx !== i)); }}
-                          style={{ background: 'none', border: 'none', color: '#c62828', cursor: 'pointer', fontSize: '13px', padding: 0 }}>✕</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <button
-                  type="button"
-                  disabled={uploadingNoteAttachment}
-                  onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = '.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg';
-                    input.onchange = async (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (!file) return;
-                      if (file.size > 10 * 1024 * 1024) { toast.error('File size must be less than 10MB'); return; }
-                      setUploadingNoteAttachment(true);
-                      try {
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        formData.append('appointment_id', selectedAppointmentId || editingNote?.appointment_id?.toString() || '');
-                        const res = await fetch(`${API_BASE_URL}/api/notes/upload-attachment`, {
-                          method: 'POST', credentials: 'include', body: formData,
-                        });
-                        if (res.ok) {
-                          const data = await res.json();
-                          setPendingAttachments(prev => [...prev, { url: data.url, original_name: data.original_name, public_id: data.public_id, resource_type: data.resource_type }]);
-                        } else {
-                          const err = await res.json();
-                          toast.error(err.error || 'Failed to upload file');
-                        }
-                      } catch { toast.error('Error uploading file'); }
-                      finally { setUploadingNoteAttachment(false); }
-                    };
-                    input.click();
-                  }}
-                  style={{ fontSize: '13px', color: '#2D7579', background: 'none', border: '1px dashed #2D7579', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontFamily: 'Urbanist' }}
-                >
-                  {uploadingNoteAttachment ? 'Uploading...' : '+ Attach File'}
-                </button>
               </div>
             )}
 
@@ -1822,13 +1724,13 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
       {/* Portal action dropdown for booking rows */}
       {openActionMenu !== null && menuPos && (() => {
         const appt = appointments.find(a => a.id === openActionMenu);
-        if (!appt) return null;
-        const isPast = new Date(appt.start_time) < new Date();
-        const isScheduled = appt.status === 'scheduled';
+        const actions = getRowActions(appt);
+        // Never render an empty menu — close instead if nothing is actionable
+        if (!appt || actions.length === 0) return null;
         const menuItemStyle: React.CSSProperties = {
           display: 'block', width: '100%', padding: '10px 16px', border: 'none',
           background: 'none', textAlign: 'left', fontFamily: 'Urbanist', fontWeight: 500,
-          fontSize: '13px', color: '#082421', cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
+          fontSize: '13px', color: '#082421', cursor: 'pointer',
         };
         return createPortal(
           <div
@@ -1841,36 +1743,19 @@ const ClientView: React.FC<ClientViewProps> = ({ client, onBack, initialTab, pro
             }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Send Reminder — only for upcoming scheduled sessions */}
-            {isScheduled && !isPast && (
-              <button style={menuItemStyle} onClick={() => { sendReminder(appt.id); setOpenActionMenu(null); setMenuPos(null); }}>
-                Send Reminder
+            {actions.map((action, i) => (
+              <button
+                key={action.key}
+                style={{
+                  ...menuItemStyle,
+                  ...(action.color ? { color: action.color } : {}),
+                  borderBottom: i < actions.length - 1 ? '1px solid #f5f5f5' : 'none',
+                }}
+                onClick={action.run}
+              >
+                {action.label}
               </button>
-            )}
-            {/* Reschedule — only for upcoming scheduled sessions */}
-            {isScheduled && !isPast && (
-              <button style={menuItemStyle} onClick={() => { setRescheduleAppt(appt); setRescheduleDate(new Date().toISOString().split('T')[0]); setRescheduleSlot(null); setOpenActionMenu(null); setMenuPos(null); }}>
-                Reschedule
-              </button>
-            )}
-            {/* Mark as Complete — past scheduled or any non-completed/non-cancelled */}
-            {appt.status !== 'completed' && (
-              <button style={{ ...menuItemStyle, color: '#1565c0' }} onClick={() => { handleUpdateBookingStatus(appt.id, 'completed'); setOpenActionMenu(null); setMenuPos(null); }}>
-                Mark as Completed
-              </button>
-            )}
-            {/* Mark No Show — past sessions */}
-            {isScheduled && isPast && (
-              <button style={{ ...menuItemStyle, color: '#e65100' }} onClick={() => { setConfirmModal({ id: appt.id, action: 'noshow' }); setOpenActionMenu(null); setMenuPos(null); }}>
-                Mark as No Show
-              </button>
-            )}
-            {/* Cancel */}
-            {isScheduled && (
-              <button style={{ ...menuItemStyle, color: '#c62828', borderBottom: 'none' }} onClick={() => { setConfirmModal({ id: appt.id, action: 'cancel' }); setOpenActionMenu(null); setMenuPos(null); }}>
-                Cancel Booking
-              </button>
-            )}
+            ))}
           </div>,
           document.body
         );

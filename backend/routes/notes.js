@@ -209,14 +209,14 @@ router.post('/', async (req, res) => {
             [appointment_id, therapist_id, encryptedContent, JSON.stringify(safeAttachments)]
         );
 
-        // Auto-complete the appointment if it's still 'scheduled' and the session has ended
-        // This handles the "pending_notes" → "completed" transition
+        // Auto-complete the session once a note is added — handles the
+        // 'scheduled'/'pending_notes' (past) → 'completed' transition
         await client.query(
             `UPDATE Appointments
              SET status = 'completed'
              WHERE id = $1
                AND therapist_id = $2
-               AND status = 'scheduled'
+               AND status IN ('scheduled', 'pending_notes')
                AND end_time < NOW()`,
             [appointment_id, therapist_id]
         );

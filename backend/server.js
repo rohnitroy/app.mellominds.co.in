@@ -697,6 +697,36 @@ async function ensureClientTransfersSchema() {
 }
 
 // Auto-migrate ClientActivities table on startup
+// Allow 'pending_notes' as a real, persisted appointment status
+async function ensureAppointmentStatusConstraint() {
+  try {
+    await pool.query(`ALTER TABLE Appointments DROP CONSTRAINT IF EXISTS check_appointment_status`);
+    await pool.query(`
+      ALTER TABLE Appointments ADD CONSTRAINT check_appointment_status
+      CHECK (status IN ('scheduled', 'pending_notes', 'completed', 'cancelled', 'noshow'))
+    `);
+    console.log('✅ Appointment status constraint verified (pending_notes enabled)');
+  } catch (err) {
+    console.error('⚠️  Appointment status constraint migration warning:', err.message);
+  }
+}
+
+// Flip sessions whose time has passed but are still 'scheduled' into 'pending_notes'.
+// This makes "Pending Notes" a real saved status the therapist then resolves
+// (Mark Completed / Mark No Show / add a note → auto-completed).
+async function flipPastSessionsToPendingNotes() {
+  try {
+    const res = await pool.query(
+      `UPDATE Appointments
+       SET status = 'pending_notes'
+       WHERE status = 'scheduled' AND end_time < NOW()`
+    );
+    if (res.rowCount > 0) console.log(`🕒 Marked ${res.rowCount} past session(s) as pending_notes`);
+  } catch (err) {
+    console.error('⚠️  pending_notes flip warning:', err.message);
+  }
+}
+
 async function ensureClientActivitiesSchema() {
   try {
     await pool.query(`
@@ -1037,6 +1067,7 @@ httpServer.listen(PORT, async () => {
   await ensureClientTransfersSchema();
   await ensureClientActivitiesSchema();
   await ensureSessionNotesSchema();
+  await ensureAppointmentStatusConstraint();
   await ensureUserIntegrationsSchema();
   await ensureAvailabilitySchema();
   await ensureMissingUserColumns();
@@ -1077,6 +1108,10 @@ httpServer.listen(PORT, async () => {
 
   console.log('\n✅ Security validation passed. Initializing application...\n');
   
+  // Flip past 'scheduled' sessions into 'pending_notes' every 5 minutes
+  setInterval(flipPastSessionsToPendingNotes, 5 * 60 * 1000);
+  flipPastSessionsToPendingNotes(); // run once on startup too
+
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);
   processActivityReminders(); // run once on startup too

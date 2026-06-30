@@ -219,8 +219,8 @@ const Appointments: React.FC = () => {
         case 'Completed':
           return app.status === 'completed';
         case 'Pending Session Notes':
-          // Scheduled sessions whose end_time has passed — therapist still needs to add notes
-          return app.status === 'scheduled' && new Date(app.end_time) < now;
+          // Real 'pending_notes' status, plus any past 'scheduled' not yet flipped
+          return app.status === 'pending_notes' || (app.status === 'scheduled' && new Date(app.end_time) < now);
         case 'Cancelled':
           return app.status === 'cancelled';
         case 'No Show':
@@ -273,24 +273,9 @@ const Appointments: React.FC = () => {
             return clientName;
           }
 
+          // Whole row is clickable (see DataTable onRowClick) — keep name styled as the cue
           return (
-            <span
-              style={{
-                cursor: 'pointer',
-                color: '#2D7579',
-                textDecoration: 'underline',
-                fontWeight: 500
-              }}
-              onClick={() => {
-                navigate('/clients', {
-                  state: {
-                    clientEmail: clientEmail,
-                    initialTab: 'Overview',
-                    returnTo: '/bookings'
-                  }
-                });
-              }}
-            >
+            <span style={{ color: '#2D7579', fontWeight: 500 }}>
               {clientName}
             </span>
           );
@@ -350,33 +335,6 @@ const Appointments: React.FC = () => {
           <span style={{ background: style.bg, color: style.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap' }}>
             {label[displayStatus] || displayStatus}
           </span>
-        );
-      },
-    },
-    {
-      accessorKey: 'payment_status',
-      header: 'Payment',
-      cell: ({ row }) => {
-        const paymentStatus = row.original.payment_status || 'Pending';
-        const paymentAmount = row.original.payment_amount;
-        const colors: Record<string, { bg: string; color: string }> = {
-          Paid:            { bg: '#e8f5e9', color: '#2e7d32' },
-          Pending:         { bg: '#fff3e0', color: '#e65100' },
-          Refunded:        { bg: '#fdecea', color: '#c62828' },
-          'Partial Refund':{ bg: '#fce4ec', color: '#880e4f' },
-        };
-        const style = colors[paymentStatus] || { bg: '#f5f5f5', color: '#666' };
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <span style={{ background: style.bg, color: style.color, padding: '3px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', display: 'inline-block', width: 'fit-content' }}>
-              {paymentStatus}
-            </span>
-            {paymentAmount && (
-              <span style={{ fontSize: '11px', color: '#666', fontFamily: 'Urbanist' }}>
-                ₹{parseFloat(paymentAmount).toFixed(2)}
-              </span>
-            )}
-          </div>
         );
       },
     },
@@ -488,6 +446,12 @@ const Appointments: React.FC = () => {
           emptyMessage="No bookings found"
           enableSelection
           onSelectionChange={setSelectedRows}
+          onRowClick={(row: any) => {
+            if (!row.client_email) return;
+            navigate('/clients', {
+              state: { clientEmail: row.client_email, initialTab: 'Overview', returnTo: '/bookings' }
+            });
+          }}
         />
       )}
 
@@ -498,14 +462,14 @@ const Appointments: React.FC = () => {
         const { id, status, payment_status } = row;
         const isPast = new Date(row.end_time) < new Date();
         const isUpcoming = !isPast;
-        const isInPendingNotes = status === 'scheduled' && isPast;
+        // Past session awaiting resolution — real 'pending_notes' status or a past
+        // 'scheduled' not yet flipped by the background job
+        const isInPendingNotes = status === 'pending_notes' || (status === 'scheduled' && isPast);
         const canReschedule = status === 'scheduled' && isUpcoming;
-        const canCancel = status === 'scheduled';
+        const canCancel = status === 'scheduled' || isInPendingNotes;
         const canMarkPaid = payment_status === 'Pending' && status !== 'cancelled' && status !== 'noshow';
-        // Can mark complete: past sessions still in scheduled state (pending_notes)
-        const canComplete = isInPendingNotes || (status === 'scheduled' && isPast);
-        // Can mark no-show: past sessions still in scheduled state
-        const canMarkNoShow = status === 'scheduled' && isPast;
+        const canComplete = isInPendingNotes;
+        const canMarkNoShow = isInPendingNotes;
         const canSendReminder = status === 'scheduled' && isUpcoming;
         const canAddNote = status === 'completed' || isInPendingNotes;
 
