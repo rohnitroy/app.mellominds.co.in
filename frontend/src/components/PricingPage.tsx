@@ -60,7 +60,7 @@ const PLANS: Plan[] = [
       'File attachments in notes',
       'Google Calendar & Meet integration',
       'Client transfer management',
-      'Cashfree payment integration',
+      'Razorpay payment integration',
       'Online payment checkout',
       'Payment signature verification',
       'Refund management & processing',
@@ -89,7 +89,7 @@ const PLANS: Plan[] = [
       'Member invitation & management',
       'Seat usage tracking (up to 20 seats)',
       'Organization settings management',
-      'Cashfree payments per therapist',
+      'Razorpay payments per therapist',
       'Payment processing & refunds',
       'Client transfer controls',
       'Client activity & homework',
@@ -309,7 +309,7 @@ const PricingPage: React.FC = () => {
 
           <div className={styles.faqItem}>
             <h3>What payment methods do you accept?</h3>
-            <p>Credit cards, debit cards, UPI, and netbanking via Cashfree.</p>
+            <p>Credit cards, debit cards, UPI, and netbanking via Razorpay.</p>
           </div>
 
           <div className={styles.faqItem}>

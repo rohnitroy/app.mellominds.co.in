@@ -823,7 +823,7 @@ const PublicBookingPage: React.FC = () => {
                             <div className="pbp-form-actions">
                                 <button type="submit" className="pbp-confirm-btn" disabled={submitting || !termsAccepted}>
                                     <CalendarIcon />
-                                    {submitting ? 'Confirming...' : calendar.payment_enabled && calendar.payment_gateway === 'cashfree' ? 'Pay & Confirm' : 'Confirm Booking'}
+                                    {submitting ? 'Confirming...' : calendar.payment_enabled && calendar.payment_gateway && calendar.payment_gateway !== 'offline' ? 'Pay & Confirm' : 'Confirm Booking'}
                                 </button>
                                 <button type="button" onClick={() => setStep('calendar')} className="pbp-cancel-btn">Cancel</button>
                             </div>

@@ -19,12 +19,11 @@ const MySettings: React.FC = () => {
   const isTeamOwner = isTeamPlan && !isMember;
 
   const [googleConnected, setGoogleConnected] = useState(false);
-  const [cashfreeConnected, setCashfreeConnected] = useState(false);
-  const [cashfreeEnv, setCashfreeEnv] = useState('sandbox');
-  const [showCashfreeForm, setShowCashfreeForm] = useState(false);
-  const [cashfreeForm, setCashfreeForm] = useState({ app_id: '', secret_key: '', environment: 'sandbox' });
-  const [cashfreeLoading, setCashfreeLoading] = useState(false);
-  const [disconnectingCashfree, setDisconnectingCashfree] = useState(false);
+  const [razorpayConnected, setRazorpayConnected] = useState(false);
+  const [showRazorpayForm, setShowRazorpayForm] = useState(false);
+  const [razorpayForm, setRazorpayForm] = useState({ key_id: '', key_secret: '' });
+  const [razorpayLoading, setRazorpayLoading] = useState(false);
+  const [disconnectingRazorpay, setDisconnectingRazorpay] = useState(false);
   const [disconnectingGoogle, setDisconnectingGoogle] = useState(false);
   const [integrationsLoading, setIntegrationsLoading] = useState(true);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
@@ -67,9 +66,9 @@ const MySettings: React.FC = () => {
 
     Promise.all([
       checkGoogleStatus(),
-      fetch(`${API_BASE_URL}/api/cashfree/status`, { credentials: 'include' })
+      fetch(`${API_BASE_URL}/api/razorpay/status`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : { connected: false })
-        .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
+        .then(d => { setRazorpayConnected(d.connected); })
         .catch(() => {}),
     ]).finally(() => setIntegrationsLoading(false));
 
@@ -87,9 +86,9 @@ const MySettings: React.FC = () => {
   useEffect(() => {
     if (!socket) return;
     socket.on('integrations_updated', () => {
-      fetch(`${API_BASE_URL}/api/cashfree/status`, { credentials: 'include' })
+      fetch(`${API_BASE_URL}/api/razorpay/status`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : { connected: false })
-        .then(d => { setCashfreeConnected(d.connected); if (d.environment) setCashfreeEnv(d.environment); })
+        .then(d => { setRazorpayConnected(d.connected); })
         .catch(() => {});
     });
     socket.on('team_settings_updated', () => {
@@ -106,39 +105,39 @@ const MySettings: React.FC = () => {
     };
   }, [socket, isTeamOwner]);
 
-  const handleCashfreeConnect = useCallback(async (e: React.FormEvent) => {
+  const handleRazorpayConnect = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    setCashfreeLoading(true);
+    setRazorpayLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/cashfree/connect`, {
+      const res = await fetch(`${API_BASE_URL}/api/razorpay/connect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(cashfreeForm),
+        body: JSON.stringify(razorpayForm),
       });
       const data = await res.json();
       if (res.ok) {
-        setCashfreeConnected(true);
-        setCashfreeEnv(cashfreeForm.environment);
-        setShowCashfreeForm(false);
-        setCashfreeForm({ app_id: '', secret_key: '', environment: 'sandbox' });
+        setRazorpayConnected(true);
+        setShowRazorpayForm(false);
+        setRazorpayForm({ key_id: '', key_secret: '' });
+        toast.success('Razorpay connected successfully!');
       } else {
-        alert(data.error || 'Failed to connect Cashfree');
+        toast.error(data.error || 'Failed to connect Razorpay');
       }
     } catch {
-      alert('Network error. Please try again.');
+      toast.error('Network error. Please try again.');
     } finally {
-      setCashfreeLoading(false);
+      setRazorpayLoading(false);
     }
-  }, [toast, setCashfreeConnected, setCashfreeEnv, setShowCashfreeForm, setCashfreeForm]);
+  }, [toast, razorpayForm]);
 
-  const handleCashfreeDisconnect = useCallback(async () => {
-    setDisconnectingCashfree(true);
-    await fetch(`${API_BASE_URL}/api/cashfree/disconnect`, { method: 'DELETE', credentials: 'include' });
-    setCashfreeConnected(false);
-    setShowCashfreeForm(false);
+  const handleRazorpayDisconnect = useCallback(async () => {
+    setDisconnectingRazorpay(true);
+    await fetch(`${API_BASE_URL}/api/razorpay/disconnect`, { method: 'DELETE', credentials: 'include' });
+    setRazorpayConnected(false);
+    setShowRazorpayForm(false);
     setShowDisconnectConfirm(false);
-    setDisconnectingCashfree(false);
+    setDisconnectingRazorpay(false);
   }, []);
 
   const handleGoogleDisconnect = useCallback(async () => {
@@ -470,31 +469,27 @@ const MySettings: React.FC = () => {
                   <rect x="2" y="5" width="20" height="14" rx="2" />
                   <line x1="2" y1="10" x2="22" y2="10" />
                 </svg>
-                Connect Cashfree
+                Connect Razorpay
               </h3>
-              <p>Accept appointment payments via Cashfree payment gateway</p>
+              <p>Accept appointment payments via Razorpay payment gateway</p>
               {isTeamPlan ? (
-                cashfreeConnected ? (
+                razorpayConnected ? (
                   <div>
-                    <div className={styles.connectedTag}>✓ Connected ({cashfreeEnv})</div>
-                    <button className={styles.connectBtn} style={{ marginTop: '8px', background: '#fee2e2', color: '#dc2626' }} onClick={() => setShowDisconnectConfirm(true)} disabled={disconnectingCashfree}>{disconnectingCashfree ? 'Disconnecting...' : 'Disconnect'}</button>
+                    <div className={styles.connectedTag}>✓ Connected</div>
+                    <button className={styles.connectBtn} style={{ marginTop: '8px', background: '#fee2e2', color: '#dc2626' }} onClick={() => setShowDisconnectConfirm(true)} disabled={disconnectingRazorpay}>{disconnectingRazorpay ? 'Disconnecting...' : 'Disconnect'}</button>
                   </div>
-                ) : showCashfreeForm ? (
-                  <form onSubmit={handleCashfreeConnect} style={{ marginTop: '8px' }}>
-                    <input placeholder="App ID" value={cashfreeForm.app_id} onChange={e => setCashfreeForm(f => ({ ...f, app_id: e.target.value }))} required style={{ display: 'block', marginBottom: '6px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
-                    <input placeholder="Secret Key" value={cashfreeForm.secret_key} onChange={e => setCashfreeForm(f => ({ ...f, secret_key: e.target.value }))} required style={{ display: 'block', marginBottom: '6px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
-                    <select value={cashfreeForm.environment} onChange={e => setCashfreeForm(f => ({ ...f, environment: e.target.value }))} style={{ display: 'block', marginBottom: '8px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }}>
-                      <option value="sandbox">Sandbox</option>
-                      <option value="production">Production</option>
-                    </select>
-                    <button type="submit" className={styles.connectBtn} disabled={cashfreeLoading}>{cashfreeLoading ? 'Connecting...' : 'Save'}</button>
-                    <button type="button" className={styles.connectBtn} style={{ marginLeft: '8px', background: '#f3f4f6', color: '#374151' }} onClick={() => setShowCashfreeForm(false)}>Cancel</button>
+                ) : showRazorpayForm ? (
+                  <form onSubmit={handleRazorpayConnect} style={{ marginTop: '8px' }}>
+                    <input placeholder="Key ID" value={razorpayForm.key_id} onChange={e => setRazorpayForm(f => ({ ...f, key_id: e.target.value }))} required style={{ display: 'block', marginBottom: '6px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
+                    <input placeholder="Key Secret" type="password" value={razorpayForm.key_secret} onChange={e => setRazorpayForm(f => ({ ...f, key_secret: e.target.value }))} required style={{ display: 'block', marginBottom: '8px', padding: '6px', borderRadius: '6px', border: '1px solid #ccc', width: '100%' }} />
+                    <button type="submit" className={styles.connectBtn} disabled={razorpayLoading}>{razorpayLoading ? 'Connecting...' : 'Save'}</button>
+                    <button type="button" className={styles.connectBtn} style={{ marginLeft: '8px', background: '#f3f4f6', color: '#374151' }} onClick={() => setShowRazorpayForm(false)}>Cancel</button>
                   </form>
                 ) : (
-                  <button className={styles.connectBtn} onClick={() => setShowCashfreeForm(true)}>+ Connect Cashfree</button>
+                  <button className={styles.connectBtn} onClick={() => setShowRazorpayForm(true)}>+ Connect Razorpay</button>
                 )
               ) : (
-                <button className={styles.connectBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>+ Connect Cashfree</button>
+                <button className={styles.connectBtn} disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>+ Connect Razorpay</button>
               )}
             </div>
           </div>
@@ -506,12 +501,12 @@ const MySettings: React.FC = () => {
 
     <ConfirmModal
       isOpen={showDisconnectConfirm}
-      title="Disconnect Cashfree"
-      message="Disconnect Cashfree? Payments will stop working for your calendars that use it."
-      confirmLabel={disconnectingCashfree ? 'Disconnecting...' : 'Disconnect'}
+      title="Disconnect Razorpay"
+      message="Disconnect Razorpay? Payments will stop working for your calendars that use it."
+      confirmLabel={disconnectingRazorpay ? 'Disconnecting...' : 'Disconnect'}
       cancelLabel="Keep Connected"
       danger
-      onConfirm={handleCashfreeDisconnect}
+      onConfirm={handleRazorpayDisconnect}
       onCancel={() => setShowDisconnectConfirm(false)}
     />
     <ConfirmModal

@@ -81,9 +81,11 @@ router.get('/payment-gateways', async (req, res) => {
             [req.user.id]
         );
 
+        // Razorpay is the only selectable gateway for new calendars.
+        // Cashfree intentionally omitted — historical Cashfree calendars keep
+        // working via existing cashfree routes, but it's no longer offered.
         const pgMap = {
             razorpay: 'Razorpay',
-            cashfree: 'Cashfree',
         };
 
         const connected = result.rows
