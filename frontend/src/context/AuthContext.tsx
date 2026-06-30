@@ -19,6 +19,8 @@ interface User {
     pincode?: string;
     clinic_address?: string;
     plan_name?: 'free' | 'individual' | 'team' | 'enterprise';
+    plan_status?: 'active' | 'pending' | 'past_due' | 'cancelling' | 'cancelled';
+    plan_current_period_end?: string | null;
     profile_slug?: string | null;
     org_role?: 'owner' | 'member' | null;
     org_owner_id?: number | null;

@@ -54,7 +54,6 @@ import InlineCalendar from './components/InlineCalendar';
 import TimeSlotList from './components/TimeSlotList';
 import Loader from './components/Loader';
 import CookieBanner from './components/CookieBanner';
-import UpgradePlanModal from './components/UpgradePlanModal';
 import MobileBlocker from './components/MobileBlocker';
 
 interface NavItem {
@@ -445,7 +444,6 @@ const DashboardLayout: React.FC = () => {
   const [showNotificationDropdown, setShowNotificationDropdown] = useState<boolean>(false);
   const [showCreateBookingModal, setShowCreateBookingModal] = useState<boolean>(false);
   const [showAddClientModal, setShowAddClientModal] = useState<boolean>(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
   const { logout, user } = useAuth();
@@ -626,6 +624,19 @@ const DashboardLayout: React.FC = () => {
         ))}
       </div>
 
+      {user?.plan_name !== 'team' && user?.org_role !== 'member' && (
+        <button
+          onClick={() => { window.location.href = '/pricing'; }}
+          style={{
+            margin: '12px 16px', padding: '10px 16px', borderRadius: '12px',
+            border: 'none', background: '#F9E141', color: '#082421',
+            fontFamily: 'Urbanist', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+          }}
+        >
+          ⭐ Upgrade Plan
+        </button>
+      )}
+
       <div className="hello-section">
         <div style={{ transform: 'translate(-5px, 20px)' }}>
           Say 👋 hello<br />
@@ -761,6 +772,26 @@ const DashboardLayout: React.FC = () => {
       {renderSidebar()}
       <div className="main-content">
         {renderHeader()}
+        {(user?.plan_status === 'past_due' || user?.plan_status === 'cancelling') && (
+          <div style={{
+            margin: '0 24px 12px', padding: '10px 16px', borderRadius: '10px',
+            fontFamily: 'Urbanist', fontSize: '13px', fontWeight: 600,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+            background: user?.plan_status === 'past_due' ? '#fdecea' : '#fff8e1',
+            color: user?.plan_status === 'past_due' ? '#c62828' : '#8a6d00',
+            border: `1px solid ${user?.plan_status === 'past_due' ? '#f5c2c0' : '#f0e0a0'}`,
+          }}>
+            <span>
+              {user?.plan_status === 'past_due'
+                ? '⚠️ Your renewal payment is failing. Please update your payment method to keep your plan.'
+                : `Your plan is set to cancel${user?.plan_current_period_end ? ` on ${new Date(user.plan_current_period_end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ' at period end'}.`}
+            </span>
+            <button onClick={() => navigate('/settings')}
+              style={{ background: 'none', border: '1px solid currentColor', borderRadius: '8px', padding: '4px 12px', cursor: 'pointer', color: 'inherit', fontFamily: 'Urbanist', fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap' }}>
+              Manage
+            </button>
+          </div>
+        )}
         <Outlet context={{ setShowSendLinkModal }} />
       </div>
 

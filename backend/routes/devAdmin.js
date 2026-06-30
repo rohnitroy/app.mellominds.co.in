@@ -483,7 +483,8 @@ router.get('/user/:id/detail', async (req, res) => {
 
     // Get user info
     const userResult = await pool.query(
-      `SELECT id, user_name, email, phone, city, plan_name, created_at, last_login, account_status, purchased_seats
+      `SELECT id, user_name, email, phone, city, plan_name, created_at, last_login, account_status, purchased_seats,
+              plan_status, plan_current_period_end, subscription_id, mandate_status
        FROM users WHERE id = $1 AND account_status != 'deleted'`,
       [id]
     );

@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './PricingPage.module.css';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import API_BASE_URL from '../config/api';
 
 interface Plan {
   id: string;
@@ -132,7 +135,101 @@ const PLANS: Plan[] = [
 
 const PricingPage: React.FC = () => {
   const [teamSeats, setTeamSeats] = useState(3);
+  const [processing, setProcessing] = useState<string | null>(null);
   const navigate = useNavigate();
+  const toast = useToast();
+  const { isAuthenticated, user, checkAuth } = useAuth();
+
+  const loadRazorpay = () => new Promise<void>((resolve, reject) => {
+    if ((window as any).Razorpay) return resolve();
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load Razorpay'));
+    document.head.appendChild(script);
+  });
+
+  // Razorpay subscription checkout, run inline on this page (no separate modal/page)
+  const handleSubscribe = async (planKey: 'individual' | 'team', seats: number) => {
+    setProcessing(planKey);
+    try {
+      const subRes = await fetch(`${API_BASE_URL}/api/plan/create-subscription`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ plan_key: planKey, seats }),
+      });
+      const sub = await subRes.json();
+      if (!subRes.ok) { toast.error(sub.error || 'Could not start subscription'); setProcessing(null); return; }
+
+      await loadRazorpay();
+      await new Promise<void>((resolve) => {
+        const options = {
+          key: sub.key_id,
+          subscription_id: sub.subscription_id,
+          name: 'MelloMinds',
+          description: planKey === 'team' ? `Team plan — ${seats} seats` : 'Individual plan',
+          prefill: { name: user?.user_name || '', email: user?.email || '' },
+          handler: async (response: any) => {
+            try {
+              const verifyRes = await fetch(`${API_BASE_URL}/api/plan/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_subscription_id: response.razorpay_subscription_id,
+                  razorpay_signature: response.razorpay_signature,
+                  plan_key: planKey,
+                  seats,
+                }),
+              });
+              if (verifyRes.ok) {
+                await checkAuth();
+                toast.success(`Upgraded to ${planKey === 'team' ? 'Team' : 'Individual'} plan!`);
+                navigate('/dashboard');
+              } else {
+                const err = await verifyRes.json();
+                toast.error(err.error || 'Payment verification failed');
+              }
+            } catch {
+              toast.error('Payment verification failed. Please contact support.');
+            } finally {
+              resolve();
+            }
+          },
+          modal: { ondismiss: () => { toast.warning('Payment cancelled.'); resolve(); } },
+          theme: { color: '#082421' },
+        };
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      });
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  // Paid plans: logged-in users pay inline here; guests go to signup first
+  const handlePlanCta = (plan: Plan) => {
+    if (plan.ctaLink.startsWith('mailto:')) { window.location.href = plan.ctaLink; return; }
+    if (plan.id === 'individual' || plan.id === 'team') {
+      if (!isAuthenticated) { navigate('/signup'); return; }
+      if (plan.id === user?.plan_name) { toast.info('This is already your current plan.'); return; }
+      // Switching from one paid plan to another cancels the old subscription first
+      const onPaidPlan = user?.plan_name === 'individual' || user?.plan_name === 'team';
+      if (onPaidPlan) {
+        const ok = window.confirm(
+          `Switching to ${plan.name} will cancel your current ${user?.plan_name === 'team' ? 'Team' : 'Individual'} subscription and start a new one. Continue?`
+        );
+        if (!ok) return;
+      }
+      handleSubscribe(plan.id, plan.id === 'team' ? teamSeats : 1);
+      return;
+    }
+    navigate(plan.ctaLink);
+  };
 
   useEffect(() => {
     // Block mobile access - redirect to dashboard
@@ -209,15 +306,10 @@ const PricingPage: React.FC = () => {
 
             <button
               className={`${styles.cta} ${plan.featured ? styles.ctaPrimary : styles.ctaSecondary}`}
-              onClick={() => {
-                if (plan.ctaLink.startsWith('mailto:')) {
-                  window.location.href = plan.ctaLink;
-                } else {
-                  window.location.href = plan.ctaLink;
-                }
-              }}
+              onClick={() => handlePlanCta(plan)}
+              disabled={processing === plan.id || (isAuthenticated && plan.id === user?.plan_name)}
             >
-              {plan.cta}
+              {processing === plan.id ? 'Processing…' : (isAuthenticated && plan.id === user?.plan_name) ? 'Current Plan' : plan.cta}
             </button>
 
             <div className={styles.featuresList}>
@@ -264,13 +356,7 @@ const PricingPage: React.FC = () => {
 
             <button
               className={`${styles.cta} ${styles.ctaPrimary}`}
-              onClick={() => {
-                if (plan.ctaLink.startsWith('mailto:')) {
-                  window.location.href = plan.ctaLink;
-                } else {
-                  window.location.href = plan.ctaLink;
-                }
-              }}
+              onClick={() => handlePlanCta(plan)}
             >
               {plan.cta}
             </button>

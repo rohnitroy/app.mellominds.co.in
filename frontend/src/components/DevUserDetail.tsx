@@ -187,7 +187,11 @@ const DevUserDetail: React.FC = () => {
     created_at: user.created_at || new Date().toISOString(),
     last_login: user.last_login,
     account_status: user.account_status || 'active',
-    purchased_seats: user.purchased_seats || null
+    purchased_seats: user.purchased_seats || null,
+    plan_status: user.plan_status || null,
+    plan_current_period_end: user.plan_current_period_end || null,
+    subscription_id: user.subscription_id || null,
+    mandate_status: user.mandate_status || null
   };
 
   const detail = {
@@ -287,6 +291,25 @@ const DevUserDetail: React.FC = () => {
             )}
           </div>
         </div>
+
+        {userData.subscription_id && (
+          <div className="dev-detail-card">
+            <label>Subscription</label>
+            <div className="dev-detail-value" style={{ textTransform: 'capitalize' }}>
+              {userData.plan_status || 'active'}
+              {userData.plan_current_period_end && (
+                <small style={{ display: 'block', marginTop: '4px', textTransform: 'none' }}>
+                  {userData.plan_status === 'cancelling' ? 'Ends' : 'Renews'} {new Date(userData.plan_current_period_end).toLocaleDateString()}
+                </small>
+              )}
+              {userData.mandate_status && (
+                <small style={{ display: 'block', marginTop: '2px', textTransform: 'none', color: '#2D7579' }}>
+                  AutoPay: {userData.mandate_status}
+                </small>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="dev-detail-card">
           <label>Joined Date</label>

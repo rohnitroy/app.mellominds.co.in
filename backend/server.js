@@ -27,6 +27,7 @@ import notesRoutes from './routes/notes.js';
 import activitiesRoutes from './routes/activities.js';
 import cashfreeRoutes from './routes/cashfree.js';
 import razorpayRoutes from './routes/razorpay.js';
+import planRoutes, { initPlanBilling, reconcileSubscriptions } from './routes/plan.js';
 import enterpriseRoutes from './routes/enterprise.js';
 import emailPreferencesRoutes from './routes/emailPreferences.js';
 import profileLinkRoutes from './routes/profileLink.js';
@@ -92,13 +93,13 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https:"],
-      scriptSrc: ["'self'", "https://sdk.cashfree.com"],
+      scriptSrc: ["'self'", "https://sdk.cashfree.com", "https://checkout.razorpay.com"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", "https:"],
       fontSrc: ["'self'", "https:", "data:"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
+      frameSrc: ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
     },
   },
   hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false,
@@ -121,6 +122,10 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many requests. Please slow down and try again later.' },
 });
+
+// Plan subscription webhook needs the raw body for signature verification —
+// capture it before the JSON parser consumes the stream
+app.use('/api/plan/webhook', express.raw({ type: '*/*' }));
 
 // Middleware
 app.use(express.json({ limit: '50kb' }));
@@ -200,6 +205,7 @@ app.use('/api/activities', apiLimiter, activitiesRoutes);
 app.use('/api/availability', apiLimiter, availabilityRoutes);
 app.use('/api/cashfree', apiLimiter, cashfreeRoutes);
 app.use('/api/razorpay', apiLimiter, razorpayRoutes);
+app.use('/api/plan', apiLimiter, planRoutes);
 app.use('/api/enterprise', apiLimiter, enterpriseRoutes);
 app.use('/api/email-preferences', apiLimiter, emailPreferencesRoutes);
 app.use('/api/profile-link', apiLimiter, profileLinkRoutes);
@@ -1080,6 +1086,7 @@ httpServer.listen(PORT, async () => {
   await ensureAuditTable(); // Initialize audit logging
   await initializeSessionsTable(); // Initialize sessions table
   await initializeNotificationsTable(); // Initialize notifications table
+  await initPlanBilling(); // Plan subscription schema + auto-create Razorpay plans
 
   // NOW validate schema integrity after migrations
   const schemaValidation = await validateSchema();
@@ -1111,6 +1118,10 @@ httpServer.listen(PORT, async () => {
   // Flip past 'scheduled' sessions into 'pending_notes' every 5 minutes
   setInterval(flipPastSessionsToPendingNotes, 5 * 60 * 1000);
   flipPastSessionsToPendingNotes(); // run once on startup too
+
+  // Reconcile plan subscriptions against Razorpay hourly (self-healing source of truth)
+  setInterval(reconcileSubscriptions, 60 * 60 * 1000);
+  reconcileSubscriptions(); // run once on startup too
 
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);
