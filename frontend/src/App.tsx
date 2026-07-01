@@ -43,6 +43,7 @@ import DevDashboardHome from './components/DevDashboardHome';
 import DevAllUsers from './components/DevAllUsers';
 import DevUserDetail from './components/DevUserDetail';
 import DevPaymentInvoices from './components/DevPaymentInvoices';
+import DevPlanPricing from './components/DevPlanPricing';
 import DevNotifications from './components/DevNotifications';
 import TeamSettings from './components/TeamSettings';
 import TeamAnalytics from './components/TeamAnalytics';
@@ -1793,6 +1794,7 @@ const AppContent: React.FC = () => {
               <Route path="/devdashboard-allusers/:id" element={<DevUserDetail />} />
               <Route path="/devdashboard-allusers" element={<DevAllUsers />} />
               <Route path="/devdashboard-payment-invoices" element={<DevPaymentInvoices />} />
+              <Route path="/devdashboard-plan-pricing" element={<DevPlanPricing />} />
               <Route path="/devdashboard-notifications" element={<DevNotifications />} />
             </Route>
           </Route>

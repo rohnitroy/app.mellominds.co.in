@@ -32,6 +32,7 @@ const DevDashboardLayout: React.FC = () => {
     { label: 'Dashboard', path: '/devdashboard', icon: 'category' },
     { label: 'All Users', path: '/devdashboard-allusers', icon: 'users' },
     { label: 'Payments', path: '/devdashboard-payment-invoices', icon: 'wallet' },
+    { label: 'Plan Pricing', path: '/devdashboard-plan-pricing', icon: 'setting' },
     { label: 'Notifications', path: '/devdashboard-notifications', icon: 'notification' },
   ];
 

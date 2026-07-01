@@ -138,12 +138,25 @@ const PricingPage: React.FC = () => {
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
   const [processing, setProcessing] = useState<string | null>(null);
 
-  // Price per plan per interval (yearly ≈ 2 months free)
-  const PRICE: Record<string, { monthly: number; yearly: number }> = {
+  // Price per plan per interval — seeded defaults, overridden by live pricing from the API
+  const [PRICE, setPRICE] = useState<Record<string, { monthly: number; yearly: number }>>({
     individual: { monthly: 699, yearly: 6710 },
     team: { monthly: 1499, yearly: 14390 },
-  };
+  });
   const unitPrice = (planId: string) => PRICE[planId]?.[billingInterval] ?? 0;
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/plan/pricing`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        setPRICE(prev => ({
+          individual: { monthly: d.individual?.monthly ?? prev.individual.monthly, yearly: d.individual?.yearly ?? prev.individual.yearly },
+          team: { monthly: d.team?.monthly ?? prev.team.monthly, yearly: d.team?.yearly ?? prev.team.yearly },
+        }));
+      })
+      .catch(() => {});
+  }, []);
   const navigate = useNavigate();
   const toast = useToast();
   const { isAuthenticated, user, checkAuth } = useAuth();

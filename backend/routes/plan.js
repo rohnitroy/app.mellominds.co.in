@@ -5,8 +5,14 @@ import pool from '../config/database.js';
 import { getIO } from '../lib/socket.js';
 import { sendEmail } from '../lib/email.js';
 import { logAuditEvent } from '../lib/audit.js';
+import { isDevAdmin } from '../config/devAdmin.js';
 
 const router = express.Router();
+
+const ensureDevAdmin = (req, res, next) => {
+    if (req.isAuthenticated() && isDevAdmin(req.user.email)) return next();
+    res.status(403).json({ error: 'Admin access required' });
+};
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -171,17 +177,17 @@ export async function initPlanBilling() {
             return;
         }
 
-        // Create/refresh a Razorpay Plan per (plan, interval). If the configured price
-        // changed, a new Razorpay plan is created and the catalog row is updated
-        // (existing subscribers keep their original plan; new ones use the new price).
+        // Seed a Razorpay Plan per (plan, interval) ONLY if missing.
+        // After seeding, billing_plans is the source of truth and prices are changed
+        // by admins (dev dashboard) — startup never overwrites an existing price.
         for (const [planKey, cfg] of Object.entries(PLAN_PRICING)) {
             for (const interval of INTERVALS) {
-                const amount = unitAmountPaise(cfg, interval);
                 const existing = await pool.query(
-                    'SELECT razorpay_plan_id, amount_paise FROM billing_plans WHERE plan_key = $1 AND billing_interval = $2',
+                    'SELECT 1 FROM billing_plans WHERE plan_key = $1 AND billing_interval = $2',
                     [planKey, interval]
                 );
-                if (existing.rows.length > 0 && existing.rows[0].amount_paise === amount) continue;
+                if (existing.rows.length > 0) continue;
+                const amount = unitAmountPaise(cfg, interval);
                 const plan = await platformRzp('POST', '/plans', {
                     period: interval === 'yearly' ? 'yearly' : 'monthly',
                     interval: 1,
@@ -190,11 +196,10 @@ export async function initPlanBilling() {
                 await pool.query(
                     `INSERT INTO billing_plans (plan_key, razorpay_plan_id, amount_paise, billing_interval)
                      VALUES ($1, $2, $3, $4)
-                     ON CONFLICT (plan_key, billing_interval)
-                     DO UPDATE SET razorpay_plan_id = EXCLUDED.razorpay_plan_id, amount_paise = EXCLUDED.amount_paise`,
+                     ON CONFLICT (plan_key, billing_interval) DO NOTHING`,
                     [planKey, plan.id, amount, interval]
                 );
-                console.log(`✅ Razorpay plan set for '${planKey}' (${interval}) @ ₹${amount / 100}: ${plan.id}`);
+                console.log(`✅ Razorpay plan seeded for '${planKey}' (${interval}) @ ₹${amount / 100}: ${plan.id}`);
             }
         }
     } catch (err) {
@@ -208,6 +213,18 @@ async function getRazorpayPlanId(planKey, interval) {
         [planKey, normInterval(interval)]
     );
     return r.rows[0]?.razorpay_plan_id || null;
+}
+
+// Live price (paise) from the catalog — the single source of truth for charges.
+// Falls back to the seed default only if a row is somehow missing.
+async function getAmountPaise(planKey, interval) {
+    const r = await pool.query(
+        'SELECT amount_paise FROM billing_plans WHERE plan_key = $1 AND billing_interval = $2',
+        [planKey, normInterval(interval)]
+    );
+    if (r.rows[0]) return r.rows[0].amount_paise;
+    const cfg = PLAN_PRICING[planKey];
+    return cfg ? unitAmountPaise(cfg, interval) : 0;
 }
 
 // ─── Create a subscription (returns subscription_id for checkout) ─────────────
@@ -275,7 +292,7 @@ router.post('/create-subscription', subscribeLimiter, ensureAuthenticated, async
             plan_key,
             interval,
             seats: quantity,
-            amount_paise: unitAmountPaise(cfg, interval) * quantity,
+            amount_paise: (await getAmountPaise(plan_key, interval)) * quantity,
         });
     } catch (err) {
         console.error('create-subscription error:', err.message);
@@ -305,7 +322,7 @@ router.post('/verify', ensureAuthenticated, async (req, res) => {
         }
 
         const quantity = cfg.perSeat ? Math.max(TEAM_MIN_SEATS, Math.min(TEAM_MAX_SEATS, parseInt(seats) || TEAM_MIN_SEATS)) : 1;
-        const amount = (unitAmountPaise(cfg, interval) * quantity) / 100;
+        const amount = ((await getAmountPaise(plan_key, interval)) * quantity) / 100;
         const pgInterval = interval === 'yearly' ? '1 year' : '1 month';
 
         await client.query('BEGIN');
@@ -484,6 +501,96 @@ router.post('/cancel', ensureAuthenticated, async (req, res) => {
     }
 });
 
+// ─── Public: current plan prices (drives the pricing page display) ───────────
+// GET /api/plan/pricing → { individual: { monthly, yearly }, team: { monthly, yearly } } in rupees
+router.get('/pricing', async (req, res) => {
+    try {
+        const r = await pool.query('SELECT plan_key, billing_interval, amount_paise FROM billing_plans');
+        const out = {};
+        for (const [planKey, cfg] of Object.entries(PLAN_PRICING)) {
+            out[planKey] = {
+                perSeat: cfg.perSeat,
+                monthly: unitAmountPaise(cfg, 'monthly') / 100,
+                yearly: unitAmountPaise(cfg, 'yearly') / 100,
+            };
+        }
+        for (const row of r.rows) {
+            if (out[row.plan_key]) out[row.plan_key][normInterval(row.billing_interval)] = row.amount_paise / 100;
+        }
+        res.json(out);
+    } catch (err) {
+        console.error('pricing fetch error:', err.message);
+        res.status(500).json({ error: 'Failed to fetch pricing' });
+    }
+});
+
+// ─── Admin: view + change plan prices (dev dashboard) ────────────────────────
+// GET /api/plan/admin/pricing
+router.get('/admin/pricing', ensureDevAdmin, async (req, res) => {
+    try {
+        const r = await pool.query(
+            `SELECT plan_key, billing_interval, amount_paise, razorpay_plan_id
+             FROM billing_plans ORDER BY plan_key, billing_interval`
+        );
+        res.json(r.rows.map(x => ({
+            plan_key: x.plan_key,
+            interval: x.billing_interval,
+            amount_rupees: x.amount_paise / 100,
+            razorpay_plan_id: x.razorpay_plan_id,
+        })));
+    } catch (err) {
+        console.error('admin pricing fetch error:', err.message);
+        res.status(500).json({ error: 'Failed to fetch pricing' });
+    }
+});
+
+// PUT /api/plan/admin/pricing { plan_key, interval, amount_rupees }
+// Creates a NEW Razorpay plan at the new price and repoints the catalog row.
+// Existing subscribers keep their price (bound to the old plan); new subs use the new one.
+router.put('/admin/pricing', ensureDevAdmin, async (req, res) => {
+    try {
+        if (!platformConfigured()) return res.status(503).json({ error: 'Plan billing not configured' });
+        const { plan_key } = req.body;
+        const interval = normInterval(req.body.interval);
+        const cfg = PLAN_PRICING[plan_key];
+        if (!cfg) return res.status(400).json({ error: 'Invalid plan' });
+        if (!INTERVALS.includes(interval)) return res.status(400).json({ error: 'Invalid interval' });
+
+        const rupees = Number(req.body.amount_rupees);
+        if (!Number.isFinite(rupees) || !Number.isInteger(rupees) || rupees < 1 || rupees > 1000000) {
+            return res.status(400).json({ error: 'Amount must be a whole number between 1 and 10,00,000' });
+        }
+        const amountPaise = rupees * 100;
+
+        // 1) Create the new Razorpay plan first — only touch the DB if this succeeds
+        const plan = await platformRzp('POST', '/plans', {
+            period: interval === 'yearly' ? 'yearly' : 'monthly',
+            interval: 1,
+            item: { name: `${cfg.label} (${interval})`, amount: amountPaise, currency: 'INR' },
+        });
+
+        // 2) Repoint the catalog row (idempotent upsert)
+        await pool.query(
+            `INSERT INTO billing_plans (plan_key, razorpay_plan_id, amount_paise, billing_interval)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (plan_key, billing_interval)
+             DO UPDATE SET razorpay_plan_id = EXCLUDED.razorpay_plan_id, amount_paise = EXCLUDED.amount_paise`,
+            [plan_key, plan.id, amountPaise, interval]
+        );
+
+        logAuditEvent({
+            userId: req.user.id, action: 'plan_price_changed', resourceType: 'billing_plan',
+            resourceId: `${plan_key}:${interval}`, ipAddress: req.ip,
+            details: { plan_key, interval, amount_rupees: rupees, razorpay_plan_id: plan.id },
+        });
+
+        res.json({ success: true, plan_key, interval, amount_rupees: rupees, razorpay_plan_id: plan.id });
+    } catch (err) {
+        console.error('admin pricing update error:', err.message);
+        res.status(500).json({ error: 'Failed to update price. Please try again.' });
+    }
+});
+
 // ─── Webhook: renewals, cancellations, failures ──────────────────────────────
 // POST /api/plan/webhook   (raw body — registered before express.json in server.js)
 router.post('/webhook', async (req, res) => {
@@ -536,7 +643,7 @@ router.post('/webhook', async (req, res) => {
                 const planKey = user.plan_name;
                 const cfg = PLAN_PRICING[planKey];
                 const seats = sub?.quantity || 1;
-                const amount = cfg ? (unitAmountPaise(cfg, userInterval) * seats) / 100 : (payment?.amount || 0) / 100;
+                const amount = cfg ? ((await getAmountPaise(planKey, userInterval)) * seats) / 100 : (payment?.amount || 0) / 100;
                 const pgInterval = userInterval === 'yearly' ? '1 year' : '1 month';
                 await pool.query(
                     `UPDATE users SET plan_status = 'active', grace_until = NULL, plan_current_period_end = NOW() + ($2)::interval WHERE id = $1`,
