@@ -7,6 +7,7 @@ import './App.css';
 import AllClients from './AllClients';
 import Appointments from './Appointments';
 import PaymentsInvoice from './PaymentsInvoice';
+import BillingPlans from './BillingPlans';
 import MySettings from './MySettings';
 import MyProfile from './MyProfile';
 import ClientNotesTemplate from './components/ClientNotesTemplate';
@@ -486,7 +487,10 @@ const DashboardLayout: React.FC = () => {
 
   const bottomNavItems: NavItem[] = [
     { name: 'Notifications', icon: 'Notification.svg', path: '/notifications' },
-    { name: 'My Settings', icon: 'Setting.svg', path: '/settings' }
+    { name: 'My Settings', icon: 'Setting.svg', path: '/settings' },
+    ...(user?.org_role !== 'member'
+      ? [{ name: 'Billing and Plans', icon: 'Wallet.svg', path: '/billing-plans' }]
+      : []),
   ];
 
   const isNavActive = (item: NavItem) =>
@@ -505,6 +509,13 @@ const DashboardLayout: React.FC = () => {
       case 'Bookings':           return <Paper {...props} />;
       case 'My Calendars':       return <Calendar {...props} />;
       case 'Payments & Invoice': return <Wallet {...props} />;
+      case 'Billing and Plans':  return (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2.5" />
+          <line x1="2" y1="10" x2="22" y2="10" />
+          <line x1="6" y1="15" x2="10" y2="15" />
+        </svg>
+      );
       case 'My Settings':        return <Setting {...props} />;
       case 'My Profile':         return <Setting {...props} />;
       default:                   return null;
@@ -1745,6 +1756,7 @@ const AppContent: React.FC = () => {
               <Route path="my-calendar/new" element={<CreateEventPage />} />
               <Route path="my-calendar/edit" element={<CreateEventPage />} />
               <Route path="payment-invoice" element={<MemberGuard><PaymentsInvoice /></MemberGuard>} />
+              <Route path="billing-plans" element={<MemberGuard><BillingPlans /></MemberGuard>} />
               <Route path="payment-invoice/:tab" element={<MemberGuard><PaymentsInvoice /></MemberGuard>} />
               <Route path="settings" element={<MySettings />} />
               <Route path="settings/my-profile" element={<MyProfile onBack={() => window.history.back()} />} />

@@ -12,7 +12,7 @@ import { useSocket } from './context/SocketContext';
 const MySettings: React.FC = () => {
   const { socket } = useSocket();
   const navigate = useNavigate();
-  const { user, checkAuth } = useAuth();
+  const { user } = useAuth();
   const toast = useToast();
   const isTeamPlan = user?.plan_name === 'team';
   const isMember = user?.org_role === 'member';
@@ -29,14 +29,6 @@ const MySettings: React.FC = () => {
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showGoogleDisconnectConfirm, setShowGoogleDisconnectConfirm] = useState(false);
 
-  // Plan subscription
-  const [subscription, setSubscription] = useState<any>(null);
-  const [cancelling, setCancelling] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [seatInput, setSeatInput] = useState<number>(3);
-  const [updatingSeats, setUpdatingSeats] = useState(false);
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [retrying, setRetrying] = useState(false);
 
 
   const defaultEnterpriseSettings = {
@@ -79,14 +71,6 @@ const MySettings: React.FC = () => {
         .then(r => r.ok ? r.json() : { connected: false })
         .then(d => { setRazorpayConnected(d.connected); })
         .catch(() => {}),
-      fetch(`${API_BASE_URL}/api/plan/subscription`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d) { setSubscription(d); if (d.purchased_seats) setSeatInput(d.purchased_seats); } })
-        .catch(() => {}),
-      fetch(`${API_BASE_URL}/api/plan/invoices`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : [])
-        .then(d => setInvoices(Array.isArray(d) ? d : []))
-        .catch(() => {}),
     ]).finally(() => setIntegrationsLoading(false));
 
     // Fetch enterprise settings for owners
@@ -116,20 +100,11 @@ const MySettings: React.FC = () => {
           .catch(() => {});
       }
     });
-    // Plan changed server-side (renewal, cancellation downgrade) — refresh user + card
-    socket.on('plan_updated', () => {
-      checkAuth();
-      fetch(`${API_BASE_URL}/api/plan/subscription`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d) setSubscription(d); })
-        .catch(() => {});
-    });
     return () => {
       socket.off('integrations_updated');
       socket.off('team_settings_updated');
-      socket.off('plan_updated');
     };
-  }, [socket, isTeamOwner, checkAuth]);
+  }, [socket, isTeamOwner]);
 
   const handleRazorpayConnect = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,112 +140,6 @@ const MySettings: React.FC = () => {
     setShowDisconnectConfirm(false);
     setDisconnectingRazorpay(false);
   }, []);
-
-  const refetchSubscription = useCallback(async () => {
-    try {
-      const r = await fetch(`${API_BASE_URL}/api/plan/subscription`, { credentials: 'include' });
-      if (r.ok) setSubscription(await r.json());
-    } catch { /* ignore */ }
-  }, []);
-
-  const handleCancelSubscription = useCallback(async () => {
-    setCancelling(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/plan/cancel`, { method: 'POST', credentials: 'include' });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message || 'Subscription will end at the close of your billing period.');
-        await refetchSubscription();
-      } else {
-        toast.error(data.error || 'Failed to cancel subscription');
-      }
-    } catch {
-      toast.error('Network error. Please try again.');
-    } finally {
-      setCancelling(false);
-      setShowCancelConfirm(false);
-    }
-  }, [toast, refetchSubscription]);
-
-  const loadRazorpay = () => new Promise<void>((resolve, reject) => {
-    if ((window as any).Razorpay) return resolve();
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Razorpay'));
-    document.head.appendChild(script);
-  });
-
-  // Re-open Razorpay checkout on the existing subscription to fix a failing payment
-  const handleUpdatePayment = useCallback(async () => {
-    setRetrying(true);
-    try {
-      const r = await fetch(`${API_BASE_URL}/api/plan/retry`, { credentials: 'include' });
-      const data = await r.json();
-      if (!r.ok) { toast.error(data.error || 'Could not start payment update'); setRetrying(false); return; }
-      await loadRazorpay();
-      await new Promise<void>((resolve) => {
-        const options = {
-          key: data.key_id,
-          subscription_id: data.subscription_id,
-          name: 'MelloMinds',
-          description: 'Update payment method',
-          prefill: { name: user?.user_name || '', email: user?.email || '' },
-          handler: async (response: any) => {
-            try {
-              const v = await fetch(`${API_BASE_URL}/api/plan/verify`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_subscription_id: response.razorpay_subscription_id,
-                  razorpay_signature: response.razorpay_signature,
-                  plan_key: data.plan_key,
-                  seats: data.seats,
-                }),
-              });
-              if (v.ok) { await checkAuth(); toast.success('Payment method updated.'); await refetchSubscription(); }
-              else { const e = await v.json(); toast.error(e.error || 'Verification failed'); }
-            } catch { toast.error('Verification failed'); }
-            finally { resolve(); }
-          },
-          modal: { ondismiss: () => resolve() },
-          theme: { color: '#082421' },
-        };
-        const rzp = new (window as any).Razorpay(options);
-        rzp.open();
-      });
-    } catch {
-      toast.error('Something went wrong. Please try again.');
-    } finally {
-      setRetrying(false);
-    }
-  }, [toast, user, checkAuth, refetchSubscription]);
-
-  const handleUpdateSeats = useCallback(async () => {
-    setUpdatingSeats(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/plan/update-seats`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ seats: seatInput }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(`Seats updated to ${data.seats}.`);
-        await checkAuth();
-        await refetchSubscription();
-      } else {
-        toast.error(data.error || 'Failed to update seats');
-      }
-    } catch {
-      toast.error('Network error. Please try again.');
-    } finally {
-      setUpdatingSeats(false);
-    }
-  }, [seatInput, toast, checkAuth, refetchSubscription]);
 
   const handleGoogleDisconnect = useCallback(async () => {
     setDisconnectingGoogle(true);
@@ -531,91 +400,6 @@ const MySettings: React.FC = () => {
           )}
         </div>
 
-        <div className={styles.settingsSection}>
-          <h2>Plan & Billing</h2>
-
-          {(() => {
-            const planName = (subscription?.plan_name || user?.plan_name || 'free') as string;
-            const status = subscription?.plan_status as string | undefined;
-            const seats = subscription?.purchased_seats as number | undefined;
-            const periodEnd = subscription?.plan_current_period_end as string | undefined;
-            const isPaid = planName === 'individual' || planName === 'team';
-            const isTeam = planName === 'team';
-            const planLabel = planName === 'team' ? 'Team' : planName === 'individual' ? 'Individual' : 'Free';
-            const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
-
-            return (
-              <div className={styles.settingCard}>
-                <div className={styles.cardContent}>
-                  <h3>{planLabel} Plan{isTeam && seats ? ` · ${seats} seats` : ''}</h3>
-                  {!isPaid ? (
-                    <p>You're on the Free plan. Upgrade for payments, custom link, reminders and more.</p>
-                  ) : (
-                    <>
-                      <p>
-                        {status === 'cancelling'
-                          ? `Cancels at period end — active until ${fmtDate(periodEnd)}.`
-                          : status === 'past_due'
-                          ? 'Renewal payment is failing. Please update your payment method to keep your plan.'
-                          : `Renews on ${fmtDate(periodEnd)}.`}
-                      </p>
-
-                      {status === 'past_due' && (
-                        <button className={styles.connectBtn} style={{ marginTop: '4px' }}
-                          disabled={retrying} onClick={handleUpdatePayment}>
-                          {retrying ? 'Opening…' : 'Update Payment Method'}
-                        </button>
-                      )}
-
-                      {isTeam && isTeamOwner && status !== 'cancelling' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
-                          <label style={{ fontSize: '13px', fontFamily: 'Urbanist', color: '#333' }}>Seats:</label>
-                          <button type="button" onClick={() => setSeatInput(s => Math.max(3, s - 1))}
-                            style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>−</button>
-                          <input type="number" min={3} max={20} value={seatInput}
-                            onChange={e => setSeatInput(Math.max(3, Math.min(20, parseInt(e.target.value) || 3)))}
-                            style={{ width: '52px', textAlign: 'center', padding: '4px', borderRadius: '6px', border: '1px solid #ccc' }} />
-                          <button type="button" onClick={() => setSeatInput(s => Math.min(20, s + 1))}
-                            style={{ width: '26px', height: '26px', borderRadius: '6px', border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>+</button>
-                          <button className={styles.connectBtn} disabled={updatingSeats || seatInput === seats} onClick={handleUpdateSeats}>
-                            {updatingSeats ? 'Updating...' : 'Update Seats'}
-                          </button>
-                        </div>
-                      )}
-
-                      {status !== 'cancelling' && (
-                        <button className={styles.connectBtn} style={{ marginTop: '12px', background: '#fee2e2', color: '#dc2626' }}
-                          disabled={cancelling} onClick={() => setShowCancelConfirm(true)}>
-                          {cancelling ? 'Cancelling...' : 'Cancel Subscription'}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
-
-          {invoices.length > 0 && (
-            <div className={styles.settingCard}>
-              <div className={styles.cardContent}>
-                <h3>Billing History</h3>
-                <div style={{ marginTop: '8px' }}>
-                  {invoices.map(inv => (
-                    <div key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontFamily: 'Urbanist', fontSize: '13px' }}>
-                      <span style={{ color: '#6E6E6E' }}>{new Date(inv.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                      <span style={{ textTransform: 'capitalize' }}>{inv.plan_name}{inv.seats > 1 ? ` · ${inv.seats} seats` : ''}</span>
-                      <span style={{ fontWeight: 700, color: '#082421' }}>₹{Number(inv.amount).toLocaleString('en-IN')}</span>
-                      {inv.invoice_url
-                        ? <a href={inv.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color: '#2D7579', textDecoration: 'underline' }}>Invoice</a>
-                        : <span style={{ color: '#9CA3AF' }}>—</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
 
         <div className={styles.settingsSection}>
           <h2>Integrations & Connections</h2>
@@ -726,16 +510,6 @@ const MySettings: React.FC = () => {
       danger
       onConfirm={handleRazorpayDisconnect}
       onCancel={() => setShowDisconnectConfirm(false)}
-    />
-    <ConfirmModal
-      isOpen={showCancelConfirm}
-      title="Cancel Subscription"
-      message="Cancel your plan? You'll keep access until the end of your current billing period, then move to Free."
-      confirmLabel={cancelling ? 'Cancelling...' : 'Cancel Subscription'}
-      cancelLabel="Keep Plan"
-      danger
-      onConfirm={handleCancelSubscription}
-      onCancel={() => setShowCancelConfirm(false)}
     />
     <ConfirmModal
       isOpen={showGoogleDisconnectConfirm}
