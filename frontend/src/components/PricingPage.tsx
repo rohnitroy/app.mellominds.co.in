@@ -135,7 +135,15 @@ const PLANS: Plan[] = [
 
 const PricingPage: React.FC = () => {
   const [teamSeats, setTeamSeats] = useState(3);
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
   const [processing, setProcessing] = useState<string | null>(null);
+
+  // Price per plan per interval (yearly ≈ 2 months free)
+  const PRICE: Record<string, { monthly: number; yearly: number }> = {
+    individual: { monthly: 699, yearly: 6710 },
+    team: { monthly: 1499, yearly: 14390 },
+  };
+  const unitPrice = (planId: string) => PRICE[planId]?.[billingInterval] ?? 0;
   const navigate = useNavigate();
   const toast = useToast();
   const { isAuthenticated, user, checkAuth } = useAuth();
@@ -150,14 +158,14 @@ const PricingPage: React.FC = () => {
   });
 
   // Razorpay subscription checkout, run inline on this page (no separate modal/page)
-  const handleSubscribe = async (planKey: 'individual' | 'team', seats: number) => {
+  const handleSubscribe = async (planKey: 'individual' | 'team', seats: number, interval: 'monthly' | 'yearly') => {
     setProcessing(planKey);
     try {
       const subRes = await fetch(`${API_BASE_URL}/api/plan/create-subscription`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ plan_key: planKey, seats }),
+        body: JSON.stringify({ plan_key: planKey, seats, interval }),
       });
       const sub = await subRes.json();
       if (!subRes.ok) { toast.error(sub.error || 'Could not start subscription'); setProcessing(null); return; }
@@ -168,7 +176,7 @@ const PricingPage: React.FC = () => {
           key: sub.key_id,
           subscription_id: sub.subscription_id,
           name: 'MelloMinds',
-          description: planKey === 'team' ? `Team plan — ${seats} seats` : 'Individual plan',
+          description: `${planKey === 'team' ? `Team plan — ${seats} seats` : 'Individual plan'} (${interval})`,
           prefill: { name: user?.user_name || '', email: user?.email || '' },
           handler: async (response: any) => {
             try {
@@ -182,6 +190,7 @@ const PricingPage: React.FC = () => {
                   razorpay_signature: response.razorpay_signature,
                   plan_key: planKey,
                   seats,
+                  interval,
                 }),
               });
               if (verifyRes.ok) {
@@ -233,7 +242,7 @@ const PricingPage: React.FC = () => {
         );
         if (!ok) return;
       }
-      handleSubscribe(plan.id, plan.id === 'team' ? teamSeats : 1);
+      handleSubscribe(plan.id, plan.id === 'team' ? teamSeats : 1, billingInterval);
       return;
     }
     // Free plan: logged-in users select it and enter; guests go to signup
@@ -260,6 +269,25 @@ const PricingPage: React.FC = () => {
         <p className={styles.subtitle}>
           Choose the plan that fits your practice. All plans include core booking features.
         </p>
+
+        {/* Monthly / Annual toggle */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f1f3f4', borderRadius: '999px', padding: '4px', marginTop: '16px' }}>
+          {(['monthly', 'yearly'] as const).map(iv => (
+            <button
+              key={iv}
+              onClick={() => setBillingInterval(iv)}
+              style={{
+                border: 'none', cursor: 'pointer', borderRadius: '999px', padding: '8px 18px',
+                fontFamily: 'Urbanist', fontWeight: 700, fontSize: '13px',
+                background: billingInterval === iv ? '#082421' : 'transparent',
+                color: billingInterval === iv ? '#fff' : '#6E6E6E',
+              }}
+            >
+              {iv === 'monthly' ? 'Monthly' : 'Annual'}
+              {iv === 'yearly' && <span style={{ marginLeft: '6px', color: billingInterval === iv ? '#F9E141' : '#2D7579' }}>save ~20%</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Pricing Cards - Free, Individual, Team */}
@@ -275,8 +303,36 @@ const PricingPage: React.FC = () => {
             <p className={styles.planDescription}>{plan.description}</p>
 
             <div className={styles.priceSection}>
-              <span className={styles.price}>{plan.id === 'team' ? '₹1,499' : plan.price}</span>
-              <span className={styles.period}>{plan.id === 'team' ? '/seat/month' : plan.period}</span>
+              {plan.id === 'free' ? (
+                <>
+                  <span className={styles.price}>₹0</span>
+                  <span className={styles.period}>/month</span>
+                </>
+              ) : (() => {
+                const perSeatSuffix = plan.id === 'team' ? '/seat' : '';
+                const monthly = PRICE[plan.id].monthly;
+                const yearly = PRICE[plan.id].yearly;
+                const yearlyIfMonthly = monthly * 12;      // what 12 monthly payments would cost
+                const saving = yearlyIfMonthly - yearly;    // saved by paying annually
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px', width: '100%' }}>
+                    {billingInterval === 'yearly' && (
+                      <span style={{ fontSize: '15px', color: '#9CA3AF', fontFamily: 'Urbanist', textDecoration: 'line-through' }}>
+                        ₹{yearlyIfMonthly.toLocaleString('en-IN')}{perSeatSuffix}/year
+                      </span>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                      <span className={styles.price}>₹{unitPrice(plan.id).toLocaleString('en-IN')}</span>
+                      <span className={styles.period}>{perSeatSuffix}{billingInterval === 'yearly' ? '/year' : '/month'}</span>
+                    </div>
+                    <span style={{ display: 'inline-block', fontSize: '13px', color: '#1a7f4b', background: '#e8f7ee', borderRadius: '8px', padding: '4px 10px', fontFamily: 'Urbanist', fontWeight: 700 }}>
+                      {billingInterval === 'monthly'
+                        ? `Pay yearly ₹${yearly.toLocaleString('en-IN')}${perSeatSuffix} · save ₹${saving.toLocaleString('en-IN')}`
+                        : `You save ₹${saving.toLocaleString('en-IN')}${perSeatSuffix}/year`}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {plan.id === 'team' && (
@@ -313,7 +369,7 @@ const PricingPage: React.FC = () => {
                   </button>
                 </div>
                 <div className={styles.totalPrice}>
-                  Total: <span className={styles.totalAmount}>₹{(teamSeats * 1499).toLocaleString('en-IN')}</span><span className={styles.totalPeriod}>/month</span>
+                  Total: <span className={styles.totalAmount}>₹{(teamSeats * unitPrice('team')).toLocaleString('en-IN')}</span><span className={styles.totalPeriod}>{billingInterval === 'yearly' ? '/year' : '/month'}</span>
                 </div>
               </div>
             )}

@@ -164,7 +164,10 @@ const BillingPlans: React.FC = () => {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', alignItems: 'flex-start' }}>
               <div>
                 <div style={label}>Plan Name</div>
-                <div style={value}>{planLabel}{isTeam && seats ? ` · ${seats} seats` : ''}</div>
+                <div style={value}>
+                  {planLabel}{isTeam && seats ? ` · ${seats} seats` : ''}
+                  {isPaid && sub?.plan_interval && ` · ${sub.plan_interval === 'yearly' ? 'Annual' : 'Monthly'}`}
+                </div>
               </div>
               {isPaid && periodEnd && (
                 <div>

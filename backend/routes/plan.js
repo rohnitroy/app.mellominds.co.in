@@ -60,13 +60,18 @@ const PLATFORM_WEBHOOK_SECRET = process.env.RAZORPAY_PLATFORM_WEBHOOK_SECRET;
 
 const platformConfigured = () => !!(PLATFORM_KEY_ID && PLATFORM_KEY_SECRET);
 
-// Plan pricing (monthly). Team is per-seat (subscription quantity = seats).
+// Plan pricing. Team is per-seat (subscription quantity = seats).
+// Yearly ≈ 20% off 12 monthly payments.
 const PLAN_PRICING = {
-    individual: { label: 'MelloMinds Individual', amountPaise: 69900, perSeat: false },
-    team:       { label: 'MelloMinds Team (per seat)', amountPaise: 149900, perSeat: true },
+    individual: { label: 'MelloMinds Individual', perSeat: false, monthlyPaise: 69900,  yearlyPaise: 671000 },
+    team:       { label: 'MelloMinds Team (per seat)', perSeat: true,  monthlyPaise: 149900, yearlyPaise: 1439000 },
 };
+const INTERVALS = ['monthly', 'yearly'];
 const TEAM_MIN_SEATS = 3;
 const TEAM_MAX_SEATS = 20;
+
+const normInterval = (i) => (i === 'yearly' ? 'yearly' : 'monthly');
+const unitAmountPaise = (cfg, interval) => (normInterval(interval) === 'yearly' ? cfg.yearlyPaise : cfg.monthlyPaise);
 
 // Call the platform Razorpay account via Basic Auth
 async function platformRzp(method, path, body) {
@@ -95,7 +100,8 @@ export async function initPlanBilling() {
                 ADD COLUMN IF NOT EXISTS plan_current_period_end TIMESTAMP,
                 ADD COLUMN IF NOT EXISTS grace_until TIMESTAMP,
                 ADD COLUMN IF NOT EXISTS gstin VARCHAR(20),
-                ADD COLUMN IF NOT EXISTS mandate_status VARCHAR(20)
+                ADD COLUMN IF NOT EXISTS mandate_status VARCHAR(20),
+                ADD COLUMN IF NOT EXISTS plan_interval VARCHAR(10) DEFAULT 'monthly'
         `);
         // Plan billing history — one row per successful charge (subscription invoice).
         // Named plan_invoices to avoid colliding with the existing appointment 'invoices' table.
@@ -130,12 +136,17 @@ export async function initPlanBilling() {
         await pool.query(`
             CREATE TABLE IF NOT EXISTS billing_plans (
                 id SERIAL PRIMARY KEY,
-                plan_key VARCHAR(50) UNIQUE NOT NULL,
+                plan_key VARCHAR(50) NOT NULL,
                 razorpay_plan_id VARCHAR(64) NOT NULL,
                 amount_paise INT NOT NULL,
+                billing_interval VARCHAR(10) DEFAULT 'monthly',
                 created_at TIMESTAMP DEFAULT NOW()
             )
         `);
+        // Move billing_plans to a (plan_key, interval) key so monthly + yearly can coexist
+        await pool.query(`ALTER TABLE billing_plans ADD COLUMN IF NOT EXISTS billing_interval VARCHAR(10) DEFAULT 'monthly'`);
+        await pool.query(`ALTER TABLE billing_plans DROP CONSTRAINT IF EXISTS billing_plans_plan_key_key`);
+        await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_billing_plan_key_interval ON billing_plans(plan_key, billing_interval)`);
         // Idempotency ledger — every Razorpay webhook event processed exactly once
         await pool.query(`
             CREATE TABLE IF NOT EXISTS webhook_events (
@@ -160,29 +171,42 @@ export async function initPlanBilling() {
             return;
         }
 
-        // Create a Razorpay Plan per pricing entry (idempotent — only if not stored yet)
+        // Create/refresh a Razorpay Plan per (plan, interval). If the configured price
+        // changed, a new Razorpay plan is created and the catalog row is updated
+        // (existing subscribers keep their original plan; new ones use the new price).
         for (const [planKey, cfg] of Object.entries(PLAN_PRICING)) {
-            const existing = await pool.query('SELECT razorpay_plan_id FROM billing_plans WHERE plan_key = $1', [planKey]);
-            if (existing.rows.length > 0) continue;
-            const plan = await platformRzp('POST', '/plans', {
-                period: 'monthly',
-                interval: 1,
-                item: { name: cfg.label, amount: cfg.amountPaise, currency: 'INR' },
-            });
-            await pool.query(
-                `INSERT INTO billing_plans (plan_key, razorpay_plan_id, amount_paise) VALUES ($1, $2, $3)
-                 ON CONFLICT (plan_key) DO NOTHING`,
-                [planKey, plan.id, cfg.amountPaise]
-            );
-            console.log(`✅ Razorpay plan created for '${planKey}': ${plan.id}`);
+            for (const interval of INTERVALS) {
+                const amount = unitAmountPaise(cfg, interval);
+                const existing = await pool.query(
+                    'SELECT razorpay_plan_id, amount_paise FROM billing_plans WHERE plan_key = $1 AND billing_interval = $2',
+                    [planKey, interval]
+                );
+                if (existing.rows.length > 0 && existing.rows[0].amount_paise === amount) continue;
+                const plan = await platformRzp('POST', '/plans', {
+                    period: interval === 'yearly' ? 'yearly' : 'monthly',
+                    interval: 1,
+                    item: { name: `${cfg.label} (${interval})`, amount, currency: 'INR' },
+                });
+                await pool.query(
+                    `INSERT INTO billing_plans (plan_key, razorpay_plan_id, amount_paise, billing_interval)
+                     VALUES ($1, $2, $3, $4)
+                     ON CONFLICT (plan_key, billing_interval)
+                     DO UPDATE SET razorpay_plan_id = EXCLUDED.razorpay_plan_id, amount_paise = EXCLUDED.amount_paise`,
+                    [planKey, plan.id, amount, interval]
+                );
+                console.log(`✅ Razorpay plan set for '${planKey}' (${interval}) @ ₹${amount / 100}: ${plan.id}`);
+            }
         }
     } catch (err) {
         console.error('⚠️  Plan billing init warning:', err.message);
     }
 }
 
-async function getRazorpayPlanId(planKey) {
-    const r = await pool.query('SELECT razorpay_plan_id FROM billing_plans WHERE plan_key = $1', [planKey]);
+async function getRazorpayPlanId(planKey, interval) {
+    const r = await pool.query(
+        'SELECT razorpay_plan_id FROM billing_plans WHERE plan_key = $1 AND billing_interval = $2',
+        [planKey, normInterval(interval)]
+    );
     return r.rows[0]?.razorpay_plan_id || null;
 }
 
@@ -192,6 +216,7 @@ router.post('/create-subscription', subscribeLimiter, ensureAuthenticated, async
     try {
         if (!platformConfigured()) return res.status(503).json({ error: 'Plan billing not available yet.' });
         const { plan_key, seats } = req.body;
+        const interval = normInterval(req.body.interval);
         const cfg = PLAN_PRICING[plan_key];
         if (!cfg) return res.status(400).json({ error: 'Invalid plan' });
 
@@ -203,7 +228,7 @@ router.post('/create-subscription', subscribeLimiter, ensureAuthenticated, async
             }
         }
 
-        const planId = await getRazorpayPlanId(plan_key);
+        const planId = await getRazorpayPlanId(plan_key, interval);
         if (!planId) return res.status(503).json({ error: 'Plan not provisioned yet. Try again shortly.' });
 
         // Switch-aware: prevent duplicate subscriptions. Look at the user's current state.
@@ -229,26 +254,28 @@ router.post('/create-subscription', subscribeLimiter, ensureAuthenticated, async
 
         const subscription = await platformRzp('POST', '/subscriptions', {
             plan_id: planId,
-            total_count: 120,        // up to 10 years of monthly cycles
+            // 10 years worth of cycles either way
+            total_count: interval === 'yearly' ? 10 : 120,
             quantity,
             customer_notify: 1,
             // Razorpay auto-cancels the subscription if not authorized/paid within 30 min
             expire_by: Math.floor(Date.now() / 1000) + 30 * 60,
-            notes: { user_id: String(req.user.id), plan_key },
+            notes: { user_id: String(req.user.id), plan_key, interval },
         });
 
         // Store as pending until payment is verified
         await pool.query(
-            `UPDATE users SET subscription_id = $1, plan_status = 'pending' WHERE id = $2`,
-            [subscription.id, req.user.id]
+            `UPDATE users SET subscription_id = $1, plan_status = 'pending', plan_interval = $2 WHERE id = $3`,
+            [subscription.id, interval, req.user.id]
         );
 
         res.json({
             subscription_id: subscription.id,
             key_id: PLATFORM_KEY_ID,
             plan_key,
+            interval,
             seats: quantity,
-            amount_paise: cfg.amountPaise * quantity,
+            amount_paise: unitAmountPaise(cfg, interval) * quantity,
         });
     } catch (err) {
         console.error('create-subscription error:', err.message);
@@ -262,6 +289,7 @@ router.post('/verify', ensureAuthenticated, async (req, res) => {
     const client = await pool.connect();
     try {
         const { razorpay_payment_id, razorpay_subscription_id, razorpay_signature, plan_key, seats } = req.body;
+        const interval = normInterval(req.body.interval);
         const cfg = PLAN_PRICING[plan_key];
         if (!cfg || !razorpay_payment_id || !razorpay_subscription_id || !razorpay_signature) {
             return res.status(400).json({ error: 'Missing payment details' });
@@ -277,16 +305,17 @@ router.post('/verify', ensureAuthenticated, async (req, res) => {
         }
 
         const quantity = cfg.perSeat ? Math.max(TEAM_MIN_SEATS, Math.min(TEAM_MAX_SEATS, parseInt(seats) || TEAM_MIN_SEATS)) : 1;
-        const amount = (cfg.amountPaise * quantity) / 100;
+        const amount = (unitAmountPaise(cfg, interval) * quantity) / 100;
+        const pgInterval = interval === 'yearly' ? '1 year' : '1 month';
 
         await client.query('BEGIN');
         await client.query(
             `UPDATE users
              SET plan_name = $1, purchased_seats = $2, subscription_id = $3,
-                 plan_status = 'active', plan_current_period_end = NOW() + INTERVAL '1 month',
-                 plan_selected = true
+                 plan_status = 'active', plan_current_period_end = NOW() + ($5)::interval,
+                 plan_interval = $6, plan_selected = true
              WHERE id = $4`,
-            [plan_key, quantity, razorpay_subscription_id, req.user.id]
+            [plan_key, quantity, razorpay_subscription_id, req.user.id, pgInterval, interval]
         );
         await client.query(
             `INSERT INTO plan_payments (user_id, plan_name, amount, payment_status, payment_method, razorpay_subscription_id, razorpay_payment_id, seats)
@@ -338,7 +367,7 @@ router.post('/select-free', ensureAuthenticated, async (req, res) => {
 router.get('/subscription', ensureAuthenticated, async (req, res) => {
     try {
         const r = await pool.query(
-            `SELECT plan_name, plan_status, purchased_seats, subscription_id, plan_current_period_end
+            `SELECT plan_name, plan_status, purchased_seats, subscription_id, plan_current_period_end, plan_interval, mandate_status
              FROM users WHERE id = $1`,
             [req.user.id]
         );
@@ -355,7 +384,7 @@ router.get('/retry', ensureAuthenticated, async (req, res) => {
     try {
         if (!platformConfigured()) return res.status(503).json({ error: 'Plan billing not available' });
         const r = await pool.query(
-            'SELECT plan_name, plan_status, subscription_id, purchased_seats FROM users WHERE id = $1',
+            'SELECT plan_name, plan_status, subscription_id, purchased_seats, plan_interval FROM users WHERE id = $1',
             [req.user.id]
         );
         const u = r.rows[0];
@@ -365,6 +394,7 @@ router.get('/retry', ensureAuthenticated, async (req, res) => {
             subscription_id: u.subscription_id,
             key_id: PLATFORM_KEY_ID,
             plan_key: u.plan_name,
+            interval: normInterval(u.plan_interval),
             seats: u.purchased_seats || 1,
         });
     } catch (err) {
@@ -495,9 +525,10 @@ router.post('/webhook', async (req, res) => {
         // Always 200 quickly for unrelated events so Razorpay doesn't retry forever
         if (!subId) return res.json({ received: true });
 
-        const userRes = await pool.query('SELECT id, plan_name FROM users WHERE subscription_id = $1', [subId]);
+        const userRes = await pool.query('SELECT id, plan_name, plan_interval FROM users WHERE subscription_id = $1', [subId]);
         const user = userRes.rows[0];
         if (!user) return res.json({ received: true });
+        const userInterval = normInterval(user.plan_interval);
 
         switch (event) {
             case 'subscription.charged': {
@@ -505,10 +536,11 @@ router.post('/webhook', async (req, res) => {
                 const planKey = user.plan_name;
                 const cfg = PLAN_PRICING[planKey];
                 const seats = sub?.quantity || 1;
-                const amount = cfg ? (cfg.amountPaise * seats) / 100 : (payment?.amount || 0) / 100;
+                const amount = cfg ? (unitAmountPaise(cfg, userInterval) * seats) / 100 : (payment?.amount || 0) / 100;
+                const pgInterval = userInterval === 'yearly' ? '1 year' : '1 month';
                 await pool.query(
-                    `UPDATE users SET plan_status = 'active', grace_until = NULL, plan_current_period_end = NOW() + INTERVAL '1 month' WHERE id = $1`,
-                    [user.id]
+                    `UPDATE users SET plan_status = 'active', grace_until = NULL, plan_current_period_end = NOW() + ($2)::interval WHERE id = $1`,
+                    [user.id, pgInterval]
                 );
                 await pool.query(
                     `INSERT INTO plan_payments (user_id, plan_name, amount, payment_status, payment_method, razorpay_subscription_id, razorpay_payment_id, seats)
