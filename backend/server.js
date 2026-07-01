@@ -27,7 +27,7 @@ import notesRoutes from './routes/notes.js';
 import activitiesRoutes from './routes/activities.js';
 import cashfreeRoutes from './routes/cashfree.js';
 import razorpayRoutes from './routes/razorpay.js';
-import planRoutes, { initPlanBilling, reconcileSubscriptions } from './routes/plan.js';
+import planRoutes, { initPlanBilling, reconcileSubscriptions, sweepPendingSubscriptions } from './routes/plan.js';
 import enterpriseRoutes from './routes/enterprise.js';
 import emailPreferencesRoutes from './routes/emailPreferences.js';
 import profileLinkRoutes from './routes/profileLink.js';
@@ -1122,6 +1122,10 @@ httpServer.listen(PORT, async () => {
   // Reconcile plan subscriptions against Razorpay hourly (self-healing source of truth)
   setInterval(reconcileSubscriptions, 60 * 60 * 1000);
   reconcileSubscriptions(); // run once on startup too
+
+  // Clear abandoned 'pending' subscriptions every 15 minutes
+  setInterval(sweepPendingSubscriptions, 15 * 60 * 1000);
+  sweepPendingSubscriptions(); // run once on startup too
 
   // Run activity reminder cron every hour
   setInterval(processActivityReminders, 60 * 60 * 1000);

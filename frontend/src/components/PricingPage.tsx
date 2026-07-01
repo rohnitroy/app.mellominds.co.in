@@ -211,7 +211,15 @@ const PricingPage: React.FC = () => {
     }
   };
 
-  // Paid plans: logged-in users pay inline here; guests go to signup first
+  // Choose the Free plan (logged-in onboarding) → mark selected, enter the app
+  const chooseFree = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/plan/select-free`, { method: 'POST', credentials: 'include' });
+      if (res.ok) { await checkAuth(); toast.success('You’re on the Free plan.'); navigate('/dashboard'); }
+      else toast.error('Could not continue. Please try again.');
+    } catch { toast.error('Network error. Please try again.'); }
+  };
+
   const handlePlanCta = (plan: Plan) => {
     if (plan.ctaLink.startsWith('mailto:')) { window.location.href = plan.ctaLink; return; }
     if (plan.id === 'individual' || plan.id === 'team') {
@@ -226,6 +234,12 @@ const PricingPage: React.FC = () => {
         if (!ok) return;
       }
       handleSubscribe(plan.id, plan.id === 'team' ? teamSeats : 1);
+      return;
+    }
+    // Free plan: logged-in users select it and enter; guests go to signup
+    if (plan.id === 'free') {
+      if (isAuthenticated) chooseFree();
+      else navigate('/signup');
       return;
     }
     navigate(plan.ctaLink);
@@ -307,9 +321,9 @@ const PricingPage: React.FC = () => {
             <button
               className={`${styles.cta} ${plan.featured ? styles.ctaPrimary : styles.ctaSecondary}`}
               onClick={() => handlePlanCta(plan)}
-              disabled={processing === plan.id || (isAuthenticated && plan.id === user?.plan_name)}
+              disabled={processing === plan.id || (isAuthenticated && user?.plan_selected !== false && plan.id === user?.plan_name)}
             >
-              {processing === plan.id ? 'Processing…' : (isAuthenticated && plan.id === user?.plan_name) ? 'Current Plan' : plan.cta}
+              {processing === plan.id ? 'Processing…' : (isAuthenticated && user?.plan_selected !== false && plan.id === user?.plan_name) ? 'Current Plan' : plan.cta}
             </button>
 
             <div className={styles.featuresList}>

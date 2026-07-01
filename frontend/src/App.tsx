@@ -644,7 +644,7 @@ const DashboardLayout: React.FC = () => {
             fontFamily: 'Urbanist', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
           }}
         >
-          ⭐ Upgrade Plan
+          Upgrade Plan
         </button>
       )}
 

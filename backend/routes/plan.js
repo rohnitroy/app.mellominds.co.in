@@ -144,6 +144,15 @@ export async function initPlanBilling() {
                 processed_at TIMESTAMP DEFAULT NOW()
             )
         `);
+        // First-time onboarding flag: new users must pick a plan before using the app.
+        // Backfill existing users to 'selected' only when the column is first created.
+        const colCheck = await pool.query(
+            `SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'plan_selected'`
+        );
+        if (colCheck.rows.length === 0) {
+            await pool.query(`ALTER TABLE users ADD COLUMN plan_selected BOOLEAN DEFAULT false`);
+            await pool.query(`UPDATE users SET plan_selected = true`); // existing users are grandfathered
+        }
         console.log('✅ Plan billing schema verified');
 
         if (!platformConfigured()) {
@@ -223,6 +232,8 @@ router.post('/create-subscription', subscribeLimiter, ensureAuthenticated, async
             total_count: 120,        // up to 10 years of monthly cycles
             quantity,
             customer_notify: 1,
+            // Razorpay auto-cancels the subscription if not authorized/paid within 30 min
+            expire_by: Math.floor(Date.now() / 1000) + 30 * 60,
             notes: { user_id: String(req.user.id), plan_key },
         });
 
@@ -272,7 +283,8 @@ router.post('/verify', ensureAuthenticated, async (req, res) => {
         await client.query(
             `UPDATE users
              SET plan_name = $1, purchased_seats = $2, subscription_id = $3,
-                 plan_status = 'active', plan_current_period_end = NOW() + INTERVAL '1 month'
+                 plan_status = 'active', plan_current_period_end = NOW() + INTERVAL '1 month',
+                 plan_selected = true
              WHERE id = $4`,
             [plan_key, quantity, razorpay_subscription_id, req.user.id]
         );
@@ -303,6 +315,21 @@ router.post('/verify', ensureAuthenticated, async (req, res) => {
         res.status(500).json({ error: 'Failed to activate plan' });
     } finally {
         client.release();
+    }
+});
+
+// ─── Onboarding: user picks the Free plan ────────────────────────────────────
+// POST /api/plan/select-free
+router.post('/select-free', ensureAuthenticated, async (req, res) => {
+    try {
+        await pool.query(
+            `UPDATE users SET plan_selected = true WHERE id = $1`,
+            [req.user.id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error('select-free error:', err.message);
+        res.status(500).json({ error: 'Failed to select plan' });
     }
 });
 
@@ -626,6 +653,42 @@ export async function reconcileSubscriptions() {
         }
     } catch (err) {
         console.error('reconcileSubscriptions error:', err.message);
+    }
+}
+
+// Clear subscriptions stuck in 'pending' (checkout started but never paid).
+// Razorpay auto-expires them via expire_by; this reflects that in our DB quickly.
+export async function sweepPendingSubscriptions() {
+    if (!platformConfigured()) return;
+    try {
+        const rows = await pool.query(
+            `SELECT id, subscription_id FROM users WHERE plan_status = 'pending' AND subscription_id IS NOT NULL`
+        );
+        for (const u of rows.rows) {
+            try {
+                const sub = await platformRzp('GET', `/subscriptions/${u.subscription_id}`);
+                if (['active', 'authenticated'].includes(sub.status)) {
+                    // Payment actually went through (verify webhook may have been missed)
+                    await pool.query(
+                        `UPDATE users SET plan_status = 'active', plan_current_period_end = $1 WHERE id = $2`,
+                        [sub.current_end ? new Date(sub.current_end * 1000) : null, u.id]
+                    );
+                } else if (['cancelled', 'expired', 'completed', 'halted'].includes(sub.status)) {
+                    // Abandoned / expired → clear the dangling subscription
+                    await pool.query(
+                        `UPDATE users SET plan_name = 'free', plan_status = 'active', subscription_id = NULL, purchased_seats = 0 WHERE id = $1`,
+                        [u.id]
+                    );
+                    const io = getIO();
+                    if (io) io.to(`user:${u.id}`).emit('plan_updated', {});
+                }
+                // 'created' → still within the pay window; leave it (expire_by will resolve it)
+            } catch (e) {
+                console.warn(`Pending sweep failed for user ${u.id}:`, e.message);
+            }
+        }
+    } catch (err) {
+        console.error('sweepPendingSubscriptions error:', err.message);
     }
 }
 

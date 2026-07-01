@@ -166,10 +166,12 @@ const BillingPlans: React.FC = () => {
                 <div style={label}>Plan Name</div>
                 <div style={value}>{planLabel}{isTeam && seats ? ` · ${seats} seats` : ''}</div>
               </div>
-              <div>
-                <div style={label}>{status === 'cancelling' ? 'Active Until' : 'Renewal Date'}</div>
-                <div style={value}>{isPaid ? fmtDate(periodEnd) : '—'}</div>
-              </div>
+              {isPaid && periodEnd && (
+                <div>
+                  <div style={label}>{status === 'cancelling' ? 'Active Until' : 'Renewal Date'}</div>
+                  <div style={value}>{fmtDate(periodEnd)}</div>
+                </div>
+              )}
               {status && (
                 <div>
                   <div style={label}>Status</div>

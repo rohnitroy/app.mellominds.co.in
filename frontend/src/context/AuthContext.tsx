@@ -21,6 +21,8 @@ interface User {
     plan_name?: 'free' | 'individual' | 'team' | 'enterprise';
     plan_status?: 'active' | 'pending' | 'past_due' | 'cancelling' | 'cancelled';
     plan_current_period_end?: string | null;
+    plan_selected?: boolean;
+    is_dev_admin?: boolean;
     profile_slug?: string | null;
     org_role?: 'owner' | 'member' | null;
     org_owner_id?: number | null;
